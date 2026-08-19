@@ -4,13 +4,13 @@
     {
       "name": "student",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:student"],
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev:student"],
       "port": 5173
     },
     {
       "name": "vendor",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:vendor"],
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev:vendor"],
       "port": 5174
     }
   ]

@@ -15,7 +15,7 @@ export function Profile() {
   const navigate = useNavigate();
   const { profile, update, toggleFavorite } = useProfile();
   const { hostel, vendor } = useHostelContext();
-  const { orders, hostels, resetDemo } = useStore();
+  const { orders, hostels, refresh } = useStore();
   const cart = useCart();
   const toast = useToast();
   const [addressOpen, setAddressOpen] = useState(false);
@@ -146,12 +146,11 @@ export function Profile() {
           full
           variant="ghost"
           onClick={() => {
-            resetDemo();
-            cart.clear();
-            toast("Demo data reset");
+            void refresh();
+            toast("Refreshed from the server");
           }}
         >
-          Reset demo data
+          Refresh data
         </Button>
       </div>
 

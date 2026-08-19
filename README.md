@@ -4,33 +4,47 @@ Pooled quick-commerce for college hostels. Students in the same hostel order in
 a shared time window, and the **per-student delivery fee drops as more people
 join the pool** — ₹20 → ₹10 → ₹5 → free.
 
-This repo is a monorepo containing **two separate applications** plus the shared
-business rules they both run on.
-
 ```
 poolit/
-├── packages/domain/     Shared business rules, types and mock store
-├── apps/student/        Mobile quick-commerce app  (port 5173)
-└── apps/vendor/         Desktop admin console      (port 5174)
+├── backend/                Express + MongoDB API          (port 5000)
+└── frontend/
+    ├── packages/domain/    Shared types, rules, API client
+    ├── apps/student/       Mobile quick-commerce app      (port 5173)
+    └── apps/vendor/        Desktop admin console          (port 5174)
 ```
 
-## Running
+## Running the stack
+
+**1. Backend**
 
 ```bash
-npm install
+cd backend && npm install && cp .env.example .env
 ```
 
-The two apps run independently, on their own ports:
+Fill in `MONGO_URI` in `backend/.env`, then seed and start:
 
 ```bash
-npm run dev:student
+cd backend && npm run seed && npm run dev
+```
+
+**2. Frontend** — the two apps run independently, on their own ports:
+
+```bash
+cd frontend && npm install
 ```
 
 ```bash
-npm run dev:vendor
+cd frontend && npm run dev:student
 ```
 
-Other scripts: `npm run build`, `npm run typecheck`, `npm run lint`.
+```bash
+cd frontend && npm run dev:vendor
+```
+
+Both apps read `VITE_API_URL` (default `http://localhost:5000`). Copy
+`.env.example` inside either app directory to override it.
+
+Other frontend scripts: `npm run build`, `npm run typecheck`, `npm run lint`.
 
 ## The two apps
 
@@ -59,33 +73,39 @@ with the full run pick list), inventory (cross-store table, inline price edit,
 quick restock), analytics (revenue trend, volume by hour, peak-hours heatmap,
 hostel breakdown), and settings.
 
-## Shared domain (`packages/domain`)
+## Business rules
 
-Both apps import the same rules, so the two UIs can never drift apart on
-business logic:
+Enforced server-side in `backend/`, mirrored in `frontend/packages/domain` so
+both UIs agree:
 
 - **Fee ladder** — fee is a function of the number of *distinct orders* in a
   slot (not item quantity, not order value). Recomputed live while the slot is
   open; locked onto each order when it closes.
 - **Slot lifecycle** — `open → closed → dispatched`. A slot closes on timer
-  expiry or an explicit vendor action; closing locks every order's fee and
-  moves it to `pooled`.
+  expiry (lazily, on any read or write that touches it) or an explicit vendor
+  action; closing locks every order's fee and moves it to `pooled`.
 - **Order lifecycle** — `placed → pooled → dispatched → delivered`, never
-  skipping a stage. The student app renders these as *Pooling → Preparing → On
-  the way → Delivered*; the underlying states are unchanged.
-- **Inventory** — placing an order decrements stock immediately; restocking is
-  a vendor action with an audit log.
+  skipping a stage. Invalid transitions are rejected with a 409. The student
+  app renders these as *Pooling → Preparing → On the way → Delivered*; the
+  underlying states are unchanged.
+- **Inventory** — placing an order decrements stock atomically inside a
+  transaction, so concurrent orders can't oversell. Restocking is a vendor
+  action with an audit log.
 
-State is held in a React reducer and persisted to `localStorage`, so both apps
-share data when opened in the same browser. See
-[BACKEND_HANDOFF_PROMPT.md](BACKEND_HANDOFF_PROMPT.md) for the MongoDB backend
-specification that replaces it.
+The frontend polls the API every 5s, so a vendor closing a pool shows up on the
+student's tracking screen without a reload.
 
-## Known gap: product imagery
+See [BACKEND_HANDOFF_PROMPT.md](BACKEND_HANDOFF_PROMPT.md) for the original
+backend specification.
 
-The student design calls for realistic product photography. This prototype
-ships no image assets, so every product renders through
-`apps/student/src/components/ProductArt.tsx` — a soft tinted gradient tile with
-the product's emoji mark. Swapping in real photos means changing that one
-component to render an `<img>`; every call site already passes the full product
-through.
+## Known gaps
+
+- **Product imagery.** The student design calls for realistic product
+  photography; this prototype ships no image assets, so products render through
+  `frontend/apps/student/src/components/ProductArt.tsx` — a tinted gradient tile
+  with the product's emoji. Swapping in real photos is a one-component change.
+- **No authentication.** Student identity is a name typed into a field; the
+  vendor console has no login at all. Both are noted in the handoff doc as the
+  first thing to add before this goes anywhere real.
+- **Riders are static.** The tracking screen's rider is a constant in
+  `frontend/packages/domain/src/constants.ts` — there's no dispatch service yet.

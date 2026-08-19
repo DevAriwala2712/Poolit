@@ -12,7 +12,7 @@ const STAFF = [
 
 export function Settings() {
   const { vendor, hostel } = useVendor();
-  const { resetDemo } = useStore();
+  const { refresh } = useStore();
   const [prep, setPrep] = useState(vendor.prepMinutes);
   const [radius, setRadius] = useState(1.5);
   const [openTime, setOpenTime] = useState("08:00");
@@ -167,13 +167,14 @@ export function Settings() {
         </div>
       </Card>
 
-      <Card title="Danger zone" subtitle="Prototype controls" className="xl:col-span-2">
+      <Card title="Data" subtitle="Sync with the Poolit API" className="xl:col-span-2">
         <div className="flex flex-wrap items-center gap-3">
-          <Button variant="danger" icon="refresh" onClick={resetDemo}>
-            Reset demo data
+          <Button icon="refresh" onClick={() => void refresh()}>
+            Refresh from server
           </Button>
           <p className="text-[11.5px] text-faint">
-            Restores the seeded stores, stock levels and pooled runs.
+            Stores, stock levels and pooled runs are served by the backend. To reseed the
+            database, run <code className="text-muted">npm run seed</code> in <code className="text-muted">backend/</code>.
           </p>
         </div>
       </Card>

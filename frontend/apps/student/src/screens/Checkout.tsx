@@ -41,25 +41,31 @@ export function Checkout() {
     );
   }
 
-  function confirm() {
+  async function confirm() {
     if (!slot || slot.status !== "open") {
       toast("This pool just closed — try the next slot", "info");
       return;
     }
     setPlacing(true);
-    const orderId = placeOrder({
-      slotId: slot.id,
-      studentName: profile.name || "Student",
-      block: profile.block,
-      room: profile.room,
-      items: bill.lines.map((l) => ({ menuItemId: l.item.id, qty: l.qty })),
-      tip,
-      paymentMethod: PAYMENTS.find((p) => p.id === payment)?.label,
-      note: note.trim() || undefined,
-    });
-    cart.clear();
-    toast("Order placed — you're in the pool!");
-    navigate(`/track/${orderId}`, { replace: true });
+    try {
+      const order = await placeOrder({
+        slotId: slot.id,
+        studentName: profile.name || "Student",
+        block: profile.block,
+        room: profile.room,
+        items: bill.lines.map((l) => ({ menuItemId: l.item.id, qty: l.qty })),
+        tip,
+        paymentMethod: PAYMENTS.find((p) => p.id === payment)?.label,
+        note: note.trim() || undefined,
+      });
+      cart.clear();
+      toast("Order placed — you're in the pool!");
+      navigate(`/track/${order.id}`, { replace: true });
+    } catch (err) {
+      // Stock ran out, or the pool closed between render and submit.
+      toast(err instanceof Error ? err.message : "Couldn't place that order", "info");
+      setPlacing(false);
+    }
   }
 
   return (
@@ -190,7 +196,7 @@ export function Checkout() {
       </p>
 
       <div className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-line bg-cream/95 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 backdrop-blur">
-        <Button full onClick={confirm} disabled={placing}>
+        <Button full onClick={() => void confirm()} disabled={placing}>
           {placing ? "Placing…" : `Place order · ${rupees(bill.total)}`}
           {!placing && <Icon name="arrowRight" className="h-4 w-4" strokeWidth={2.4} />}
         </Button>
