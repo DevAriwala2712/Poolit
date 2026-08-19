@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+/*
+  Poolit Student — "Fresh Minimal + Soft Organic"
+  Warm cream ground, lime for energy/positive, coral for primary CTAs,
+  charcoal for text. 8pt spacing grid, 16–20px card radii.
+*/
+@theme {
+  --color-cream: #f8f5f0;
+  --color-cream-deep: #f1ece3;
+  --color-surface: #ffffff;
+
+  --color-lime: #a8e10c;
+  --color-lime-soft: #eaf9c4;
+  --color-sun: #f9c80e;
+  --color-sun-soft: #fdf0c4;
+
+  --color-coral: #ff5a4e;
+  --color-coral-soft: #ffe4e1;
+
+  --color-ink: #1c1b19;
+  --color-ink-soft: #6b6862;
+  --color-ink-faint: #a5a199;
+
+  --color-line: #e9e3d9;
+
+  --radius-card: 20px;
+
+  --shadow-soft: 0 1px 2px rgb(28 27 25 / 0.04), 0 4px 12px rgb(28 27 25 / 0.05);
+  --shadow-lift: 0 2px 4px rgb(28 27 25 / 0.05), 0 12px 28px rgb(28 27 25 / 0.09);
+  --shadow-cta: 0 6px 20px rgb(255 90 78 / 0.32);
+
+  --font-sans: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* Hide scrollbars on horizontal rails without losing scrollability. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0.9); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop { animation: pop-in 180ms cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+
+@keyframes rise {
+  0% { transform: translateY(12px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.animate-rise { animation: rise 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes sheet-up {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}
+.animate-sheet { animation: sheet-up 280ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #ece6dc 25%, #f5f0e8 50%, #ece6dc 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgb(168 225 12 / 0.5); }
+  70% { box-shadow: 0 0 0 10px rgb(168 225 12 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(168 225 12 / 0); }
+}
+.animate-ring { animation: pulse-ring 2s infinite; }

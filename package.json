@@ -3,16 +3,16 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.2"
+    "dev:student": "npm run dev --workspace @poolit/student",
+    "dev:vendor": "npm run dev --workspace @poolit/vendor",
+    "build": "npm run build --workspace @poolit/student && npm run build --workspace @poolit/vendor",
+    "typecheck": "tsc -p apps/student --noEmit && tsc -p apps/vendor --noEmit",
+    "lint": "oxlint"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -24,5 +24,10 @@
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.2.0"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2"
   }
 }

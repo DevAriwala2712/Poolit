@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "student",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:student"],
+      "port": 5173
+    },
+    {
+      "name": "vendor",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:vendor"],
+      "port": 5174
+    }
+  ]
+}
