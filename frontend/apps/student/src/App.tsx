@@ -1,5 +1,6 @@
 import { StoreProvider } from "@poolit/domain";
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { ConnectionGate } from "./components/ConnectionGate";
 import { TabBar } from "./components/TabBar";
 import { Cart } from "./screens/Cart";
 import { Categories } from "./screens/Categories";
@@ -56,6 +57,7 @@ export default function App() {
       <ProfileProvider>
         <CartProvider>
           <ToastProvider>
+            <ConnectionGate>
             <Routes>
               <Route
                 path="/onboarding"
@@ -84,6 +86,7 @@ export default function App() {
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </ConnectionGate>
           </ToastProvider>
         </CartProvider>
       </ProfileProvider>
