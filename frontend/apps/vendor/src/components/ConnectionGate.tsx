@@ -1,6 +1,7 @@
 import { API_URL, useStore } from "@poolit/domain";
 import type { ReactNode } from "react";
 import { Icon } from "./Icon";
+import { LogoMark } from "./LogoMark";
 import { Button } from "./ui";
 
 /**
@@ -14,8 +15,8 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
   if (loading && vendors.length === 0) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-bg">
-        <span className="flex h-10 w-10 animate-pulse items-center justify-center rounded-lg bg-accent text-[16px] font-bold text-bg">
-          P
+        <span className="flex h-10 w-10 animate-pulse items-center justify-center rounded-lg bg-black p-2">
+          <LogoMark className="h-full w-full" />
         </span>
         <p className="text-[13px] text-muted">Connecting to the Poolit API…</p>
       </div>

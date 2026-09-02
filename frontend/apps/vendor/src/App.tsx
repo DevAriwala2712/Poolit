@@ -1,6 +1,7 @@
 import { StoreProvider } from "@poolit/domain";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ConnectionGate } from "./components/ConnectionGate";
+import { LogoMark } from "./components/LogoMark";
 import { Shell } from "./components/Shell";
 import { Analytics } from "./screens/Analytics";
 import { Dashboard } from "./screens/Dashboard";
@@ -25,8 +26,8 @@ function AuthGate() {
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-bg">
-        <span className="flex h-10 w-10 animate-pulse items-center justify-center rounded-lg bg-accent text-[16px] font-bold text-bg">
-          P
+        <span className="flex h-10 w-10 animate-pulse items-center justify-center rounded-lg bg-black p-2">
+          <LogoMark className="h-full w-full" />
         </span>
       </div>
     );

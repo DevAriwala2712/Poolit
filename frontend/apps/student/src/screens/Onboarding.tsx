@@ -2,6 +2,7 @@ import { useStore } from "@poolit/domain";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
+import { LogoMark } from "../components/LogoMark";
 import { Button } from "../components/ui";
 import { useProfile } from "../state/ProfileContext";
 
@@ -46,8 +47,8 @@ export function Onboarding() {
     <div className="flex min-h-screen flex-col bg-cream px-6 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-[calc(env(safe-area-inset-top)+20px)]">
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-[15px] font-extrabold tracking-tight text-ink">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-lime text-[13px]">
-            ⚡
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-black p-1.5">
+            <LogoMark className="h-full w-full" />
           </span>
           Poolit
         </span>

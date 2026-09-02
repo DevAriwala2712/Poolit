@@ -1,5 +1,6 @@
 import { API_URL, useStore } from "@poolit/domain";
 import type { ReactNode } from "react";
+import { LogoMark } from "./LogoMark";
 import { Button } from "./ui";
 
 /**
@@ -13,8 +14,8 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
   if (loading && vendors.length === 0) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-cream px-8">
-        <div className="flex h-16 w-16 animate-pulse items-center justify-center rounded-2xl bg-lime text-3xl">
-          ⚡
+        <div className="flex h-16 w-16 animate-pulse items-center justify-center rounded-2xl bg-black p-3">
+          <LogoMark className="h-full w-full" />
         </div>
         <p className="text-[14px] font-semibold text-ink-soft">Loading your hostel store…</p>
       </div>

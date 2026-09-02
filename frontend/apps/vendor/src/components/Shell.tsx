@@ -5,6 +5,7 @@ import { useVendor } from "../state/VendorContext";
 import { CommandPalette } from "./CommandPalette";
 import { Icon } from "./Icon";
 import type { IconName } from "./Icon";
+import { LogoMark } from "./LogoMark";
 import { Badge, Kbd } from "./ui";
 
 const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
@@ -63,8 +64,8 @@ export function Shell() {
         }`}
       >
         <div className={`flex items-center gap-2.5 px-4 py-4 ${collapsed ? "justify-center px-0" : ""}`}>
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-[14px] font-bold text-bg">
-            P
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-black p-1.5">
+            <LogoMark className="h-full w-full" />
           </span>
           {!collapsed && (
             <div className="min-w-0">

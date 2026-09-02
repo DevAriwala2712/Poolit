@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { LogoMark } from "../components/LogoMark";
 import { Button } from "../components/ui";
 import { useAuth } from "../state/AuthContext";
 
@@ -24,8 +25,8 @@ export function Login() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-[var(--radius-card)] border border-line bg-card p-6"
       >
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-[16px] font-bold text-bg">
-          P
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-black p-2">
+          <LogoMark className="h-full w-full" />
         </span>
         <h1 className="mt-3 text-[16px] font-semibold text-text">Vendor console</h1>
         <p className="mt-1 text-[12.5px] text-faint">Sign in to manage your store.</p>
