@@ -17,12 +17,26 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Optional hook so an app (the vendor console) can attach an auth token to
+ * every request. The student app never sets this — its endpoints stay public.
+ */
+type AuthTokenProvider = () => Promise<string | null | undefined> | string | null | undefined;
+let getAuthToken: AuthTokenProvider = () => null;
+export function setAuthTokenProvider(fn: AuthTokenProvider) {
+  getAuthToken = fn;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
+    const token = await getAuthToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
     res = await fetch(`${API_URL}${path}`, {
-      headers: { "Content-Type": "application/json" },
       ...init,
+      headers: { ...headers, ...init?.headers },
     });
   } catch {
     throw new ApiError(0, `Can't reach the Poolit API at ${API_URL}. Is the backend running?`);

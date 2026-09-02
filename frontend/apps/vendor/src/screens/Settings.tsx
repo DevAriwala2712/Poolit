@@ -2,6 +2,7 @@ import { SLOT_DURATION_MINUTES, useStore } from "@poolit/domain";
 import { useState } from "react";
 import { Icon } from "../components/Icon";
 import { Badge, Button, Card } from "../components/ui";
+import { useAuth } from "../state/AuthContext";
 import { useVendor } from "../state/VendorContext";
 
 const STAFF = [
@@ -13,6 +14,7 @@ const STAFF = [
 export function Settings() {
   const { vendor, hostel } = useVendor();
   const { refresh } = useStore();
+  const { session, signOut } = useAuth();
   const [prep, setPrep] = useState(vendor.prepMinutes);
   const [radius, setRadius] = useState(1.5);
   const [openTime, setOpenTime] = useState("08:00");
@@ -163,6 +165,18 @@ export function Settings() {
         <div className="border-t border-line-soft px-4 py-3">
           <Button size="sm" icon="plus">
             Invite teammate
+          </Button>
+        </div>
+      </Card>
+
+      <Card title="Account" subtitle="Signed in to the vendor console">
+        <div className="flex items-center justify-between rounded-lg border border-line bg-raised/50 p-3">
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-medium text-text">{session?.user.email}</p>
+            <p className="mt-0.5 text-[11px] text-faint">Vendor admin</p>
+          </div>
+          <Button variant="danger" size="sm" onClick={() => void signOut()}>
+            Sign out
           </Button>
         </div>
       </Card>

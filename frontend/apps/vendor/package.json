@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@poolit/domain": "*"
+    "@poolit/domain": "*",
+    "@supabase/supabase-js": "^2.114.0"
   }
 }

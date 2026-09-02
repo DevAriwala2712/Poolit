@@ -63,6 +63,28 @@ copy `.env.example` to `.env` inside that app's directory and edit it.
 
 Other frontend scripts: `npm run build`, `npm run typecheck`, `npm run lint`.
 
+### Vendor login
+
+The vendor console requires signing in (Supabase Auth, email + password) —
+the student app stays fully public. To create a vendor account, run this once
+from `backend/` (needs `SUPABASE_SERVICE_ROLE_KEY` set, as above):
+
+```bash
+node -e "
+require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+supabase.auth.admin
+  .createUser({ email: process.argv[1], password: process.argv[2], email_confirm: true })
+  .then(({ data, error }) => console.log(error ? error.message : \`Created: \${data.user.email}\`));
+" you@example.com "a-strong-password"
+```
+
+Sign in at `http://localhost:5174` with that email/password. Add more vendor
+users the same way — there's currently no self-serve signup or per-store
+scoping (every vendor login sees every store, same as the store-switcher
+already in the UI).
+
 ## The two apps
 
 ### Student app — mobile quick-commerce
@@ -121,8 +143,11 @@ backend specification.
   photography; this prototype ships no image assets, so products render through
   `frontend/apps/student/src/components/ProductArt.tsx` — a tinted gradient tile
   with the product's emoji. Swapping in real photos is a one-component change.
-- **No authentication.** Student identity is a name typed into a field; the
-  vendor console has no login at all. Both are noted in the handoff doc as the
-  first thing to add before this goes anywhere real.
+- **Partial authentication.** The vendor console requires login (Supabase
+  Auth, email + password) and the backend rejects unauthenticated vendor
+  mutations (close/dispatch a slot, mark delivered, restock, edit price).
+  Student identity is still just a name typed into a field — deliberately, so
+  ordering stays frictionless — and every logged-in vendor can see every
+  store (no per-store account scoping yet).
 - **Riders are static.** The tracking screen's rider is a constant in
   `frontend/packages/domain/src/constants.ts` — there's no dispatch service yet.

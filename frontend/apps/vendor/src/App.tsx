@@ -5,11 +5,37 @@ import { Shell } from "./components/Shell";
 import { Analytics } from "./screens/Analytics";
 import { Dashboard } from "./screens/Dashboard";
 import { Inventory } from "./screens/Inventory";
+import { Login } from "./screens/Login";
 import { Orders } from "./screens/Orders";
 import { Settings } from "./screens/Settings";
+import { AuthProvider, useAuth } from "./state/AuthContext";
 import { VendorProvider } from "./state/VendorContext";
 
 export default function App() {
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
+  );
+}
+
+function AuthGate() {
+  const { session, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-bg">
+        <span className="flex h-10 w-10 animate-pulse items-center justify-center rounded-lg bg-accent text-[16px] font-bold text-bg">
+          P
+        </span>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Login />;
+  }
+
   return (
     <StoreProvider>
       <ConnectionGate>
