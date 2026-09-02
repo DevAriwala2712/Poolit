@@ -1,55 +1,36 @@
-const mongoose = require("mongoose");
-const MenuItem = require("../models/MenuItem");
-const RestockLog = require("../models/RestockLog");
+const supabase = require("../config/supabaseClient");
+const { toMenuItemJSON, toRestockLogJSON } = require("../utils/serialize");
 
 // POST /menu-items/:itemId/restock
 exports.restockItem = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { itemId } = req.params;
     const { amount } = req.body;
 
     if (!amount || typeof amount !== "number" || amount <= 0 || !Number.isInteger(amount)) {
-      await session.abortTransaction();
       return res.status(400).json({ message: "amount must be a positive integer" });
     }
 
-    const item = await MenuItem.findById(itemId).session(session);
-    if (!item) {
-      await session.abortTransaction();
-      return res.status(404).json({ message: "Menu item not found" });
+    const { data, error } = await supabase.rpc("restock_item", {
+      p_item_id: itemId,
+      p_amount: amount,
+    });
+
+    if (error) {
+      if (error.message.includes("ITEM_NOT_FOUND")) {
+        return res.status(404).json({ message: "Menu item not found" });
+      }
+      throw error;
     }
-
-    item.stockQty += amount;
-    await item.save({ session });
-
-    const [logEntry] = await RestockLog.create(
-      [
-        {
-          vendorId: item.vendorId,
-          menuItemId: item._id,
-          amount,
-          at: new Date(),
-        },
-      ],
-      { session }
-    );
-
-    await session.commitTransaction();
 
     res.json({
       message: "Restocked successfully",
-      item,
-      restockLog: logEntry,
+      item: toMenuItemJSON(data.item),
+      restockLog: toRestockLogJSON(data.restockLog),
     });
   } catch (err) {
-    await session.abortTransaction();
     console.error(err);
     res.status(500).json({ message: "Failed to restock item" });
-  } finally {
-    session.endSession();
   }
 };
 
@@ -84,15 +65,22 @@ exports.updateItem = async (req, res) => {
       return res.status(400).json({ message: "Nothing to update" });
     }
 
-    const item = await MenuItem.findByIdAndUpdate(req.params.itemId, update, {
-      new: true,
-      runValidators: true,
-    });
+    const dbUpdate = { updated_at: new Date().toISOString() };
+    if (update.price !== undefined) dbUpdate.price = update.price;
+    if (update.lowStockThreshold !== undefined) dbUpdate.low_stock_threshold = update.lowStockThreshold;
+
+    const { data: item, error } = await supabase
+      .from("menu_items")
+      .update(dbUpdate)
+      .eq("id", req.params.itemId)
+      .select()
+      .maybeSingle();
+    if (error) throw error;
     if (!item) {
       return res.status(404).json({ message: "Menu item not found" });
     }
 
-    res.json(item);
+    res.json(toMenuItemJSON(item));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to update menu item" });
@@ -102,10 +90,13 @@ exports.updateItem = async (req, res) => {
 // GET /menu-items/:itemId/restock-log
 exports.getRestockLog = async (req, res) => {
   try {
-    const logs = await RestockLog.find({ menuItemId: req.params.itemId }).sort({
-      at: -1,
-    });
-    res.json(logs);
+    const { data: logs, error } = await supabase
+      .from("restock_logs")
+      .select("*")
+      .eq("menu_item_id", req.params.itemId)
+      .order("at", { ascending: false });
+    if (error) throw error;
+    res.json(logs.map(toRestockLogJSON));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to fetch restock log" });

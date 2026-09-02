@@ -1,14 +1,13 @@
-const Hostel = require("../models/Hostel");
-const Slot = require("../models/Slot");
-const Vendor = require("../models/Vendor");
-const MenuItem = require("../models/MenuItem");
+const supabase = require("../config/supabaseClient");
+const { toHostelJSON, toVendorJSON, toMenuItemJSON, toSlotJSON } = require("../utils/serialize");
 const { ensureSlotClosedIfExpired } = require("../utils/slotCloser");
 
 // GET /hostels
 exports.getAllHostels = async (req, res) => {
   try {
-    const hostels = await Hostel.find().sort({ name: 1 });
-    res.json(hostels);
+    const { data, error } = await supabase.from("hostels").select("*").order("name");
+    if (error) throw error;
+    res.json(data.map(toHostelJSON));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to fetch hostels" });
@@ -20,13 +19,24 @@ exports.getCurrentSlot = async (req, res) => {
   try {
     const { hostelId } = req.params;
 
-    let slot = await Slot.findOne({
-      hostelId,
-      status: "open",
-    }).sort({ opensAt: -1 });
+    let { data: slot } = await supabase
+      .from("slots")
+      .select("*")
+      .eq("hostel_id", hostelId)
+      .eq("status", "open")
+      .order("opens_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (!slot) {
-      slot = await Slot.findOne({ hostelId }).sort({ opensAt: -1 });
+      const { data } = await supabase
+        .from("slots")
+        .select("*")
+        .eq("hostel_id", hostelId)
+        .order("opens_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      slot = data;
     }
 
     if (!slot) {
@@ -38,24 +48,30 @@ exports.getCurrentSlot = async (req, res) => {
       slot = closeResult.slot;
     }
 
-    const vendor = await Vendor.findById(slot.vendorId);
+    const { data: vendor, error: vendorErr } = await supabase
+      .from("vendors")
+      .select("*")
+      .eq("id", slot.vendor_id)
+      .maybeSingle();
+    if (vendorErr) throw vendorErr;
     if (!vendor) {
       return res.status(404).json({ message: "Vendor not found for slot" });
     }
 
-    const menuItems = await MenuItem.find({ vendorId: vendor._id }).sort({
-      category: 1,
-      name: 1,
-    });
-
-    const vendorWithMenu = {
-      ...vendor.toJSON(),
-      menu: menuItems.map((m) => m.toJSON()),
-    };
+    const { data: menuItems, error: menuErr } = await supabase
+      .from("menu_items")
+      .select("*")
+      .eq("vendor_id", vendor.id)
+      .order("category")
+      .order("name");
+    if (menuErr) throw menuErr;
 
     res.json({
-      slot: slot.toJSON(),
-      vendor: vendorWithMenu,
+      slot: toSlotJSON(slot),
+      vendor: {
+        ...toVendorJSON(vendor),
+        menu: menuItems.map(toMenuItemJSON),
+      },
     });
   } catch (err) {
     console.error(err);

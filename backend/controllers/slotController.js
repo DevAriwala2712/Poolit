@@ -1,13 +1,16 @@
-const mongoose = require("mongoose");
-const Slot = require("../models/Slot");
-const Order = require("../models/Order");
-const MenuItem = require("../models/MenuItem");
+const supabase = require("../config/supabaseClient");
+const { toSlotJSON, toOrderJSON } = require("../utils/serialize");
 const { closeSlot, ensureSlotClosedIfExpired } = require("../utils/slotCloser");
 
 // GET /slots/:slotId
 exports.getSlotById = async (req, res) => {
   try {
-    let slot = await Slot.findById(req.params.slotId);
+    let { data: slot, error } = await supabase
+      .from("slots")
+      .select("*")
+      .eq("id", req.params.slotId)
+      .maybeSingle();
+    if (error) throw error;
     if (!slot) {
       return res.status(404).json({ message: "Slot not found" });
     }
@@ -17,7 +20,7 @@ exports.getSlotById = async (req, res) => {
       slot = result.slot;
     }
 
-    res.json(slot);
+    res.json(toSlotJSON(slot));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to fetch slot" });
@@ -27,15 +30,26 @@ exports.getSlotById = async (req, res) => {
 // GET /slots/:slotId/orders
 exports.getSlotOrders = async (req, res) => {
   try {
-    const slot = await Slot.findById(req.params.slotId);
+    const { data: slot, error } = await supabase
+      .from("slots")
+      .select("*")
+      .eq("id", req.params.slotId)
+      .maybeSingle();
+    if (error) throw error;
     if (!slot) {
       return res.status(404).json({ message: "Slot not found" });
     }
 
     await ensureSlotClosedIfExpired(slot);
 
-    const orders = await Order.find({ slotId: slot._id }).sort({ createdAt: 1 });
-    res.json(orders);
+    const { data: orders, error: ordersErr } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("slot_id", slot.id)
+      .order("created_at", { ascending: true });
+    if (ordersErr) throw ordersErr;
+
+    res.json(orders.map(toOrderJSON));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to fetch orders" });
@@ -45,26 +59,42 @@ exports.getSlotOrders = async (req, res) => {
 // GET /slots/:slotId/pick-list
 exports.getPickList = async (req, res) => {
   try {
-    const slot = await Slot.findById(req.params.slotId);
+    const { data: slot, error } = await supabase
+      .from("slots")
+      .select("*")
+      .eq("id", req.params.slotId)
+      .maybeSingle();
+    if (error) throw error;
     if (!slot) {
       return res.status(404).json({ message: "Slot not found" });
     }
 
     await ensureSlotClosedIfExpired(slot);
 
-    const orders = await Order.find({ slotId: slot._id });
+    const { data: orders, error: ordersErr } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("slot_id", slot.id);
+    if (ordersErr) throw ordersErr;
 
     const qtyMap = new Map();
     for (const order of orders) {
       for (const line of order.items) {
-        const key = line.menuItemId.toString();
+        const key = line.menuItemId;
         qtyMap.set(key, (qtyMap.get(key) || 0) + line.qty);
       }
     }
 
     const menuItemIds = [...qtyMap.keys()];
-    const menuItems = await MenuItem.find({ _id: { $in: menuItemIds } });
-    const itemMap = new Map(menuItems.map((m) => [m._id.toString(), m]));
+    let itemMap = new Map();
+    if (menuItemIds.length > 0) {
+      const { data: menuItems, error: menuErr } = await supabase
+        .from("menu_items")
+        .select("*")
+        .in("id", menuItemIds);
+      if (menuErr) throw menuErr;
+      itemMap = new Map(menuItems.map((m) => [m.id, m]));
+    }
 
     // Heaviest lines first — that's the order a packer works through the run.
     const pickList = menuItemIds
@@ -91,7 +121,7 @@ exports.closeSlotHandler = async (req, res) => {
       message: result.alreadyClosed
         ? "Slot was already closed"
         : "Slot closed successfully",
-      slot: result.slot,
+      slot: toSlotJSON(result.slot),
       fee: result.fee,
       orderCount: result.orderCount,
     });
@@ -104,42 +134,29 @@ exports.closeSlotHandler = async (req, res) => {
 
 // POST /slots/:slotId/dispatch
 exports.dispatchSlot = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    const slot = await Slot.findById(req.params.slotId).session(session);
-    if (!slot) {
-      await session.abortTransaction();
-      return res.status(404).json({ message: "Slot not found" });
+    const { data: slot, error } = await supabase.rpc("dispatch_slot", {
+      p_slot_id: req.params.slotId,
+    });
+
+    if (error) {
+      if (error.message.includes("SLOT_NOT_FOUND")) {
+        return res.status(404).json({ message: "Slot not found" });
+      }
+      if (error.message.includes("SLOT_NOT_CLOSED")) {
+        return res.status(409).json({
+          message: `Cannot dispatch slot in status "${error.message.split(":")[1]}". Expected "closed".`,
+        });
+      }
+      throw error;
     }
 
-    if (slot.status !== "closed") {
-      await session.abortTransaction();
-      return res.status(409).json({
-        message: `Cannot dispatch slot in status "${slot.status}". Expected "closed".`,
-      });
-    }
-
-    slot.status = "dispatched";
-    await slot.save({ session });
-
-    await Order.updateMany(
-      { slotId: slot._id, status: "pooled" },
-      { $set: { status: "dispatched" } },
-      { session }
-    );
-
-    await session.commitTransaction();
     res.json({
       message: "Slot dispatched successfully",
-      slot,
+      slot: toSlotJSON(slot),
     });
   } catch (err) {
-    await session.abortTransaction();
     console.error(err);
     res.status(500).json({ message: "Failed to dispatch slot" });
-  } finally {
-    session.endSession();
   }
 };

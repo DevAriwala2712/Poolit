@@ -1,60 +1,40 @@
-const Slot = require("../models/Slot");
-const Order = require("../models/Order");
-const { feeForOrderCount } = require("./feeLadder");
+const supabase = require("../config/supabaseClient");
+const { toSlotJSON } = require("./serialize");
 
 /**
- * Idempotent close-slot logic.
+ * Idempotent close-slot logic. Delegates to the close_slot() Postgres
+ * function so the read-fee-write sequence is atomic.
  */
-async function closeSlot(slotId, session = null) {
-  const opts = session ? { session } : {};
-
-  const slot = await Slot.findById(slotId).session(session || null);
-  if (!slot) {
-    throw Object.assign(new Error("Slot not found"), { status: 404 });
+async function closeSlot(slotId) {
+  const { data, error } = await supabase.rpc("close_slot", { p_slot_id: slotId });
+  if (error) {
+    if (error.message.includes("SLOT_NOT_FOUND")) {
+      throw Object.assign(new Error("Slot not found"), { status: 404 });
+    }
+    throw error;
   }
 
-  // Already closed or dispatched → idempotent no-op
-  if (slot.status !== "open") {
-    return { slot, alreadyClosed: true };
-  }
-
-  const orders = await Order.find({ slotId: slot._id, status: "placed" }).session(
-    session || null
-  );
-  const orderCount = orders.length;
-  const fee = feeForOrderCount(orderCount);
-
-  if (orders.length > 0) {
-    await Order.updateMany(
-      { slotId: slot._id, status: "placed" },
-      {
-        $set: {
-          deliveryFeeCharged: fee,
-          status: "pooled",
-        },
-      },
-      opts
-    );
-  }
-
-  slot.status = "closed";
-  await slot.save(opts);
-
-  return { slot, fee, orderCount, alreadyClosed: false };
+  return {
+    slot: data.alreadyClosed ? data.slot : data.slot,
+    fee: data.fee,
+    orderCount: data.orderCount,
+    alreadyClosed: data.alreadyClosed,
+  };
 }
 
 /**
  * Lazy evaluation: close the slot if its timer has expired.
  */
-async function ensureSlotClosedIfExpired(slot, session = null) {
+async function ensureSlotClosedIfExpired(slot) {
   if (
     slot &&
     slot.status === "open" &&
-    Date.now() >= new Date(slot.closesAt).getTime()
+    Date.now() >= new Date(slot.closes_at).getTime()
   ) {
-    return closeSlot(slot._id, session);
+    const result = await closeSlot(slot.id);
+    return { slot: result.slot, alreadyClosed: result.alreadyClosed, skipped: false };
   }
   return { slot, alreadyClosed: false, skipped: true };
 }
 
-module.exports = { closeSlot, ensureSlotClosedIfExpired };
+module.exports = { closeSlot, ensureSlotClosedIfExpired, toSlotJSON };

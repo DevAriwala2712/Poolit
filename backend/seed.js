@@ -9,29 +9,12 @@ require("dotenv").config();
 
 console.log("🌱 Starting seed script...");
 console.log("📁 Current directory:", process.cwd());
-console.log("🔍 MONGO_URI:", process.env.MONGO_URI ? "✅ Found" : "❌ Not found");
-if (process.env.MONGO_URI) {
-  console.log("📊 Database:", process.env.MONGO_URI.split("/").pop().split("?")[0] || "default");
-}
+console.log("🔍 SUPABASE_URL:", process.env.SUPABASE_URL ? "✅ Found" : "❌ Not found");
 console.log("---");
 
-if (!process.env.MONGO_URI) {
-  console.error("❌ MONGO_URI is not defined in environment variables");
-  console.error("📁 Please check if .env file exists in:", process.cwd());
-  console.error("📄 Make sure .env file contains: MONGO_URI=your_connection_string");
-  process.exit(1);
-}
+const supabase = require("./config/supabaseClient");
 
-const mongoose = require("mongoose");
-const connectDB = require("./config/db");
-
-const Hostel = require("./models/Hostel");
-const Vendor = require("./models/Vendor");
-const MenuItem = require("./models/MenuItem");
-const Slot = require("./models/Slot");
-const Order = require("./models/Order");
-const RestockLog = require("./models/RestockLog");
-
+const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 const SLOT_DURATION_MINUTES = Number(process.env.SLOT_DURATION_MINUTES) || 10;
 
 /* ------------------------------------------------------------------ data */
@@ -118,66 +101,70 @@ function stockFor(storeIndex, itemIndex) {
   return 18 + (seed % 60);
 }
 
+async function insertAndReturn(table, rows) {
+  const { data, error } = await supabase.from(table).insert(rows).select();
+  if (error) throw new Error(`${table}: ${error.message}`);
+  return data;
+}
+
 /* ------------------------------------------------------------------ seed */
 
 async function seed() {
   try {
-    await connectDB();
-    console.log("🗑️  Clearing existing collections...");
-    await Promise.all([
-      Hostel.deleteMany({}),
-      Vendor.deleteMany({}),
-      MenuItem.deleteMany({}),
-      Slot.deleteMany({}),
-      Order.deleteMany({}),
-      RestockLog.deleteMany({}),
-    ]);
+    console.log("🗑️  Clearing existing tables...");
+    for (const table of ["restock_logs", "orders", "menu_items", "slots", "vendors", "hostels"]) {
+      const { error } = await supabase.from(table).delete().neq("id", NIL_UUID);
+      if (error) throw new Error(`clear ${table}: ${error.message}`);
+    }
 
     // Hostels
-    const hostels = await Hostel.insertMany(HOSTELS);
+    const hostels = await insertAndReturn(
+      "hostels",
+      HOSTELS.map((h) => ({ name: h.name, blocks: h.blocks }))
+    );
     console.log(`🏨 Created ${hostels.length} hostels`);
 
     // Vendors — one per hostel
-    const vendors = await Vendor.insertMany(
+    const vendors = await insertAndReturn(
+      "vendors",
       STORES.map((store, i) => ({
         name: store.name,
-        hostelId: hostels[i]._id,
-        prepMinutes: store.prepMinutes,
+        hostel_id: hostels[i].id,
+        prep_minutes: store.prepMinutes,
       }))
     );
     console.log(`🏪 Created ${vendors.length} vendors`);
 
     // Menu items — rotating slice of the catalog per store
-    const menuDocs = [];
+    const menuRows = [];
     STORES.forEach((store, storeIndex) => {
       for (let i = 0; i < store.size; i++) {
         const entry = CATALOG[(store.offset + i) % CATALOG.length];
         const priceDrift = ((storeIndex + i) % 3) - 1;
-        menuDocs.push({
-          vendorId: vendors[storeIndex]._id,
+        menuRows.push({
+          vendor_id: vendors[storeIndex].id,
           name: entry.name,
           category: entry.category,
           unit: entry.unit,
           price: Math.max(10, entry.price + priceDrift * 2),
-          mrp: entry.mrp ? entry.mrp + priceDrift * 2 : undefined,
-          stockQty: stockFor(storeIndex, i),
-          lowStockThreshold: 12,
+          mrp: entry.mrp ? entry.mrp + priceDrift * 2 : null,
+          stock_qty: stockFor(storeIndex, i),
+          low_stock_threshold: 12,
           rating: entry.rating,
-          ratingCount: entry.ratingCount,
-          isVeg: entry.isVeg,
+          rating_count: entry.ratingCount,
+          is_veg: entry.isVeg,
           art: entry.art,
           tint: entry.tint,
         });
       }
     });
-    const menuItems = await MenuItem.insertMany(menuDocs);
+    const menuItems = await insertAndReturn("menu_items", menuRows);
     console.log(`🍽️  Created ${menuItems.length} menu items`);
 
     const menuByVendor = new Map();
     menuItems.forEach((item) => {
-      const key = item.vendorId.toString();
-      if (!menuByVendor.has(key)) menuByVendor.set(key, []);
-      menuByVendor.get(key).push(item);
+      if (!menuByVendor.has(item.vendor_id)) menuByVendor.set(item.vendor_id, []);
+      menuByVendor.get(item.vendor_id).push(item);
     });
 
     // Slots — one live pool per hostel, plus a few dispatched runs for history
@@ -185,13 +172,14 @@ async function seed() {
     const slotMs = SLOT_DURATION_MINUTES * 60 * 1000;
     const liveOffsets = [0, -90_000, -210_000, 60_000, -30_000];
 
-    const liveSlots = await Slot.insertMany(
+    const liveSlots = await insertAndReturn(
+      "slots",
       hostels.map((hostel, i) => ({
-        hostelId: hostel._id,
-        vendorId: vendors[i]._id,
+        hostel_id: hostel.id,
+        vendor_id: vendors[i].id,
         status: "open",
-        opensAt: new Date(now),
-        closesAt: new Date(now + slotMs + liveOffsets[i]),
+        opens_at: new Date(now).toISOString(),
+        closes_at: new Date(now + slotMs + liveOffsets[i]).toISOString(),
       }))
     );
 
@@ -202,57 +190,59 @@ async function seed() {
       { index: 4, hoursAgo: 44, orders: 6, fee: 5 },
     ];
 
-    const historySlots = await Slot.insertMany(
+    const historySlots = await insertAndReturn(
+      "slots",
       historySpecs.map((spec) => ({
-        hostelId: hostels[spec.index]._id,
-        vendorId: vendors[spec.index]._id,
+        hostel_id: hostels[spec.index].id,
+        vendor_id: vendors[spec.index].id,
         status: "dispatched",
-        opensAt: new Date(now - spec.hoursAgo * 3_600_000),
-        closesAt: new Date(now - spec.hoursAgo * 3_600_000 + slotMs),
+        opens_at: new Date(now - spec.hoursAgo * 3_600_000).toISOString(),
+        closes_at: new Date(now - spec.hoursAgo * 3_600_000 + slotMs).toISOString(),
       }))
     );
     console.log(`⏰ Created ${liveSlots.length} open slots and ${historySlots.length} dispatched slots`);
 
     // Orders
     function buildOrders(slot, hostel, vendorId, count, status, fee) {
-      const menu = (menuByVendor.get(vendorId.toString()) || []).filter((m) => m.stockQty > 0);
+      const menu = (menuByVendor.get(vendorId) || []).filter((m) => m.stock_qty > 0);
       if (menu.length === 0) return [];
+      const slotOpensAtMs = new Date(slot.opens_at).getTime();
       return Array.from({ length: count }, (_, i) => {
         const lineCount = 1 + ((i * 3) % 3);
         const items = Array.from({ length: lineCount }, (_, j) => ({
-          menuItemId: menu[(i * 5 + j * 11) % menu.length]._id,
+          menuItemId: menu[(i * 5 + j * 11) % menu.length].id,
           qty: 1 + ((i + j) % 2),
         }));
         return {
-          slotId: slot._id,
-          studentName: STUDENT_NAMES[(i * 7 + count) % STUDENT_NAMES.length],
+          slot_id: slot.id,
+          student_name: STUDENT_NAMES[(i * 7 + count) % STUDENT_NAMES.length],
           block: hostel.blocks[i % hostel.blocks.length],
           room: String(201 + ((i * 13) % 120)),
           items,
           status,
-          deliveryFeeCharged: fee,
-          createdAt: new Date(slot.opensAt.getTime() + i * 45_000),
+          delivery_fee_charged: fee ?? null,
+          created_at: new Date(slotOpensAtMs + i * 45_000).toISOString(),
         };
       });
     }
 
     const liveCounts = [6, 3, 9, 1, 4];
-    const orderDocs = [];
+    const orderRows = [];
 
     liveSlots.forEach((slot, i) => {
-      orderDocs.push(
-        ...buildOrders(slot, hostels[i], vendors[i]._id, liveCounts[i], "placed", undefined)
+      orderRows.push(
+        ...buildOrders(slot, hostels[i], vendors[i].id, liveCounts[i], "placed", undefined)
       );
     });
 
     historySlots.forEach((slot, i) => {
       const spec = historySpecs[i];
-      orderDocs.push(
-        ...buildOrders(slot, hostels[spec.index], vendors[spec.index]._id, spec.orders, "delivered", spec.fee)
+      orderRows.push(
+        ...buildOrders(slot, hostels[spec.index], vendors[spec.index].id, spec.orders, "delivered", spec.fee)
       );
     });
 
-    const orders = await Order.insertMany(orderDocs);
+    const orders = orderRows.length > 0 ? await insertAndReturn("orders", orderRows) : [];
     console.log(`📝 Created ${orders.length} orders`);
 
     console.log("\n✅ Seed completed successfully!");
@@ -264,17 +254,10 @@ async function seed() {
     console.log(`   ⏰ Dispatched : ${historySlots.length}`);
     console.log(`   📝 Orders     : ${orders.length}`);
 
-    await mongoose.connection.close();
-    console.log("🔌 Database connection closed");
     process.exit(0);
   } catch (error) {
     console.error("❌ Seed failed:", error.message);
     console.error("💡 Error details:", error.stack);
-
-    if (mongoose.connection.readyState === 1) {
-      await mongoose.connection.close();
-      console.log("🔌 Database connection closed");
-    }
     process.exit(1);
   }
 }

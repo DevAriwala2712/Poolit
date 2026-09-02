@@ -6,7 +6,7 @@ import type { Hostel, MenuItem, Order, OrderLineItem, PickListLine, RestockLogEn
  */
 export const API_URL: string =
   (import.meta.env?.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ??
-  "http://localhost:5000";
+  "http://localhost:5057";
 
 export class ApiError extends Error {
   status: number;

@@ -6,7 +6,7 @@ join the pool** — ₹20 → ₹10 → ₹5 → free.
 
 ```
 poolit/
-├── backend/                Express + MongoDB API          (port 5000)
+├── backend/                Express + Supabase (Postgres) API (port 5057)
 └── frontend/
     ├── packages/domain/    Shared types, rules, API client
     ├── apps/student/       Mobile quick-commerce app      (port 5173)
@@ -15,34 +15,51 @@ poolit/
 
 ## Running the stack
 
-**1. Backend**
+You'll run three processes at once (backend, student app, vendor console) —
+open a separate terminal tab for each.
+
+### 1. Backend (terminal 1)
 
 ```bash
 cd backend && npm install && cp .env.example .env
 ```
 
-Fill in `MONGO_URI` in `backend/.env`, then seed and start:
+Open `backend/.env` and fill in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+from your Supabase project (Project Settings → API in the Supabase dashboard).
+
+Seed the database (safe to re-run — it clears and reseeds demo data) and
+start the server:
 
 ```bash
-cd backend && npm run seed && npm run dev
+npm run seed
+npm run dev
 ```
 
-**2. Frontend** — the two apps run independently, on their own ports:
+The API is now live at `http://localhost:5057` — leave this terminal running.
+(Default port is 5057, not 5000, because macOS's AirPlay Receiver squats on
+5000. Override with `PORT=<port>` in `backend/.env` if 5057 is also taken.)
+
+### 2. Student app (terminal 2)
 
 ```bash
 cd frontend && npm install
+npm run dev:student
 ```
 
-```bash
-cd frontend && npm run dev:student
-```
+Opens at `http://localhost:5173`.
+
+### 3. Vendor console (terminal 3)
 
 ```bash
 cd frontend && npm run dev:vendor
 ```
 
-Both apps read `VITE_API_URL` (default `http://localhost:5000`). Copy
-`.env.example` inside either app directory to override it.
+Opens at `http://localhost:5174`. (Skip `npm install` here if you already ran
+it for the student app — it installs once for the whole `frontend/` workspace.)
+
+Both frontend apps read `VITE_API_URL` (defaults to `http://localhost:5057`,
+matching the backend above). To point either app at a different backend URL,
+copy `.env.example` to `.env` inside that app's directory and edit it.
 
 Other frontend scripts: `npm run build`, `npm run typecheck`, `npm run lint`.
 

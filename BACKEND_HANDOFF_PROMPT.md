@@ -1,5 +1,10 @@
 # Poolit — Backend Implementation Brief (MongoDB)
 
+> **Superseded:** the backend now runs on Supabase (Postgres), not MongoDB —
+> see the README's setup instructions. This doc is kept as historical context
+> for the business rules and original data-shape design; the MongoDB-specific
+> implementation notes below no longer reflect `backend/`.
+
 Hand this whole document to whoever is building the backend. It explains what
 Poolit is, the exact business rules it depends on, the data shapes the
 frontend already expects, and a concrete MongoDB-backed implementation plan.

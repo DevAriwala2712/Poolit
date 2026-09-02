@@ -37,7 +37,7 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
           <p className="mt-3 text-[11.5px] leading-relaxed text-faint">
             Start it with <code className="text-muted">npm run dev</code> in{" "}
             <code className="text-muted">backend/</code>, and make sure{" "}
-            <code className="text-muted">MONGO_URI</code> is set in{" "}
+            <code className="text-muted">SUPABASE_URL</code> is set in{" "}
             <code className="text-muted">backend/.env</code>.
           </p>
           <Button variant="accent" icon="refresh" className="mt-4" onClick={() => void refresh()}>

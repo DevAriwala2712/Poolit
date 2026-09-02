@@ -1,21 +1,24 @@
-const Vendor = require("../models/Vendor");
-const MenuItem = require("../models/MenuItem");
-const Order = require("../models/Order");
-const Slot = require("../models/Slot");
+const supabase = require("../config/supabaseClient");
+const { toVendorJSON, toMenuItemJSON, toOrderJSON } = require("../utils/serialize");
 
 // GET /vendors
 exports.getAllVendors = async (req, res) => {
   try {
-    const vendors = await Vendor.find().sort({ name: 1 });
+    const { data: vendors, error } = await supabase.from("vendors").select("*").order("name");
+    if (error) throw error;
+
     const result = await Promise.all(
       vendors.map(async (v) => {
-        const menu = await MenuItem.find({ vendorId: v._id }).sort({
-          category: 1,
-          name: 1,
-        });
+        const { data: menu, error: menuErr } = await supabase
+          .from("menu_items")
+          .select("*")
+          .eq("vendor_id", v.id)
+          .order("category")
+          .order("name");
+        if (menuErr) throw menuErr;
         return {
-          ...v.toJSON(),
-          menu: menu.map((m) => m.toJSON()),
+          ...toVendorJSON(v),
+          menu: menu.map(toMenuItemJSON),
         };
       })
     );
@@ -29,19 +32,27 @@ exports.getAllVendors = async (req, res) => {
 // GET /vendors/:vendorId
 exports.getVendorById = async (req, res) => {
   try {
-    const vendor = await Vendor.findById(req.params.vendorId);
+    const { data: vendor, error } = await supabase
+      .from("vendors")
+      .select("*")
+      .eq("id", req.params.vendorId)
+      .maybeSingle();
+    if (error) throw error;
     if (!vendor) {
       return res.status(404).json({ message: "Vendor not found" });
     }
 
-    const menu = await MenuItem.find({ vendorId: vendor._id }).sort({
-      category: 1,
-      name: 1,
-    });
+    const { data: menu, error: menuErr } = await supabase
+      .from("menu_items")
+      .select("*")
+      .eq("vendor_id", vendor.id)
+      .order("category")
+      .order("name");
+    if (menuErr) throw menuErr;
 
     res.json({
-      ...vendor.toJSON(),
-      menu: menu.map((m) => m.toJSON()),
+      ...toVendorJSON(vendor),
+      menu: menu.map(toMenuItemJSON),
     });
   } catch (err) {
     console.error(err);
@@ -52,11 +63,14 @@ exports.getVendorById = async (req, res) => {
 // GET /vendors/:vendorId/menu
 exports.getVendorMenu = async (req, res) => {
   try {
-    const items = await MenuItem.find({ vendorId: req.params.vendorId }).sort({
-      category: 1,
-      name: 1,
-    });
-    res.json(items);
+    const { data: items, error } = await supabase
+      .from("menu_items")
+      .select("*")
+      .eq("vendor_id", req.params.vendorId)
+      .order("category")
+      .order("name");
+    if (error) throw error;
+    res.json(items.map(toMenuItemJSON));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to fetch menu" });
@@ -69,16 +83,25 @@ exports.getVendorOrders = async (req, res) => {
     const { vendorId } = req.params;
     const { status } = req.query;
 
-    const slots = await Slot.find({ vendorId }).select("_id");
-    const slotIds = slots.map((s) => s._id);
+    const { data: slots, error: slotErr } = await supabase
+      .from("slots")
+      .select("id")
+      .eq("vendor_id", vendorId);
+    if (slotErr) throw slotErr;
+    const slotIds = slots.map((s) => s.id);
 
-    const filter = { slotId: { $in: slotIds } };
-    if (status) {
-      filter.status = status;
+    if (slotIds.length === 0) {
+      return res.json([]);
     }
 
-    const orders = await Order.find(filter).sort({ createdAt: -1 });
-    res.json(orders);
+    let query = supabase.from("orders").select("*").in("slot_id", slotIds);
+    if (status) {
+      query = query.eq("status", status);
+    }
+    const { data: orders, error } = await query.order("created_at", { ascending: false });
+    if (error) throw error;
+
+    res.json(orders.map(toOrderJSON));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to fetch vendor orders" });
