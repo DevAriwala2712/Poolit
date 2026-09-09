@@ -1,27 +1,27 @@
 import { useStore } from "@poolit/domain";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "../state/AuthContext";
 import { useVendor } from "../state/VendorContext";
 import { CommandPalette } from "./CommandPalette";
-import { Icon } from "./Icon";
-import type { IconName } from "./Icon";
 import { LogoMark } from "./LogoMark";
+import { MaterialIcon } from "./MaterialIcon";
 import { Badge, Kbd } from "./ui";
 
-const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
-  { to: "/", label: "Dashboard", icon: "dashboard", end: true },
-  { to: "/orders", label: "Orders", icon: "orders" },
-  { to: "/inventory", label: "Inventory", icon: "inventory" },
-  { to: "/analytics", label: "Analytics", icon: "analytics" },
+const NAV: { to: string; label: string; icon: string; end?: boolean }[] = [
+  { to: "/", label: "Overview", icon: "dashboard", end: true },
+  { to: "/orders", label: "Orders", icon: "receipt_long" },
+  { to: "/inventory", label: "Inventory", icon: "inventory_2" },
+  { to: "/analytics", label: "Analytics", icon: "monitoring" },
   { to: "/settings", label: "Settings", icon: "settings" },
 ];
 
-const TITLES: Record<string, { title: string; sub: string }> = {
-  "/": { title: "Dashboard", sub: "Live view of today's pooled runs" },
-  "/orders": { title: "Orders", sub: "Accept, prepare and dispatch pooled runs" },
-  "/inventory": { title: "Inventory", sub: "Stock levels and pricing" },
-  "/analytics": { title: "Analytics", sub: "Revenue, volume and peak hours" },
-  "/settings": { title: "Settings", sub: "Store profile and preferences" },
+const TITLES: Record<string, { crumb: string; sub: string }> = {
+  "/": { crumb: "Operations Command", sub: "Real-time batch dispatching, hostel delivery clusters & inventory telemetry." },
+  "/orders": { crumb: "Orders Management", sub: "Accept, prepare and dispatch pooled runs." },
+  "/inventory": { crumb: "Inventory Management", sub: "SKU realtime stock & prep." },
+  "/analytics": { crumb: "Analytics & Performance Review", sub: "Revenue, volume and peak hours." },
+  "/settings": { crumb: "Store Operations & Settings", sub: "Store profile, pooling rules, kitchen SLA & dispatch parameters." },
 };
 
 export function Shell() {
@@ -31,8 +31,9 @@ export function Shell() {
   const { pathname } = useLocation();
   const { vendor, hostel, allVendors, setVendorId } = useVendor();
   const { orders, slots } = useStore();
+  const { session, signOut } = useAuth();
 
-  const meta = TITLES[pathname] ?? { title: "Vendor Console", sub: "" };
+  const meta = TITLES[pathname] ?? { crumb: "Vendor Console", sub: "" };
 
   const mySlots = slots.filter((s) => s.vendorId === vendor.id);
   const pending = orders.filter(
@@ -56,78 +57,88 @@ export function Shell() {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-bg">
+    <div className="flex min-h-screen bg-surface">
       {/* Sidebar */}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-line bg-panel transition-all duration-200 md:flex ${
-          collapsed ? "w-[68px]" : "w-[228px]"
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col justify-between bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-all duration-200 md:flex ${
+          collapsed ? "w-sidebar-collapsed-width" : "w-sidebar-width"
         }`}
       >
-        <div className={`flex items-center gap-2.5 px-4 py-4 ${collapsed ? "justify-center px-0" : ""}`}>
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-black p-1.5">
-            <LogoMark className="h-full w-full" />
-          </span>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-[13.5px] font-semibold leading-tight text-text">Poolit</p>
-              <p className="truncate text-[11px] text-faint">Vendor Console</p>
+        <div className="flex w-full flex-col">
+          <div className={`flex h-14 items-center gap-2.5 px-space-md ${collapsed ? "justify-center px-0" : "justify-between"}`}>
+            <div className="flex min-w-0 items-center gap-space-sm">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#141A2C] p-1.5">
+                <LogoMark className="h-full w-full" />
+              </span>
+              {!collapsed && (
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-headline-sm text-on-surface leading-tight">Poolit</span>
+                  <span className="truncate text-label-sm text-secondary">Campus Dispatch</span>
+                </div>
+              )}
             </div>
-          )}
+            {!collapsed && (
+              <button
+                onClick={() => setCollapsed(true)}
+                title="Toggle Sidebar (⌘B)"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-secondary transition-colors hover:bg-surface-container hover:text-on-surface"
+              >
+                <MaterialIcon name="unfold_more" className="text-[16px] rotate-90" />
+              </button>
+            )}
+          </div>
+
+          <div className="px-space-md py-space-xs">
+            <div className="h-px w-full bg-surface-container-high" />
+          </div>
+
+          <nav className="mt-space-xs flex flex-col gap-space-2xs px-space-sm">
+            {NAV.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                title={collapsed ? item.label : undefined}
+                className={({ isActive }) =>
+                  `flex items-center justify-between rounded-lg px-space-md py-space-sm transition-all ${
+                    isActive
+                      ? "bg-primary-container text-on-primary-container"
+                      : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                  } ${collapsed ? "justify-center" : ""}`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="flex items-center gap-space-md">
+                      <MaterialIcon name={item.icon} className="text-[18px]" filled={isActive} />
+                      {!collapsed && <span className="text-headline-sm">{item.label}</span>}
+                    </div>
+                    {!collapsed && item.to === "/orders" && pending > 0 && (
+                      <span className="rounded-full bg-primary-fixed px-space-xs py-space-2xs text-label-sm text-on-primary-fixed">
+                        {pending}
+                      </span>
+                    )}
+                    {!collapsed && item.to === "/inventory" && lowStock > 0 && (
+                      <span className="flex items-center gap-space-2xs">
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary-container" />
+                        <span className="text-label-sm text-primary">{lowStock}</span>
+                      </span>
+                    )}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </nav>
         </div>
 
-        {!collapsed && (
-          <p className="px-4 pb-1.5 pt-3 text-[10px] font-medium uppercase tracking-widest text-faint">
-            Menu
-          </p>
-        )}
-
-        <nav className="flex flex-1 flex-col gap-0.5 px-2.5">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              title={collapsed ? item.label : undefined}
-              className={({ isActive }) =>
-                `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
-                  isActive ? "bg-raised text-text" : "text-muted hover:bg-raised/60 hover:text-text"
-                } ${collapsed ? "justify-center" : ""}`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-full bg-accent" />
-                  )}
-                  <Icon name={item.icon} className="h-[17px] w-[17px] shrink-0" strokeWidth={1.9} />
-                  {!collapsed && <span className="flex-1">{item.label}</span>}
-                  {!collapsed && item.to === "/orders" && pending > 0 && (
-                    <span className="rounded-md bg-accent px-1.5 py-0.5 text-[10.5px] font-bold text-bg">
-                      {pending}
-                    </span>
-                  )}
-                  {!collapsed && item.to === "/inventory" && lowStock > 0 && (
-                    <span className="rounded-md bg-warn/15 px-1.5 py-0.5 text-[10.5px] font-bold text-warn">
-                      {lowStock}
-                    </span>
-                  )}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Store switcher */}
-        <div className="border-t border-line p-2.5">
+        <div className="flex w-full flex-col gap-space-sm p-space-sm">
           {!collapsed ? (
-            <label className="block">
-              <span className="mb-1 block px-1 text-[10px] font-medium uppercase tracking-widest text-faint">
-                Store
-              </span>
+            <label className="block px-space-2xs">
+              <span className="mb-1 block text-label-sm uppercase tracking-wide text-secondary">Store</span>
               <select
                 value={vendor.id}
                 onChange={(e) => setVendorId(e.target.value)}
-                className="w-full rounded-lg border border-line bg-raised px-2.5 py-2 text-[12.5px] text-text outline-none focus:border-accent"
+                className="w-full rounded-lg bg-surface-container-low px-space-sm py-1.5 text-body-md text-on-surface outline-none focus:ring-2 focus:ring-primary"
               >
                 {allVendors.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -135,100 +146,123 @@ export function Shell() {
                   </option>
                 ))}
               </select>
-              <p className="mt-1.5 truncate px-1 text-[11px] text-faint">{hostel?.name}</p>
+              <p className="mt-1 truncate text-label-sm text-secondary">{hostel?.name}</p>
             </label>
           ) : (
             <div className="flex justify-center">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-raised text-[12px] font-semibold text-muted">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container text-body-sm font-semibold text-secondary">
                 {vendor.name.charAt(0)}
               </span>
             </div>
           )}
+          <div className="rounded-lg bg-surface-container-low p-space-sm">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-space-xs text-label-sm text-tertiary">
+                <span className="h-2 w-2 animate-live rounded-full bg-tertiary" />
+                {!collapsed && "Online"}
+              </span>
+              {!collapsed && <span className="text-label-sm text-secondary">12s ago</span>}
+            </div>
+            {!collapsed && (
+              <div className="mt-space-xs flex items-center justify-between border-t border-surface-container-high pt-space-xs">
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-body-sm text-on-surface">{session?.user.email}</span>
+                  <span className="truncate text-label-sm text-secondary">Vendor admin</span>
+                </div>
+                <button onClick={() => void signOut()} className="text-secondary transition-colors hover:text-on-surface">
+                  <MaterialIcon name="logout" className="text-[16px]" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-line bg-bg/85 px-5 py-3 backdrop-blur">
-          <button
-            onClick={() => setCollapsed((v) => !v)}
-            title="Toggle sidebar (⌘B)"
-            className="hidden h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-raised hover:text-text md:flex"
-          >
-            <Icon name="panelLeft" className="h-4 w-4" />
-          </button>
-
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[15px] font-semibold leading-tight text-text">{meta.title}</h1>
-            <p className="truncate text-[11.5px] text-faint">{meta.sub}</p>
-          </div>
-
-          <button
-            onClick={() => setPaletteOpen(true)}
-            className="hidden items-center gap-2 rounded-lg border border-line bg-raised px-2.5 py-1.5 text-[12px] text-faint transition hover:border-[#34343a] hover:text-muted lg:flex"
-          >
-            <Icon name="search" className="h-3.5 w-3.5" />
-            <span className="pr-6">Search…</span>
-            <Kbd>⌘K</Kbd>
-          </button>
-
-          <div className="relative">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-space-md bg-surface/85 px-space-lg shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl">
+          <div className="flex min-w-0 items-center gap-space-md">
             <button
-              onClick={() => setNotifOpen((v) => !v)}
-              className="relative flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-raised hover:text-text"
+              onClick={() => setCollapsed((v) => !v)}
+              title="Toggle sidebar (⌘B)"
+              className="hidden h-8 w-8 items-center justify-center rounded-lg text-secondary transition hover:bg-surface-container hover:text-on-surface md:flex"
             >
-              <Icon name="bell" className="h-4 w-4" />
-              {(pending > 0 || lowStock > 0) && (
-                <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
-              )}
+              <MaterialIcon name="dock_to_right" className="text-[18px]" />
             </button>
-            {notifOpen && (
-              <>
-                <button
-                  className="fixed inset-0 z-10"
-                  aria-label="Close notifications"
-                  onClick={() => setNotifOpen(false)}
-                />
-                <div className="animate-fade absolute right-0 top-10 z-20 w-72 overflow-hidden rounded-xl border border-line bg-panel shadow-2xl">
-                  <p className="border-b border-line px-3.5 py-2.5 text-[12px] font-semibold text-text">
-                    Notifications
-                  </p>
-                  <ul className="max-h-72 divide-y divide-line-soft overflow-y-auto">
-                    {pending > 0 && (
-                      <li className="flex gap-2.5 px-3.5 py-3">
-                        <Badge tone="accent" live>New</Badge>
-                        <p className="text-[12px] leading-snug text-muted">
-                          <span className="text-text">{pending} orders</span> waiting in the open pool.
-                        </p>
-                      </li>
-                    )}
-                    {lowStock > 0 && (
-                      <li className="flex gap-2.5 px-3.5 py-3">
-                        <Badge tone="warn">Stock</Badge>
-                        <p className="text-[12px] leading-snug text-muted">
-                          <span className="text-text">{lowStock} items</span> at or below the low-stock
-                          threshold.
-                        </p>
-                      </li>
-                    )}
-                    {pending === 0 && lowStock === 0 && (
-                      <li className="px-3.5 py-6 text-center text-[12px] text-faint">All clear.</li>
-                    )}
-                  </ul>
-                </div>
-              </>
-            )}
+            <nav className="flex items-center gap-space-xs text-body-sm">
+              <span className="text-secondary">Poolit</span>
+              <span className="text-secondary">/</span>
+              <span className="text-headline-sm text-on-surface">{meta.crumb}</span>
+            </nav>
+            <div className="hidden h-4 w-px bg-surface-container-high md:block" />
+            <div className="hidden items-center gap-space-xs rounded-full bg-surface-container-low px-space-sm py-space-2xs md:flex">
+              <span className="h-2 w-2 rounded-full bg-tertiary" />
+              <span className="text-label-sm text-on-surface">Accepting Orders · Normal Rush</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 rounded-lg border border-line bg-raised py-1 pl-1 pr-2.5">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-[11px] font-bold text-bg">
+          <div className="flex items-center gap-space-sm">
+            <button
+              onClick={() => setPaletteOpen(true)}
+              className="hidden items-center gap-space-md rounded-lg bg-surface-container-lowest px-space-md py-space-xs text-secondary shadow-[0_1px_4px_rgba(0,0,0,0.04)] transition-all hover:bg-surface-container hover:text-on-surface lg:flex"
+            >
+              <span className="flex items-center gap-space-xs">
+                <MaterialIcon name="search" className="text-[16px]" />
+                <span className="text-body-md">Search operations, orders, items...</span>
+              </span>
+              <Kbd>⌘K</Kbd>
+            </button>
+            <button className="flex h-8 items-center gap-space-xs rounded-lg bg-surface-container-lowest px-space-sm text-on-surface-variant shadow-[0_1px_4px_rgba(0,0,0,0.04)] transition-all hover:bg-surface-container hover:text-on-surface">
+              <MaterialIcon name="sync" className="text-[16px]" />
+              <span className="hidden text-body-sm sm:inline">Sync</span>
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setNotifOpen((v) => !v)}
+                className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container-lowest text-on-surface-variant shadow-[0_1px_4px_rgba(0,0,0,0.04)] transition-all hover:bg-surface-container hover:text-on-surface"
+              >
+                <MaterialIcon name="notifications" className="text-[16px]" />
+                {(pending > 0 || lowStock > 0) && (
+                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary-container" />
+                )}
+              </button>
+              {notifOpen && (
+                <>
+                  <button className="fixed inset-0 z-10" aria-label="Close notifications" onClick={() => setNotifOpen(false)} />
+                  <div className="animate-fade absolute right-0 top-10 z-20 w-72 overflow-hidden rounded-lg bg-surface-container-lowest shadow-[0_4px_6px_-1px_rgba(15,23,42,0.08)]">
+                    <p className="px-space-md py-space-sm text-headline-sm text-on-surface">Notifications</p>
+                    <ul className="max-h-72 divide-y divide-surface-container overflow-y-auto">
+                      {pending > 0 && (
+                        <li className="flex gap-space-sm px-space-md py-space-sm">
+                          <Badge tone="prep" live>New</Badge>
+                          <p className="text-body-sm text-secondary">
+                            <span className="text-on-surface">{pending} orders</span> waiting in the open pool.
+                          </p>
+                        </li>
+                      )}
+                      {lowStock > 0 && (
+                        <li className="flex gap-space-sm px-space-md py-space-sm">
+                          <Badge tone="error">Stock</Badge>
+                          <p className="text-body-sm text-secondary">
+                            <span className="text-on-surface">{lowStock} items</span> at or below the low-stock threshold.
+                          </p>
+                        </li>
+                      )}
+                      {pending === 0 && lowStock === 0 && (
+                        <li className="px-space-md py-space-lg text-center text-body-sm text-secondary">All clear.</li>
+                      )}
+                    </ul>
+                  </div>
+                </>
+              )}
+            </div>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-inverse-surface text-body-sm font-semibold text-inverse-on-surface">
               {vendor.name.charAt(0)}
             </span>
-            <span className="hidden text-[12px] font-medium text-text sm:block">{vendor.name}</span>
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 px-5 py-5">
+        <main className="min-w-0 flex-1 bg-surface px-space-lg py-space-md">
           <Outlet />
         </main>
       </div>

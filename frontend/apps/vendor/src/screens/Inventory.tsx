@@ -2,12 +2,12 @@ import { CATEGORIES, rupees, stockState, useStore } from "@poolit/domain";
 import type { MenuItem } from "@poolit/domain";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Icon } from "../components/Icon";
 import { KpiCard } from "../components/KpiCard";
+import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card, EmptyState, Td, Th } from "../components/ui";
 import { useVendor } from "../state/VendorContext";
 
-const QUICK = [10, 25, 50];
+const QUICK = [10, 25];
 
 export function Inventory() {
   const [params, setParams] = useSearchParams();
@@ -56,97 +56,125 @@ export function Inventory() {
     setDraftPrice("");
   }
 
+  function categoryCount(c: string) {
+    return c === "all" ? pool.length : pool.filter(({ item }) => item.category === c).length;
+  }
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <KpiCard label="SKUs" value={String(pool.length)} icon="box" hint={scope === "store" ? vendor.name : "all stores"} />
-        <KpiCard label="Stock value" value={rupees(stockValue)} icon="rupee" hint="at current price" />
-        <KpiCard label="Low stock" value={String(low)} icon="alert" hint={low > 0 ? "needs restock" : "healthy"} />
-        <KpiCard label="Out of stock" value={String(out)} icon="close" hint={out > 0 ? "unavailable" : "all available"} />
+    <div className="space-y-space-md">
+      <div>
+        <p className="text-label-sm uppercase tracking-wide text-secondary">{vendor.name} / SKU Realtime Stock & Prep</p>
+        <h1 className="text-headline-lg text-on-surface">Inventory Management</h1>
+      </div>
+
+      <div className="grid grid-cols-1 gap-space-md sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label="Active SKUs" value={String(pool.length)} icon="inventory_2" hint={scope === "store" ? vendor.name : "all stores"} />
+        <KpiCard label="Prep Valuation" value={rupees(stockValue)} icon="account_balance_wallet" hint="at current price" />
+        <KpiCard label="Low Stock Alerts" value={String(low)} icon="warning" hint={low > 0 ? "Immediate restock suggested" : "healthy"} />
+        <KpiCard label="Out of Stock" value={String(out)} icon="do_not_disturb_on" hint={out > 0 ? "unavailable to students" : "all available"} />
       </div>
 
       <Card flush>
-        <div className="flex flex-wrap items-center gap-2.5 border-b border-line-soft px-4 py-3">
-          <div className="flex items-center gap-2 rounded-lg border border-line bg-raised px-2.5 py-1.5">
-            <Icon name="search" className="h-3.5 w-3.5 text-faint" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search items…"
-              className="w-44 bg-transparent text-[12.5px] text-text outline-none placeholder:text-faint"
-            />
+        <div className="flex flex-col gap-space-sm border-b border-surface-container-low p-space-md">
+          <div className="flex flex-wrap items-center gap-space-sm">
+            <div className="flex items-center gap-space-sm rounded-lg bg-surface-container-low px-space-sm py-space-xs">
+              <MaterialIcon name="search" className="text-[16px] text-secondary" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search SKU, ingredient, category…"
+                className="w-56 bg-transparent text-body-lg text-on-surface outline-none placeholder:text-secondary"
+              />
+            </div>
+            <Select value={scope} onChange={(v) => setScope(v as "store" | "all")}>
+              <option value="store">This Store</option>
+              <option value="all">All Campus Hubs</option>
+            </Select>
+            <Button size="sm" icon="download" className="ml-auto">Export Ledger</Button>
+            <Button variant="primary" size="sm" icon="add">Add New Item</Button>
           </div>
 
-          <Select value={scope} onChange={(v) => setScope(v as "store" | "all")}>
-            <option value="store">This store</option>
-            <option value="all">All stores</option>
-          </Select>
-
-          <Select value={category} onChange={setCategory}>
-            <option value="all">All categories</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+          <div className="flex flex-wrap items-center gap-space-xs">
+            {["all", ...CATEGORIES].map((c) => (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`flex items-center gap-space-xs rounded px-space-sm py-space-xs text-body-md transition ${
+                  category === c ? "bg-inverse-surface text-inverse-on-surface" : "text-secondary hover:bg-surface-container"
+                }`}
+              >
+                {c === "all" ? "All Items" : c}
+                <span className="rounded-full bg-surface-container-highest px-space-xs text-label-sm text-on-surface">
+                  {categoryCount(c)}
+                </span>
+              </button>
             ))}
-          </Select>
+          </div>
 
-          <Select
-            value={status}
-            onChange={(v) => {
-              setStatus(v);
-              setParams(v === "all" ? {} : { status: v }, { replace: true });
-            }}
-          >
-            <option value="all">All status</option>
-            <option value="ok">In stock</option>
-            <option value="low">Low stock</option>
-            <option value="out">Out of stock</option>
-          </Select>
-
-          <span className="ml-auto text-[11.5px] text-faint">{rows.length} items</span>
-          <Button size="sm" icon="download">
-            Export
-          </Button>
+          <div className="flex items-center gap-space-xs">
+            {[
+              { key: "all", label: "All Status" },
+              { key: "ok", label: `In Stock (${pool.length - low - out})` },
+              { key: "low", label: `Low (${low})` },
+              { key: "out", label: `Out (${out})` },
+            ].map((s) => (
+              <button
+                key={s.key}
+                onClick={() => {
+                  setStatus(s.key);
+                  setParams(s.key === "all" ? {} : { status: s.key }, { replace: true });
+                }}
+                className={`rounded px-space-sm py-space-xs text-body-sm transition ${
+                  status === s.key ? "bg-surface-container-high text-on-surface" : "text-secondary hover:bg-surface-container"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {rows.length === 0 ? (
-          <EmptyState icon="box" title="No items match" body="Adjust the filters to see more stock." />
+          <EmptyState icon="inventory_2" title="No items match" body="Adjust the filters to see more stock." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] border-collapse">
               <thead>
-                <tr className="border-b border-line-soft bg-panel/40">
-                  <Th>SKU</Th>
-                  <Th>Item</Th>
+                <tr>
+                  <Th>Product Name & SKU</Th>
                   {scope === "all" && <Th>Store</Th>}
                   <Th>Category</Th>
-                  <Th>Price</Th>
-                  <Th>Stock</Th>
+                  <Th>In-Store Price</Th>
+                  <Th>Current Stock Level</Th>
                   <Th>Status</Th>
-                  <Th>Restock</Th>
+                  <Th>Quick Restock</Th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map(({ item, vendorName, vendorId }) => {
                   const state = stockState(item);
+                  const capacity = Math.max(item.stockQty, item.lowStockThreshold * 4);
+                  const pct = Math.min(100, (item.stockQty / capacity) * 100);
                   return (
                     <tr
                       key={item.id}
-                      className="border-b border-line-soft transition-colors last:border-0 hover:bg-raised/50"
+                      className="border-b border-surface-container-low transition-colors last:border-0 hover:bg-surface-container-low"
                     >
-                      <Td className="font-mono text-[11px] text-faint">{item.id.toUpperCase()}</Td>
                       <Td>
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-base">{item.art}</span>
+                        <div className="flex items-center gap-space-sm">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-surface-container text-base">
+                            {item.art}
+                          </span>
                           <div>
-                            <p className="text-[12.5px] text-text">{item.name}</p>
-                            <p className="text-[11px] text-faint">{item.unit}</p>
+                            <p className="text-body-md text-on-surface">{item.name}</p>
+                            <p className="font-label-sm text-label-sm text-secondary">SKU: {item.id.slice(0, 8).toUpperCase()}</p>
                           </div>
                         </div>
                       </Td>
-                      {scope === "all" && <Td className="text-muted">{vendorName}</Td>}
-                      <Td className="text-muted">{item.category}</Td>
+                      {scope === "all" && <Td className="text-secondary">{vendorName}</Td>}
+                      <Td>
+                        <span className="rounded bg-surface-container px-space-xs py-space-2xs text-label-sm text-secondary">{item.category}</span>
+                      </Td>
                       <Td>
                         {editing === item.id ? (
                           <input
@@ -158,28 +186,35 @@ export function Inventory() {
                               if (e.key === "Enter") commitPrice(vendorId, item);
                               if (e.key === "Escape") setEditing(null);
                             }}
-                            className="w-20 rounded border border-accent bg-raised px-1.5 py-1 text-[12.5px] text-text outline-none"
+                            className="w-20 rounded bg-surface-container-low px-1.5 py-1 text-body-md text-on-surface outline-none ring-2 ring-primary"
                           />
                         ) : (
                           <button
-                            onClick={() => {
-                              setEditing(item.id);
-                              setDraftPrice(String(item.price));
-                            }}
-                            className="rounded px-1.5 py-1 text-[12.5px] text-text transition hover:bg-raised"
+                            onClick={() => { setEditing(item.id); setDraftPrice(String(item.price)); }}
+                            className="rounded px-1.5 py-1 text-body-md text-on-surface transition hover:bg-surface-container-low"
                             title="Click to edit price"
                           >
                             {rupees(item.price)}
                           </button>
                         )}
                       </Td>
-                      <Td className="font-medium text-text">
-                        {item.stockQty}
-                        <span className="ml-1 text-[11px] font-normal text-faint">units</span>
+                      <Td>
+                        <div className="w-32">
+                          <div className="flex items-baseline justify-between text-body-sm">
+                            <span className="font-semibold text-on-surface">{item.stockQty}</span>
+                            <span className="text-label-sm text-secondary">units</span>
+                          </div>
+                          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-container">
+                            <div
+                              className={`h-full rounded-full ${state === "out" ? "bg-error" : state === "low" ? "bg-primary" : "bg-tertiary"}`}
+                              style={{ width: `${Math.max(3, pct)}%` }}
+                            />
+                          </div>
+                        </div>
                       </Td>
                       <Td>
-                        <Badge tone={state === "out" ? "bad" : state === "low" ? "warn" : "ok"}>
-                          {state === "out" ? "Out of stock" : state === "low" ? "Low stock" : "In stock"}
+                        <Badge tone={state === "out" ? "error" : state === "low" ? "primary" : "ready"}>
+                          {state === "out" ? "Out of Stock" : state === "low" ? "Low Stock" : "In Stock"}
                         </Badge>
                       </Td>
                       <Td>
@@ -188,7 +223,7 @@ export function Inventory() {
                             <button
                               key={amount}
                               onClick={() => restockItem(vendorId, item.id, amount)}
-                              className="rounded-md border border-line bg-raised px-2 py-1 text-[11px] font-medium text-muted transition hover:border-accent/40 hover:text-accent"
+                              className="rounded bg-surface-container px-2 py-1 text-label-sm text-secondary transition hover:bg-surface-container-high hover:text-on-surface"
                             >
                               +{amount}
                             </button>
@@ -202,7 +237,39 @@ export function Inventory() {
             </table>
           </div>
         )}
+        <div className="px-space-md py-space-sm text-label-sm text-secondary">Showing {rows.length} of {pool.length} items</div>
       </Card>
+
+      {/* Decorative — future hardware/automation integrations */}
+      <div className="grid grid-cols-1 gap-space-md lg:grid-cols-3">
+        <Card title="Auto-Order Webhook" action={<Badge tone="ready" dot={false}>Ready</Badge>}>
+          <p className="text-body-sm text-secondary">
+            Trigger vendor delivery slips directly once minimum inventory threshold is crossed on Campus Central DB.
+          </p>
+          <div className="mt-space-sm flex items-center justify-between text-body-sm">
+            <span className="text-secondary">Supplier: Metro Cash & Fresh Prep</span>
+            <span className="text-primary">Configure →</span>
+          </div>
+        </Card>
+        <Card title="Cold Holding Storage #02" action={<span className="flex items-center gap-space-2xs text-body-sm text-tertiary"><span className="h-2 w-2 rounded-full bg-tertiary" />3.8°C</span>}>
+          <p className="text-body-sm text-secondary">
+            Refrigeration sensor reading steady within safe compliance bounds for raw meat & dairy bases.
+          </p>
+          <div className="mt-space-sm flex items-center justify-between text-body-sm">
+            <span className="text-secondary">Chamber: Unit E-Walkin</span>
+            <span className="text-tertiary">Nominal</span>
+          </div>
+        </Card>
+        <Card title="Prep Consumption Run" action={<span className="text-body-sm text-secondary">1.4x Rush Factor</span>}>
+          <div className="h-1.5 overflow-hidden rounded-full bg-surface-container">
+            <div className="h-full w-[78%] rounded-full bg-primary" />
+          </div>
+          <div className="mt-space-sm flex items-center justify-between text-body-sm">
+            <span className="text-secondary">Peak rush: 12:30 PM - 2:00 PM</span>
+            <span className="text-primary">78% cap</span>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -220,7 +287,7 @@ function Select({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="rounded-lg border border-line bg-raised px-2.5 py-1.5 text-[12.5px] text-text outline-none focus:border-accent"
+      className="rounded-lg bg-surface-container-low px-space-sm py-1.5 text-body-md text-on-surface outline-none focus:ring-2 focus:ring-primary"
     >
       {children}
     </select>

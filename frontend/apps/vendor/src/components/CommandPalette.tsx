@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Icon } from "./Icon";
-import type { IconName } from "./Icon";
+import { MaterialIcon } from "./MaterialIcon";
 import { Kbd } from "./ui";
 
 interface Command {
   id: string;
   label: string;
   hint: string;
-  icon: IconName;
+  icon: string;
   run: () => void;
 }
 
@@ -20,13 +19,13 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   const commands = useMemo<Command[]>(
     () => [
-      { id: "dash", label: "Go to Dashboard", hint: "Overview", icon: "dashboard", run: () => navigate("/") },
-      { id: "orders", label: "Go to Orders", hint: "Manage live orders", icon: "orders", run: () => navigate("/orders") },
-      { id: "inv", label: "Go to Inventory", hint: "Stock and pricing", icon: "inventory", run: () => navigate("/inventory") },
-      { id: "an", label: "Go to Analytics", hint: "Revenue and peaks", icon: "analytics", run: () => navigate("/analytics") },
+      { id: "dash", label: "Go to Overview", hint: "Dashboard", icon: "dashboard", run: () => navigate("/") },
+      { id: "orders", label: "Go to Orders", hint: "Manage live orders", icon: "receipt_long", run: () => navigate("/orders") },
+      { id: "inv", label: "Go to Inventory", hint: "Stock and pricing", icon: "inventory_2", run: () => navigate("/inventory") },
+      { id: "an", label: "Go to Analytics", hint: "Revenue and peaks", icon: "monitoring", run: () => navigate("/analytics") },
       { id: "set", label: "Go to Settings", hint: "Store preferences", icon: "settings", run: () => navigate("/settings") },
-      { id: "low", label: "View low stock", hint: "Items needing restock", icon: "alert", run: () => navigate("/inventory?status=low") },
-      { id: "out", label: "View out of stock", hint: "Unavailable to students", icon: "box", run: () => navigate("/inventory?status=out") },
+      { id: "low", label: "View low stock", hint: "Items needing restock", icon: "warning", run: () => navigate("/inventory?status=low") },
+      { id: "out", label: "View out of stock", hint: "Unavailable to students", icon: "block", run: () => navigate("/inventory?status=out") },
     ],
     [navigate],
   );
@@ -75,23 +74,23 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[12vh]">
-      <button aria-label="Close" onClick={onClose} className="animate-fade absolute inset-0 bg-black/60" />
-      <div className="animate-palette relative w-full max-w-lg overflow-hidden rounded-xl border border-line bg-panel shadow-2xl">
-        <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
-          <Icon name="search" className="h-4 w-4 shrink-0 text-faint" />
+      <button aria-label="Close" onClick={onClose} className="animate-fade absolute inset-0 bg-inverse-surface/40 backdrop-blur-[2px]" />
+      <div className="animate-palette relative w-full max-w-lg overflow-hidden rounded-lg bg-surface-container-lowest shadow-[0_20px_25px_-5px_rgba(15,23,42,0.12)]">
+        <div className="flex items-center gap-space-sm border-b border-surface-container-high px-space-md py-space-sm">
+          <MaterialIcon name="search" className="text-[16px] shrink-0 text-secondary" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search commands…"
-            className="w-full bg-transparent text-[14px] text-text outline-none placeholder:text-faint"
+            className="w-full bg-transparent text-body-lg text-on-surface outline-none placeholder:text-secondary"
           />
           <Kbd>esc</Kbd>
         </div>
 
         <ul className="max-h-80 overflow-y-auto p-1.5">
           {results.length === 0 && (
-            <li className="px-3 py-6 text-center text-[12.5px] text-faint">No commands match.</li>
+            <li className="px-space-md py-space-lg text-center text-body-md text-secondary">No commands match.</li>
           )}
           {results.map((c, i) => (
             <li key={c.id}>
@@ -101,20 +100,20 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                   c.run();
                   onClose();
                 }}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition ${
-                  i === cursor ? "bg-raised" : ""
+                className={`flex w-full items-center gap-space-md rounded-lg px-space-md py-space-sm text-left transition ${
+                  i === cursor ? "bg-surface-container-low" : ""
                 }`}
               >
                 <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
-                    i === cursor ? "bg-accent text-bg" : "bg-raised text-muted"
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded ${
+                    i === cursor ? "bg-primary-container text-on-primary-container" : "bg-surface-container text-secondary"
                   }`}
                 >
-                  <Icon name={c.icon} className="h-3.5 w-3.5" strokeWidth={2} />
+                  <MaterialIcon name={c.icon} className="text-[15px]" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium text-text">{c.label}</span>
-                  <span className="block truncate text-[11.5px] text-faint">{c.hint}</span>
+                  <span className="block text-body-lg font-medium text-on-surface">{c.label}</span>
+                  <span className="block truncate text-body-sm text-secondary">{c.hint}</span>
                 </span>
                 {i === cursor && <Kbd>↵</Kbd>}
               </button>

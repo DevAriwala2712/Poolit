@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
-import { Icon } from "./Icon";
+import { MaterialIcon } from "./MaterialIcon";
 
 export function Drawer({
   open,
@@ -28,22 +28,22 @@ export function Drawer({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <button aria-label="Close" onClick={onClose} className="animate-fade absolute inset-0 bg-black/55" />
-      <aside className="animate-drawer relative flex h-full w-full max-w-[440px] flex-col border-l border-line bg-panel">
-        <header className="flex items-start gap-3 border-b border-line px-5 py-4">
+      <button aria-label="Close" onClick={onClose} className="animate-fade absolute inset-0 bg-inverse-surface/40 backdrop-blur-[2px]" />
+      <aside className="animate-drawer relative flex h-full w-full max-w-[440px] flex-col bg-surface-container-lowest">
+        <header className="flex items-start gap-space-md px-space-lg py-space-md shadow-sm">
           <div className="min-w-0 flex-1">
-            <h2 className="text-[15px] font-semibold text-text">{title}</h2>
-            {subtitle && <p className="mt-0.5 text-[12px] text-faint">{subtitle}</p>}
+            <h2 className="text-headline-md text-on-surface">{title}</h2>
+            {subtitle && <p className="mt-0.5 text-body-sm text-secondary">{subtitle}</p>}
           </div>
           <button
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition hover:bg-raised hover:text-text"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-secondary transition hover:bg-surface-container hover:text-on-surface"
           >
-            <Icon name="close" className="h-4 w-4" strokeWidth={2} />
+            <MaterialIcon name="close" className="text-[18px]" />
           </button>
         </header>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <footer className="border-t border-line px-5 py-3.5">{footer}</footer>}
+        <div className="flex-1 overflow-y-auto px-space-lg py-space-md">{children}</div>
+        {footer && <footer className="px-space-lg py-space-sm shadow-[0_-1px_8px_rgba(0,0,0,0.04)]">{footer}</footer>}
       </aside>
     </div>
   );

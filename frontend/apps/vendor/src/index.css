@@ -1,33 +1,86 @@
 @import "tailwindcss";
 
 /*
-  Poolit Vendor Console — "Dark-first Minimal SaaS / Quiet Chrome"
-  Near-black ground, layered card surfaces, hairline borders, one vivid
-  lime accent reserved for CTAs and positive status. 8pt grid, 12px radii.
+  Poolit Vendor Console — "Culinary Operations Command"
+  Calibrated warm-white operational surfaces, burnt-orange primary accent,
+  blue "ready/positive" telemetry. Dense, tabular, mission-critical tone.
 */
 @theme {
-  --color-bg: #0f0f11;
-  --color-panel: #141417;
-  --color-card: #1a1a1d;
-  --color-raised: #1e1e22;
-  --color-line: #2a2a2e;
-  --color-line-soft: #232327;
+  --color-primary: #a33900;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #cc4900;
+  --color-on-primary-container: #fffbff;
+  --color-inverse-primary: #ffb599;
 
-  --color-accent: #a8e10c;
-  --color-accent-dim: #7fa80a;
+  --color-secondary: #565e74;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #dae2fd;
+  --color-on-secondary-container: #5c647a;
 
-  --color-text: #f2f2f0;
-  --color-muted: #9b9b96;
-  --color-faint: #6b6b67;
+  --color-tertiary: #006194;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #007bb9;
+  --color-on-tertiary-container: #fdfcff;
 
-  --color-ok: #34d399;
-  --color-warn: #fbbf24;
-  --color-bad: #f87171;
-  --color-info: #60a5fa;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
 
-  --radius-card: 12px;
+  --color-surface: #f8f9ff;
+  --color-surface-dim: #cbdbf5;
+  --color-surface-bright: #f8f9ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container: #e5eeff;
+  --color-surface-container-high: #dce9ff;
+  --color-surface-container-highest: #d3e4fe;
+  --color-surface-variant: #d3e4fe;
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-on-surface: #0b1c30;
+  --color-on-surface-variant: #5a4138;
+  --color-inverse-surface: #213145;
+  --color-inverse-on-surface: #eaf1ff;
+
+  --color-outline: #8e7166;
+  --color-outline-variant: #e2bfb2;
+  --color-background: #f8f9ff;
+  --color-on-background: #0b1c30;
+
+  --color-primary-fixed: #ffdbce;
+  --color-primary-fixed-dim: #ffb599;
+  --color-on-primary-fixed: #370e00;
+  --color-on-primary-fixed-variant: #7f2b00;
+  --color-secondary-fixed: #dae2fd;
+  --color-secondary-fixed-dim: #bec6e0;
+  --color-on-secondary-fixed: #131b2e;
+  --color-on-secondary-fixed-variant: #3f465c;
+  --color-tertiary-fixed: #cce5ff;
+  --color-tertiary-fixed-dim: #93ccff;
+  --color-on-tertiary-fixed: #001d31;
+  --color-on-tertiary-fixed-variant: #004b73;
+
+  --radius: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
+  --radius-card: 0.25rem;
+
+  --spacing-space-2xs: 0.125rem;
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 0.75rem;
+  --spacing-space-base: 1rem;
+  --spacing-space-lg: 1.25rem;
+  --spacing-space-xl: 1.5rem;
+  --spacing-space-2xl: 2rem;
+  --spacing-gutter-default: 0.75rem;
+  --spacing-gutter-dense: 0.5rem;
+  --spacing-sidebar-width: 15rem;
+  --spacing-sidebar-collapsed-width: 3.5rem;
+
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 html,
@@ -37,18 +90,24 @@ body,
 }
 
 body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "tnum" 1;
 }
 
 ::selection {
-  background: rgb(168 225 12 / 0.25);
+  background: rgb(163 57 0 / 0.15);
 }
 
-/* Quiet scrollbars that suit the dark chrome. */
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 20;
+  font-size: inherit;
+  line-height: 1;
+  user-select: none;
+}
+
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -57,13 +116,28 @@ body {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: #2f2f34;
-  border: 3px solid var(--color-bg);
+  background: var(--color-surface-container-highest);
+  border: 3px solid var(--color-surface);
   border-radius: 999px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #3d3d43;
+  background: var(--color-outline-variant);
 }
+
+/* ---------------------------------------------------------- Typography */
+/* Composite presets: family + size + line-height + tracking + weight in one class. */
+.text-display-lg { font-family: var(--font-sans); font-size: 32px; line-height: 38px; letter-spacing: -0.025em; font-weight: 600; }
+.text-headline-lg { font-family: var(--font-sans); font-size: 24px; line-height: 30px; letter-spacing: -0.02em; font-weight: 600; }
+.text-headline-lg-mobile { font-family: var(--font-sans); font-size: 20px; line-height: 26px; letter-spacing: -0.015em; font-weight: 600; }
+.text-headline-md { font-family: var(--font-sans); font-size: 18px; line-height: 24px; letter-spacing: -0.015em; font-weight: 600; }
+.text-headline-sm { font-family: var(--font-sans); font-size: 15px; line-height: 20px; letter-spacing: -0.01em; font-weight: 600; }
+.text-body-lg { font-family: var(--font-sans); font-size: 14px; line-height: 20px; letter-spacing: -0.005em; font-weight: 400; }
+.text-body-md { font-family: var(--font-sans); font-size: 13px; line-height: 18px; letter-spacing: 0; font-weight: 400; }
+.text-body-sm { font-family: var(--font-sans); font-size: 12px; line-height: 16px; letter-spacing: 0; font-weight: 400; }
+.text-label-lg { font-family: var(--font-mono); font-size: 13px; line-height: 16px; letter-spacing: -0.01em; font-weight: 500; }
+.text-label-md { font-family: var(--font-mono); font-size: 11px; line-height: 14px; letter-spacing: 0.02em; font-weight: 500; }
+.text-label-sm { font-family: var(--font-mono); font-size: 10px; line-height: 12px; letter-spacing: 0.04em; font-weight: 600; }
+.text-tabular-metric { font-family: var(--font-mono); font-size: 22px; line-height: 26px; letter-spacing: -0.03em; font-weight: 600; }
 
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
@@ -72,7 +146,7 @@ body {
 .animate-live { animation: pulse-dot 1.8s ease-in-out infinite; }
 
 @keyframes row-in {
-  from { background-color: rgb(168 225 12 / 0.12); }
+  from { background-color: rgb(163 57 0 / 0.1); }
   to { background-color: transparent; }
 }
 .animate-new-row { animation: row-in 2.4s ease-out; }

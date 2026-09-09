@@ -25,8 +25,8 @@ function AuthGate() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-bg">
-        <span className="flex h-10 w-10 animate-pulse items-center justify-center rounded-lg bg-black p-2">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-surface">
+        <span className="flex h-10 w-10 animate-pulse items-center justify-center rounded-lg bg-[#141A2C] p-2">
           <LogoMark className="h-full w-full" />
         </span>
       </div>

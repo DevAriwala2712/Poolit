@@ -1,77 +1,42 @@
-import { Icon } from "./Icon";
-import type { IconName } from "./Icon";
+import { MaterialIcon } from "./MaterialIcon";
 
 export function KpiCard({
   label,
   value,
+  unit,
   icon,
   delta,
   hint,
-  spark,
 }: {
   label: string;
   value: string;
-  icon: IconName;
+  unit?: string;
+  icon: string;
   delta?: { value: string; direction: "up" | "down" | "flat" };
   hint?: string;
-  spark?: number[];
 }) {
   const deltaTone =
-    delta?.direction === "up" ? "text-ok" : delta?.direction === "down" ? "text-bad" : "text-faint";
+    delta?.direction === "up" ? "text-tertiary" : delta?.direction === "down" ? "text-error" : "text-secondary";
 
   return (
-    <div className="rounded-[var(--radius-card)] border border-line bg-card p-4 transition hover:border-[#34343a]">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[11.5px] font-medium uppercase tracking-wider text-faint">{label}</p>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-raised text-muted">
-          <Icon name={icon} className="h-3.5 w-3.5" strokeWidth={2} />
-        </span>
+    <div className="flex flex-col justify-between rounded-lg bg-surface-container-lowest p-space-md shadow-sm">
+      <div className="flex items-center justify-between">
+        <span className="text-label-sm uppercase tracking-wide text-secondary">{label}</span>
+        <MaterialIcon name={icon} className="text-[18px] text-secondary" />
       </div>
-
-      <p className="mt-2.5 text-[26px] font-semibold leading-none tracking-tight text-text">
-        {value}
-      </p>
-
-      <div className="mt-2.5 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
+      <div className="mt-space-sm">
+        <div className="text-tabular-metric leading-none text-on-surface">
+          {value} {unit && <span className="text-body-md text-secondary">{unit}</span>}
+        </div>
+        <div className="mt-space-xs flex items-center gap-space-xs text-body-sm text-secondary">
           {delta && (
-            <span className={`inline-flex items-center gap-1 text-[11.5px] font-medium ${deltaTone}`}>
-              {delta.direction !== "flat" && (
-                <Icon
-                  name={delta.direction === "up" ? "trendUp" : "trendDown"}
-                  className="h-3 w-3"
-                  strokeWidth={2.2}
-                />
-              )}
-              {delta.value}
+            <span className={`flex items-center font-label-sm text-label-sm ${deltaTone}`}>
+              {delta.direction === "up" ? "↑" : delta.direction === "down" ? "↓" : ""} {delta.value}
             </span>
           )}
-          {hint && <span className="text-[11.5px] text-faint">{hint}</span>}
+          {hint && <span>{hint}</span>}
         </div>
-        {spark && spark.length > 1 && <Sparkline data={spark} />}
       </div>
     </div>
-  );
-}
-
-function Sparkline({ data }: { data: number[] }) {
-  const max = Math.max(1, ...data);
-  const step = 60 / (data.length - 1);
-  const d = data
-    .map((v, i) => `${i === 0 ? "M" : "L"}${i * step},${20 - (v / max) * 18}`)
-    .join(" ");
-
-  return (
-    <svg viewBox="0 0 60 20" className="h-5 w-[60px] shrink-0">
-      <path
-        d={d}
-        fill="none"
-        stroke="#a8e10c"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity="0.8"
-      />
-    </svg>
   );
 }
