@@ -2,10 +2,12 @@ import { CATEGORIES, rupees, stockState, useStore } from "@poolit/domain";
 import type { MenuItem } from "@poolit/domain";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { AddItemModal } from "../components/AddItemModal";
 import { BarcodeScanModal } from "../components/BarcodeScanModal";
 import { KpiCard } from "../components/KpiCard";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card, EmptyState, Td, Th } from "../components/ui";
+import { downloadCSV } from "../lib/csv";
 import { useUIMode } from "../state/UIModeContext";
 import { useVendor } from "../state/VendorContext";
 
@@ -25,6 +27,7 @@ export function Inventory() {
   const [draftPrice, setDraftPrice] = useState("");
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
   const [scanOpen, setScanOpen] = useState(false);
+  const [addItemOpen, setAddItemOpen] = useState(false);
 
   const pool = useMemo(
     () =>
@@ -79,6 +82,21 @@ export function Inventory() {
     return c === "all" ? pool.length : pool.filter(({ item }) => item.category === c).length;
   }
 
+  function exportLedger() {
+    downloadCSV(
+      `${vendor.name.replace(/\s+/g, "-").toLowerCase()}-inventory-${new Date().toISOString().slice(0, 10)}.csv`,
+      rows.map(({ item, vendorName }) => ({
+        Name: item.name,
+        Store: vendorName,
+        Category: item.category,
+        "Price (₹)": item.price,
+        "Stock qty": item.stockQty,
+        "Low-stock threshold": item.lowStockThreshold,
+        Barcode: item.barcode ?? "",
+      })),
+    );
+  }
+
   return (
     <div className="space-y-space-md">
       <div>
@@ -118,8 +136,16 @@ export function Inventory() {
             >
               Scan barcode
             </Button>
-            {advancedMode && <Button size="sm" icon="download">Export Ledger</Button>}
-            {advancedMode && <Button size="sm" icon="add">Add New Item</Button>}
+            {advancedMode && (
+              <Button size="sm" icon="download" onClick={exportLedger} disabled={rows.length === 0}>
+                Export Ledger
+              </Button>
+            )}
+            {advancedMode && (
+              <Button size="sm" icon="add" onClick={() => setAddItemOpen(true)}>
+                Add New Item
+              </Button>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-space-xs">
@@ -326,6 +352,7 @@ export function Inventory() {
       )}
 
       <BarcodeScanModal open={scanOpen} onClose={() => setScanOpen(false)} items={allItems} />
+      <AddItemModal open={addItemOpen} onClose={() => setAddItemOpen(false)} vendorId={vendor.id} />
     </div>
   );
 }

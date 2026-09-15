@@ -45,7 +45,20 @@ export interface Vendor {
   hostelId: string;
   /** Minutes the store needs to pack a pooled run. */
   prepMinutes: number;
+  /** Whether the store is currently accepting new orders. */
+  acceptingOrders: boolean;
   menu: MenuItem[];
+}
+
+export type StaffStatus = "active" | "break" | "inactive";
+
+export interface StaffMember {
+  id: string;
+  vendorId: string;
+  name: string;
+  role: string;
+  email?: string;
+  status: StaffStatus;
 }
 
 export type SlotStatus = "open" | "closed" | "dispatched";

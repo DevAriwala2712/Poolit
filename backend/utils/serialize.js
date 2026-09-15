@@ -17,6 +17,20 @@ function toVendorJSON(row) {
     name: row.name,
     hostelId: row.hostel_id,
     prepMinutes: row.prep_minutes,
+    acceptingOrders: row.accepting_orders,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toStaffJSON(row) {
+  return {
+    id: row.id,
+    vendorId: row.vendor_id,
+    name: row.name,
+    role: row.role,
+    email: row.email ?? undefined,
+    status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -102,4 +116,5 @@ module.exports = {
   toSlotJSON,
   toOrderJSON,
   toRestockLogJSON,
+  toStaffJSON,
 };

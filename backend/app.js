@@ -11,6 +11,7 @@ const ordersRouter = require("./routes/orders");
 const menuItemsRouter = require("./routes/menuItems");
 const inventoryRouter = require("./routes/inventory");
 const internalRouter = require("./routes/internal");
+const staffRouter = require("./routes/staff");
 
 const app = express();
 
@@ -50,8 +51,14 @@ app.get("/", (req, res) => {
       "GET  /hostels/:hostelId/current-slot",
       "GET  /vendors",
       "GET  /vendors/:vendorId",
+      "PATCH /vendors/:vendorId",
       "GET  /vendors/:vendorId/menu",
+      "POST /vendors/:vendorId/menu-items",
       "GET  /vendors/:vendorId/orders",
+      "GET  /vendors/:vendorId/staff",
+      "POST /vendors/:vendorId/staff",
+      "PATCH /staff/:staffId",
+      "DELETE /staff/:staffId",
       "GET  /slots/:slotId",
       "GET  /slots/:slotId/orders",
       "GET  /slots/:slotId/pick-list",
@@ -76,6 +83,7 @@ app.use("/orders", ordersRouter);
 app.use("/menu-items", menuItemsRouter);
 app.use("/inventory", inventoryRouter);
 app.use("/internal", internalRouter);
+app.use("/staff", staffRouter);
 
 // 404 handler
 app.use((req, res) => {

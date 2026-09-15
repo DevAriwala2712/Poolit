@@ -34,6 +34,24 @@ interface StoreContextValue extends StoreData {
   restockItem: (vendorId: string, menuItemId: string, amount: number) => Promise<void>;
   setItemPrice: (vendorId: string, menuItemId: string, price: number) => Promise<void>;
   setItemBarcode: (vendorId: string, menuItemId: string, barcode: string) => Promise<void>;
+  updateVendorSettings: (
+    vendorId: string,
+    patch: { acceptingOrders?: boolean; prepMinutes?: number },
+  ) => Promise<void>;
+  createMenuItem: (
+    vendorId: string,
+    input: {
+      name: string;
+      category: string;
+      price: number;
+      unit: string;
+      stockQty?: number;
+      lowStockThreshold?: number;
+      isVeg?: boolean;
+      art?: string;
+      tint?: string;
+    },
+  ) => Promise<MenuItem>;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -136,6 +154,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setItemBarcode: async (_vendorId, menuItemId, barcode) => {
         await api.updateItem(menuItemId, { barcode });
         await refresh();
+      },
+      updateVendorSettings: async (vendorId, patch) => {
+        await api.updateVendor(vendorId, patch);
+        await refresh();
+      },
+      createMenuItem: async (vendorId, input) => {
+        const item = await api.createMenuItem(vendorId, input);
+        await refresh();
+        return item;
       },
     }),
     [data, loading, error, refresh],

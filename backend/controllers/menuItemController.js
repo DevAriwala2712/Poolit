@@ -1,6 +1,68 @@
 const supabase = require("../config/supabaseClient");
 const { toMenuItemJSON, toRestockLogJSON } = require("../utils/serialize");
 
+// Mirrors the DB check constraint on menu_items.category and
+// frontend/packages/domain/src/types.ts CATEGORIES.
+const CATEGORIES = ["Snacks", "Instant Food", "Drinks", "Essentials", "Fresh", "Midnight Cravings"];
+
+// POST /vendors/:vendorId/menu-items
+exports.createItem = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const { name, category, price, unit, stockQty, lowStockThreshold, isVeg, art, tint } = req.body;
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ message: "name is required" });
+    }
+    if (!CATEGORIES.includes(category)) {
+      return res.status(400).json({ message: `category must be one of: ${CATEGORIES.join(", ")}` });
+    }
+    if (typeof price !== "number" || !Number.isFinite(price) || price <= 0) {
+      return res.status(400).json({ message: "price must be a positive number" });
+    }
+    if (!unit || typeof unit !== "string" || !unit.trim()) {
+      return res.status(400).json({ message: "unit is required" });
+    }
+    if (stockQty !== undefined && (typeof stockQty !== "number" || !Number.isInteger(stockQty) || stockQty < 0)) {
+      return res.status(400).json({ message: "stockQty must be a non-negative integer" });
+    }
+    if (
+      lowStockThreshold !== undefined &&
+      (typeof lowStockThreshold !== "number" || !Number.isInteger(lowStockThreshold) || lowStockThreshold < 0)
+    ) {
+      return res.status(400).json({ message: "lowStockThreshold must be a non-negative integer" });
+    }
+
+    const { data: item, error } = await supabase
+      .from("menu_items")
+      .insert({
+        vendor_id: vendorId,
+        name: name.trim(),
+        category,
+        price: Math.round(price),
+        unit: unit.trim(),
+        stock_qty: stockQty ?? 0,
+        low_stock_threshold: lowStockThreshold ?? 5,
+        is_veg: typeof isVeg === "boolean" ? isVeg : true,
+        art: typeof art === "string" && art.trim() ? art.trim() : "📦",
+        tint: typeof tint === "string" && tint.trim() ? tint.trim() : "#F1EDE6",
+      })
+      .select()
+      .single();
+    if (error) {
+      if (error.code === "23503") {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      throw error;
+    }
+
+    res.status(201).json(toMenuItemJSON(item));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to create menu item" });
+  }
+};
+
 // POST /menu-items/:itemId/restock
 exports.restockItem = async (req, res) => {
   try {

@@ -1,33 +1,96 @@
 import { SLOT_DURATION_MINUTES, feeForOrderCount, rupees, useStore } from "@poolit/domain";
-import { useState } from "react";
+import type { StaffMember } from "@poolit/domain";
+import { api } from "@poolit/domain";
+import { useEffect, useState } from "react";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card } from "../components/ui";
 import { useAuth } from "../state/AuthContext";
 import { useUIMode } from "../state/UIModeContext";
 import { useVendor } from "../state/VendorContext";
 
-const STAFF = [
-  { name: "Suresh Kumar", role: "Owner / Expeditor", email: "suresh@campusmart.in", status: "Active" },
-  { name: "Anita Rao", role: "Store Manager", email: "anita@campusmart.in", status: "Active" },
-  { name: "Vikram Shah", role: "Runner Station", email: "vikram@campusmart.in", status: "On Break" },
-];
-
 const TABS = ["Store Profile", "Delivery & Pooling", "Kitchen SLA & Ops", "Team & Roles", "Settlement & Hardware"];
 
 export function Settings() {
   const { vendor, hostel } = useVendor();
-  const { refresh } = useStore();
+  const { refresh, updateVendorSettings } = useStore();
   const { session, signOut } = useAuth();
   const { advancedMode, setAdvancedMode } = useUIMode();
   const [tab, setTab] = useState(TABS[0]);
-  const [accepting, setAccepting] = useState(true);
+  const [accepting, setAccepting] = useState(vendor.acceptingOrders);
   const [prep, setPrep] = useState(vendor.prepMinutes);
   const [batchWindow, setBatchWindow] = useState(SLOT_DURATION_MINUTES);
   const [maxDensity, setMaxDensity] = useState(5);
   const [autoPrintKot, setAutoPrintKot] = useState(true);
   const [rushBuzzer, setRushBuzzer] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savedJustNow, setSavedJustNow] = useState(false);
+
+  // Re-sync local drafts if the vendor (or its server-side values) changes —
+  // e.g. switching stores, or another session saving in the meantime.
+  useEffect(() => {
+    setAccepting(vendor.acceptingOrders);
+    setPrep(vendor.prepMinutes);
+  }, [vendor.id, vendor.acceptingOrders, vendor.prepMinutes]);
+
+  const dirty = accepting !== vendor.acceptingOrders || prep !== vendor.prepMinutes;
+
+  async function saveChanges() {
+    setSaving(true);
+    try {
+      await updateVendorSettings(vendor.id, { acceptingOrders: accepting, prepMinutes: prep });
+      setSavedJustNow(true);
+      setTimeout(() => setSavedJustNow(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const netFee = feeForOrderCount(maxDensity);
+
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [staffLoading, setStaffLoading] = useState(true);
+  const [inviting, setInviting] = useState(false);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteRole, setInviteRole] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setStaffLoading(true);
+    api
+      .getStaff(vendor.id)
+      .then((data) => !cancelled && setStaff(data))
+      .catch(() => !cancelled && setStaff([]))
+      .finally(() => !cancelled && setStaffLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [vendor.id]);
+
+  async function inviteCrewMember() {
+    if (!inviteName.trim() || !inviteRole.trim()) return;
+    const created = await api.createStaff(vendor.id, {
+      name: inviteName.trim(),
+      role: inviteRole.trim(),
+      email: inviteEmail.trim() || undefined,
+    });
+    setStaff((prev) => [...prev, created]);
+    setInviteName("");
+    setInviteRole("");
+    setInviteEmail("");
+    setInviting(false);
+  }
+
+  async function cycleStaffStatus(member: StaffMember) {
+    const next = member.status === "active" ? "break" : member.status === "break" ? "inactive" : "active";
+    const updated = await api.updateStaff(member.id, { status: next });
+    setStaff((prev) => prev.map((s) => (s.id === member.id ? updated : s)));
+  }
+
+  async function removeStaffMember(member: StaffMember) {
+    await api.deleteStaff(member.id);
+    setStaff((prev) => prev.filter((s) => s.id !== member.id));
+  }
 
   return (
     <div className="space-y-space-md">
@@ -37,7 +100,23 @@ export function Settings() {
           <h1 className="text-headline-lg text-on-surface">Settings</h1>
           <p className="text-body-sm text-secondary">Configure store profile, delivery pooling rules, kitchen prep SLA, and dispatch parameters.</p>
         </div>
-        {advancedMode && <Button variant="primary" icon="check_circle">Save Changes</Button>}
+        {advancedMode && (
+          <div className="flex items-center gap-space-sm">
+            {savedJustNow && (
+              <span className="flex items-center gap-space-2xs text-body-sm text-tertiary">
+                <MaterialIcon name="check_circle" className="text-[16px]" /> Saved
+              </span>
+            )}
+            <Button
+              variant="primary"
+              icon="check_circle"
+              onClick={() => void saveChanges()}
+              disabled={!dirty || saving}
+            >
+              {saving ? "Saving…" : "Save Changes"}
+            </Button>
+          </div>
+        )}
       </div>
 
       <Card icon="tune" title="Interface Mode" subtitle="Choose how much of the console is visible">
@@ -201,12 +280,51 @@ export function Settings() {
               flush
               icon="badge"
               title="Active Staff & Stations"
-              subtitle={`${STAFF.filter((s) => s.status !== "On Break").length} active members`}
-              action={<Button size="sm" icon="person_add">Invite Crew Member</Button>}
+              subtitle={staffLoading ? "Loading…" : `${staff.filter((s) => s.status === "active").length} active members`}
+              action={
+                <Button size="sm" icon="person_add" onClick={() => setInviting((v) => !v)}>
+                  Invite Crew Member
+                </Button>
+              }
             >
+              {inviting && (
+                <div className="flex flex-wrap items-center gap-space-xs border-b border-surface-container-low px-space-md py-space-sm">
+                  <input
+                    autoFocus
+                    value={inviteName}
+                    onChange={(e) => setInviteName(e.target.value)}
+                    placeholder="Name"
+                    className="w-32 rounded bg-surface-container-low px-space-sm py-1 text-body-sm text-on-surface outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <input
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value)}
+                    placeholder="Role"
+                    className="w-32 rounded bg-surface-container-low px-space-sm py-1 text-body-sm text-on-surface outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <input
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="Email (optional)"
+                    className="w-40 rounded bg-surface-container-low px-space-sm py-1 text-body-sm text-on-surface outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => void inviteCrewMember()}
+                    disabled={!inviteName.trim() || !inviteRole.trim()}
+                  >
+                    Add
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setInviting(false)}>Cancel</Button>
+                </div>
+              )}
+              {!staffLoading && staff.length === 0 && !inviting && (
+                <p className="px-space-md py-space-md text-body-sm text-secondary">No crew members yet.</p>
+              )}
               <ul className="divide-y divide-surface-container">
-                {STAFF.map((s) => (
-                  <li key={s.email} className="flex items-center gap-space-sm px-space-md py-space-sm">
+                {staff.map((s) => (
+                  <li key={s.id} className="flex items-center gap-space-sm px-space-md py-space-sm">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-container text-body-sm font-semibold text-secondary">
                       {s.name.charAt(0)}
                     </span>
@@ -214,7 +332,18 @@ export function Settings() {
                       <p className="text-body-md text-on-surface">{s.name}</p>
                       <p className="text-label-sm text-secondary">{s.role}</p>
                     </div>
-                    <Badge tone={s.status === "Active" ? "ready" : "neutral"}>{s.status}</Badge>
+                    <button onClick={() => void cycleStaffStatus(s)} title="Click to change status">
+                      <Badge tone={s.status === "active" ? "ready" : s.status === "break" ? "primary" : "neutral"}>
+                        {s.status === "active" ? "Active" : s.status === "break" ? "On Break" : "Inactive"}
+                      </Badge>
+                    </button>
+                    <button
+                      onClick={() => void removeStaffMember(s)}
+                      className="text-secondary transition hover:text-error"
+                      title="Remove"
+                    >
+                      <MaterialIcon name="close" className="text-[16px]" />
+                    </button>
                   </li>
                 ))}
               </ul>

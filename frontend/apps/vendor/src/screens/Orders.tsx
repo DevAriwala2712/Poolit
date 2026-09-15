@@ -10,7 +10,7 @@ import {
   useStore,
 } from "@poolit/domain";
 import type { Order, OrderStatus } from "@poolit/domain";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Drawer } from "../components/Drawer";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card, EmptyState, Td, Th } from "../components/ui";
@@ -72,6 +72,60 @@ export function Orders() {
   const order = orders.find((o) => o.id === selected) ?? null;
   const activeSlot = m.mySlots.find((s) => s.status === "open");
 
+  function printBatchKOT() {
+    const kitchenOrders = m.myOrders.filter((o) => o.status === "placed");
+    if (kitchenOrders.length === 0) return;
+
+    const ticketsHtml = kitchenOrders
+      .map((o) => {
+        const itemsHtml = o.items
+          .map((line) => {
+            const item = vendor.menu.find((m2) => m2.id === line.menuItemId);
+            return `<li>${line.qty} × ${item?.name ?? "Unknown item"}</li>`;
+          })
+          .join("");
+        return `
+          <section class="ticket">
+            <h2>#${o.id.slice(-6).toUpperCase()}</h2>
+            <p>${o.studentName} — ${o.block ?? ""}, Room ${o.room ?? ""}</p>
+            <p class="time">${clockTime(o.createdAt)}</p>
+            <ul>${itemsHtml}</ul>
+            ${o.note ? `<p class="note">Note: ${o.note}</p>` : ""}
+          </section>
+        `;
+      })
+      .join("");
+
+    const win = window.open("", "_blank", "width=420,height=600");
+    if (!win) return;
+    win.document.write(`<!doctype html><html><head><title>Batch KOT — ${vendor.name}</title>
+      <style>
+        body { font-family: monospace; padding: 12px; }
+        .ticket { border-bottom: 2px dashed #000; padding: 10px 0; page-break-inside: avoid; }
+        .ticket h2 { margin: 0 0 4px; }
+        .ticket .time { color: #555; font-size: 12px; margin: 2px 0 8px; }
+        .ticket ul { margin: 0; padding-left: 18px; }
+        .ticket .note { font-style: italic; margin-top: 6px; }
+      </style>
+      </head><body>${ticketsHtml}</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
+  useEffect(() => {
+    if (!advancedMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        printBatchKOT();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advancedMode, m.myOrders]);
+
   function toggle(id: string) {
     setChecked((prev) => {
       const next = new Set(prev);
@@ -118,7 +172,12 @@ export function Orders() {
             Active Pools: {m.mySlots.filter((s) => s.status !== "dispatched").length} Runs
           </span>
           {advancedMode && (
-            <Button variant="primary" icon="print">
+            <Button
+              variant="primary"
+              icon="print"
+              onClick={printBatchKOT}
+              disabled={m.myOrders.filter((o) => o.status === "placed").length === 0}
+            >
               Batch KOT <span className="opacity-70">⌘P</span>
             </Button>
           )}

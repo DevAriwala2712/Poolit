@@ -86,6 +86,49 @@ exports.getVendorMenu = async (req, res) => {
   }
 };
 
+// PATCH /vendors/:vendorId
+exports.updateVendor = async (req, res) => {
+  try {
+    const { acceptingOrders, prepMinutes } = req.body;
+    const update = {};
+
+    if (acceptingOrders !== undefined) {
+      if (typeof acceptingOrders !== "boolean") {
+        return res.status(400).json({ message: "acceptingOrders must be a boolean" });
+      }
+      update.accepting_orders = acceptingOrders;
+    }
+
+    if (prepMinutes !== undefined) {
+      if (typeof prepMinutes !== "number" || !Number.isInteger(prepMinutes) || prepMinutes < 1) {
+        return res.status(400).json({ message: "prepMinutes must be a positive integer" });
+      }
+      update.prep_minutes = prepMinutes;
+    }
+
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ message: "Nothing to update" });
+    }
+    update.updated_at = new Date().toISOString();
+
+    const { data: vendor, error } = await supabase
+      .from("vendors")
+      .update(update)
+      .eq("id", req.params.vendorId)
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    if (!vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    res.json(toVendorJSON(vendor));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to update vendor" });
+  }
+};
+
 // GET /vendors/:vendorId/orders?status=
 exports.getVendorOrders = async (req, res) => {
   try {

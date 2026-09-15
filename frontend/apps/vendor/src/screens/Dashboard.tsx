@@ -6,6 +6,7 @@ import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card, EmptyState } from "../components/ui";
 import { useMetrics, pctDelta, poolStats } from "../hooks/useMetrics";
 import { useNow } from "../hooks/useNow";
+import { downloadCSV } from "../lib/csv";
 import { useUIMode } from "../state/UIModeContext";
 import { useVendor } from "../state/VendorContext";
 
@@ -28,6 +29,22 @@ export function Dashboard() {
     .sort((a, b) => a.closesAt - b.closesAt);
 
   const criticalStock = [...m.outOfStock, ...m.lowStock].slice(0, 6);
+
+  function exportShiftCSV() {
+    downloadCSV(
+      `${vendor.name.replace(/\s+/g, "-").toLowerCase()}-shift-${new Date().toISOString().slice(0, 10)}.csv`,
+      m.todayOrders.map((o) => ({
+        "Order ID": o.id,
+        Student: o.studentName,
+        Block: o.block ?? "",
+        Room: o.room ?? "",
+        Items: orderItemCount(o),
+        "Amount (₹)": orderSubtotal(o, vendor.menu) + (o.deliveryFeeCharged ?? 0) + (o.tip ?? 0),
+        Status: o.status,
+        Time: clockTime(o.createdAt),
+      })),
+    );
+  }
 
   return (
     <div className="space-y-space-md">
@@ -282,7 +299,11 @@ export function Dashboard() {
           <div className="ml-auto flex items-center gap-space-xs">
             <span className="rounded bg-surface-container px-space-xs py-space-2xs text-label-sm text-secondary">Auto-syncing (3s)</span>
             <Button size="sm" onClick={() => navigate("/orders")}>Filter Kitchen Ready</Button>
-            {advancedMode && <Button size="sm">Export Shift CSV</Button>}
+            {advancedMode && (
+              <Button size="sm" onClick={exportShiftCSV} disabled={m.todayOrders.length === 0}>
+                Export Shift CSV
+              </Button>
+            )}
           </div>
         }
       >

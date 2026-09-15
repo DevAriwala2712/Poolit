@@ -1,4 +1,4 @@
-import type { Hostel, MenuItem, Order, OrderLineItem, PickListLine, RestockLogEntry, Slot, Vendor } from "./types";
+import type { Hostel, MenuItem, Order, OrderLineItem, PickListLine, RestockLogEntry, Slot, StaffMember, Vendor } from "./types";
 
 /**
  * Base URL of the Poolit backend (see `backend/`).
@@ -77,6 +77,48 @@ export const api = {
   getVendors: () => request<Vendor[]>("/vendors"),
 
   getVendor: (vendorId: string) => request<Vendor>(`/vendors/${vendorId}`),
+
+  updateVendor: (vendorId: string, patch: { acceptingOrders?: boolean; prepMinutes?: number }) =>
+    request<Vendor>(`/vendors/${vendorId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  createMenuItem: (
+    vendorId: string,
+    input: {
+      name: string;
+      category: string;
+      price: number;
+      unit: string;
+      stockQty?: number;
+      lowStockThreshold?: number;
+      isVeg?: boolean;
+      art?: string;
+      tint?: string;
+    },
+  ) =>
+    request<MenuItem>(`/vendors/${vendorId}/menu-items`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  getStaff: (vendorId: string) => request<StaffMember[]>(`/vendors/${vendorId}/staff`),
+
+  createStaff: (vendorId: string, input: { name: string; role: string; email?: string }) =>
+    request<StaffMember>(`/vendors/${vendorId}/staff`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  updateStaff: (staffId: string, patch: { name?: string; role?: string; status?: string }) =>
+    request<StaffMember>(`/staff/${staffId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  deleteStaff: (staffId: string) =>
+    request<{ message: string }>(`/staff/${staffId}`, { method: "DELETE" }),
 
   getVendorOrders: (vendorId: string, status?: string) =>
     request<Order[]>(`/vendors/${vendorId}/orders${status ? `?status=${status}` : ""}`),
