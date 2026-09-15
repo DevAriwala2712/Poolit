@@ -214,14 +214,25 @@ export function Dashboard() {
                         {item.stockQty === 0 ? "OUT OF STOCK · Depleted" : `Low Stock: ${item.stockQty} left`}
                       </span>
                     </div>
-                    <Button
-                      size="sm"
-                      variant={item.stockQty === 0 ? "primary" : "surface"}
-                      onClick={() => restockItem(vendor.id, item.id, 25)}
-                      className="shrink-0"
-                    >
-                      {item.stockQty === 0 ? "Mark In Stock" : "+25 Restock"}
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-space-2xs">
+                      <Button
+                        size="sm"
+                        variant={item.stockQty === 0 ? "primary" : "surface"}
+                        onClick={() => restockItem(vendor.id, item.id, 25)}
+                      >
+                        {item.stockQty === 0 ? "Mark In Stock" : "+25 Restock"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="surface"
+                        onClick={() =>
+                          navigate(`/inventory?status=${item.stockQty === 0 ? "out" : "low"}`)
+                        }
+                        title="Restock a custom amount from Inventory"
+                      >
+                        Custom
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

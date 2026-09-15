@@ -5,7 +5,8 @@
       "name": "student",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "frontend", "run", "dev:student"],
-      "port": 5173
+      "port": 5173,
+      "autoPort": true
     },
     {
       "name": "vendor",

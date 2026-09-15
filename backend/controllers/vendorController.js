@@ -7,21 +7,30 @@ exports.getAllVendors = async (req, res) => {
     const { data: vendors, error } = await supabase.from("vendors").select("*").order("name");
     if (error) throw error;
 
-    const result = await Promise.all(
-      vendors.map(async (v) => {
-        const { data: menu, error: menuErr } = await supabase
-          .from("menu_items")
-          .select("*")
-          .eq("vendor_id", v.id)
-          .order("category")
-          .order("name");
-        if (menuErr) throw menuErr;
-        return {
-          ...toVendorJSON(v),
-          menu: menu.map(toMenuItemJSON),
-        };
-      })
-    );
+    // One query for all menu items instead of one round trip per vendor
+    // (was N+1: a vendor list of 20 stores meant 21 sequential/parallel
+    // Supabase calls just to render the vendor list).
+    const vendorIds = vendors.map((v) => v.id);
+    const menuByVendorId = new Map();
+    if (vendorIds.length > 0) {
+      const { data: allMenuItems, error: menuErr } = await supabase
+        .from("menu_items")
+        .select("*")
+        .in("vendor_id", vendorIds)
+        .order("category")
+        .order("name");
+      if (menuErr) throw menuErr;
+      for (const item of allMenuItems) {
+        const list = menuByVendorId.get(item.vendor_id) || [];
+        list.push(item);
+        menuByVendorId.set(item.vendor_id, list);
+      }
+    }
+
+    const result = vendors.map((v) => ({
+      ...toVendorJSON(v),
+      menu: (menuByVendorId.get(v.id) || []).map(toMenuItemJSON),
+    }));
     res.json(result);
   } catch (err) {
     console.error(err);

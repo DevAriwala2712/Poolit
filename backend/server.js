@@ -9,12 +9,14 @@ console.log("🔌 PORT:", process.env.PORT || 5057);
 console.log("---");
 
 const app = require("./app");
+const { startPoolScheduler } = require("./utils/poolScheduler");
 
 const PORT = process.env.PORT || 5057;
 
 app.listen(PORT, () => {
   console.log(`✅ Poolit backend running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/`);
+  startPoolScheduler();
 });
 
 process.on("unhandledRejection", (err) => {

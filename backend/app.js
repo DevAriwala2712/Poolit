@@ -10,11 +10,31 @@ const slotsRouter = require("./routes/slots");
 const ordersRouter = require("./routes/orders");
 const menuItemsRouter = require("./routes/menuItems");
 const inventoryRouter = require("./routes/inventory");
+const internalRouter = require("./routes/internal");
 
 const app = express();
 
 // Middleware
-app.use(cors());
+// ALLOWED_ORIGINS, if set, is a comma-separated allowlist (e.g. the deployed
+// student/vendor URLs). Left unset, CORS stays wide open — the same
+// permissive default this had before — since student ordering is public.
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors(
+    allowedOrigins.length > 0
+      ? {
+          origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+            callback(new Error("Not allowed by CORS"));
+          },
+        }
+      : undefined
+  )
+);
 app.use(express.json());
 app.use(morgan("dev"));
 
@@ -55,6 +75,7 @@ app.use("/slots", slotsRouter);
 app.use("/orders", ordersRouter);
 app.use("/menu-items", menuItemsRouter);
 app.use("/inventory", inventoryRouter);
+app.use("/internal", internalRouter);
 
 // 404 handler
 app.use((req, res) => {

@@ -66,29 +66,33 @@ exports.placeOrder = async (req, res) => {
 // POST /orders/:orderId/deliver
 exports.markDelivered = async (req, res) => {
   try {
-    const { data: order, error } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("id", req.params.orderId)
-      .maybeSingle();
-    if (error) throw error;
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
-    }
-
-    if (order.status !== "dispatched") {
-      return res.status(409).json({
-        message: `Cannot mark delivered: order is currently "${order.status}". Expected "dispatched".`,
-      });
-    }
-
-    const { data: updated, error: updateErr } = await supabase
+    // Single conditional UPDATE ... WHERE status = 'dispatched' so the
+    // check-then-set is atomic in the database — two concurrent requests
+    // for the same order can no longer both "win" (the old code did a
+    // separate select then update, which raced).
+    const { data: updated, error } = await supabase
       .from("orders")
       .update({ status: "delivered", updated_at: new Date().toISOString() })
-      .eq("id", order.id)
+      .eq("id", req.params.orderId)
+      .eq("status", "dispatched")
       .select()
-      .single();
-    if (updateErr) throw updateErr;
+      .maybeSingle();
+    if (error) throw error;
+
+    if (!updated) {
+      const { data: existing, error: lookupErr } = await supabase
+        .from("orders")
+        .select("id, status")
+        .eq("id", req.params.orderId)
+        .maybeSingle();
+      if (lookupErr) throw lookupErr;
+      if (!existing) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      return res.status(409).json({
+        message: `Cannot mark delivered: order is currently "${existing.status}". Expected "dispatched".`,
+      });
+    }
 
     res.json({
       message: "Order marked as delivered",

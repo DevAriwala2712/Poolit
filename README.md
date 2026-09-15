@@ -39,6 +39,11 @@ The API is now live at `http://localhost:5057` — leave this terminal running.
 (Default port is 5057, not 5000, because macOS's AirPlay Receiver squats on
 5000. Override with `PORT=<port>` in `backend/.env` if 5057 is also taken.)
 
+On startup it also launches a background scheduler that automatically closes
+any pool whose timer has expired (every 30s by default) — see
+[docs/POOLING.md](docs/POOLING.md) for how that works and how to tune or
+extend it for a serverless deployment.
+
 ### 2. Student app (terminal 2)
 
 ```bash
@@ -109,8 +114,9 @@ toggle the sidebar.
 Screens: dashboard (KPIs, live pools, stock alerts, orders-by-hour, top
 sellers, recent orders), orders (filterable table, bulk actions, detail drawer
 with the full run pick list), inventory (cross-store table, inline price edit,
-quick restock), analytics (revenue trend, volume by hour, peak-hours heatmap,
-hostel breakdown), and settings.
+quick restock via +10/+25 presets or a typed custom amount), analytics
+(revenue trend, volume by hour, peak-hours heatmap, hostel breakdown), and
+settings.
 
 ## Business rules
 
@@ -136,6 +142,20 @@ student's tracking screen without a reload.
 
 See [BACKEND_HANDOFF_PROMPT.md](BACKEND_HANDOFF_PROMPT.md) for the original
 backend specification.
+
+## Documentation
+
+Deeper docs live in [docs/](docs/):
+
+- [docs/OVERVIEW.md](docs/OVERVIEW.md) — the idea, the two user types, where
+  everything lives
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — backend routes, inferred
+  schema, the Postgres RPC functions, request flow
+- [docs/POOLING.md](docs/POOLING.md) — how a pool (slot) closes, including
+  the automatic background sweep and its serverless equivalent
+- [docs/BACKEND_NOTES.md](docs/BACKEND_NOTES.md) — backend issues found and
+  fixed, and what's deliberately left open (with why)
+- [docs/ROADMAP.md](docs/ROADMAP.md) — phase history and logical next steps
 
 ## Known gaps
 

@@ -20,6 +20,7 @@ export function Inventory() {
   const [scope, setScope] = useState<"store" | "all">("store");
   const [editing, setEditing] = useState<string | null>(null);
   const [draftPrice, setDraftPrice] = useState("");
+  const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
 
   const pool = useMemo(
     () =>
@@ -54,6 +55,14 @@ export function Inventory() {
     if (Number.isFinite(next) && next > 0) setItemPrice(vendorId, item.id, Math.round(next));
     setEditing(null);
     setDraftPrice("");
+  }
+
+  function commitCustomRestock(vendorId: string, item: MenuItem) {
+    const raw = customAmounts[item.id];
+    const amount = Number(raw);
+    if (!raw || !Number.isFinite(amount) || !Number.isInteger(amount) || amount <= 0) return;
+    restockItem(vendorId, item.id, amount);
+    setCustomAmounts((prev) => ({ ...prev, [item.id]: "" }));
   }
 
   function categoryCount(c: string) {
@@ -228,6 +237,30 @@ export function Inventory() {
                               +{amount}
                             </button>
                           ))}
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={customAmounts[item.id] ?? ""}
+                            onChange={(e) =>
+                              setCustomAmounts((prev) => ({
+                                ...prev,
+                                [item.id]: e.target.value.replace(/\D/g, ""),
+                              }))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitCustomRestock(vendorId, item);
+                            }}
+                            placeholder="Qty"
+                            aria-label={`Custom restock amount for ${item.name}`}
+                            className="w-14 rounded bg-surface-container-low px-1.5 py-1 text-label-sm text-on-surface outline-none ring-1 ring-surface-container-high focus:ring-2 focus:ring-primary"
+                          />
+                          <button
+                            onClick={() => commitCustomRestock(vendorId, item)}
+                            disabled={!customAmounts[item.id]}
+                            className="rounded bg-surface-container px-2 py-1 text-label-sm text-secondary transition hover:bg-surface-container-high hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Add
+                          </button>
                         </div>
                       </Td>
                     </tr>
