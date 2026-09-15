@@ -2,17 +2,18 @@ import { useStore } from "@poolit/domain";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../state/AuthContext";
+import { useUIMode } from "../state/UIModeContext";
 import { useVendor } from "../state/VendorContext";
 import { CommandPalette } from "./CommandPalette";
 import { LogoMark } from "./LogoMark";
 import { MaterialIcon } from "./MaterialIcon";
 import { Badge, Kbd } from "./ui";
 
-const NAV: { to: string; label: string; icon: string; end?: boolean }[] = [
+const NAV: { to: string; label: string; icon: string; end?: boolean; advanced?: boolean }[] = [
   { to: "/", label: "Overview", icon: "dashboard", end: true },
   { to: "/orders", label: "Orders", icon: "receipt_long" },
   { to: "/inventory", label: "Inventory", icon: "inventory_2" },
-  { to: "/analytics", label: "Analytics", icon: "monitoring" },
+  { to: "/analytics", label: "Analytics", icon: "monitoring", advanced: true },
   { to: "/settings", label: "Settings", icon: "settings" },
 ];
 
@@ -32,6 +33,8 @@ export function Shell() {
   const { vendor, hostel, allVendors, setVendorId } = useVendor();
   const { orders, slots } = useStore();
   const { session, signOut } = useAuth();
+  const { advancedMode } = useUIMode();
+  const nav = NAV.filter((item) => !item.advanced || advancedMode);
 
   const meta = TITLES[pathname] ?? { crumb: "Vendor Console", sub: "" };
 
@@ -93,7 +96,7 @@ export function Shell() {
           </div>
 
           <nav className="mt-space-xs flex flex-col gap-space-2xs px-space-sm">
-            {NAV.map((item) => (
+            {nav.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

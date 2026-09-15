@@ -6,6 +6,7 @@ import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card, EmptyState } from "../components/ui";
 import { useMetrics, pctDelta, poolStats } from "../hooks/useMetrics";
 import { useNow } from "../hooks/useNow";
+import { useUIMode } from "../state/UIModeContext";
 import { useVendor } from "../state/VendorContext";
 
 const TODAY = new Date().toLocaleDateString("en-IN", { weekday: "long", month: "long", day: "numeric" });
@@ -15,6 +16,7 @@ export function Dashboard() {
   const now = useNow();
   const { vendor, hostel } = useVendor();
   const { orders, closeSlot, dispatchSlot, restockItem } = useStore();
+  const { advancedMode } = useUIMode();
   const m = useMetrics();
 
   const kitchenAction = m.myOrders.filter((o) => o.status === "placed").length;
@@ -173,22 +175,24 @@ export function Dashboard() {
           </Card>
 
           {/* Hourly throughput */}
-          <Card
-            title="Hourly Throughput & Kitchen Load"
-            subtitle="24-hour service curve, across all runs today"
-            action={
-              <div className="flex items-center gap-space-sm text-label-sm text-secondary">
-                <span className="flex items-center gap-space-2xs">
-                  <span className="h-2.5 w-2.5 rounded bg-primary" /> Peak Orders
-                </span>
-                <span className="flex items-center gap-space-2xs">
-                  <span className="h-2.5 w-2.5 rounded bg-surface-container-highest" /> Off-Peak
-                </span>
-              </div>
-            }
-          >
-            <BarChart data={m.byHour} height={176} peakIndex={peakIdx} />
-          </Card>
+          {advancedMode && (
+            <Card
+              title="Hourly Throughput & Kitchen Load"
+              subtitle="24-hour service curve, across all runs today"
+              action={
+                <div className="flex items-center gap-space-sm text-label-sm text-secondary">
+                  <span className="flex items-center gap-space-2xs">
+                    <span className="h-2.5 w-2.5 rounded bg-primary" /> Peak Orders
+                  </span>
+                  <span className="flex items-center gap-space-2xs">
+                    <span className="h-2.5 w-2.5 rounded bg-surface-container-highest" /> Off-Peak
+                  </span>
+                </div>
+              }
+            >
+              <BarChart data={m.byHour} height={176} peakIndex={peakIdx} />
+            </Card>
+          )}
         </div>
 
         <div className="flex flex-col gap-space-md lg:col-span-5">
@@ -240,30 +244,32 @@ export function Dashboard() {
           </Card>
 
           {/* Top velocity items */}
-          <Card icon="leaderboard" title="Top Velocity Items" action={<span className="text-label-sm text-secondary">Today's Cumulative</span>}>
-            {m.topItems.length === 0 ? (
-              <EmptyState icon="inventory_2" title="No sales yet" body="Top items appear once orders come in." />
-            ) : (
-              <div className="mt-space-sm flex flex-col gap-space-2xs">
-                {m.topItems.map((t, i) => (
-                  <div key={t.id} className="flex items-center justify-between py-space-2xs">
-                    <div className="flex min-w-0 items-center gap-space-sm">
-                      <span className={`font-bold text-label-sm ${i === 0 ? "text-primary" : "text-secondary"}`}>
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <div className="flex min-w-0 flex-col">
-                        <span className="truncate text-body-sm font-headline-sm text-on-surface">
-                          {t.art} {t.name}
+          {advancedMode && (
+            <Card icon="leaderboard" title="Top Velocity Items" action={<span className="text-label-sm text-secondary">Today's Cumulative</span>}>
+              {m.topItems.length === 0 ? (
+                <EmptyState icon="inventory_2" title="No sales yet" body="Top items appear once orders come in." />
+              ) : (
+                <div className="mt-space-sm flex flex-col gap-space-2xs">
+                  {m.topItems.map((t, i) => (
+                    <div key={t.id} className="flex items-center justify-between py-space-2xs">
+                      <div className="flex min-w-0 items-center gap-space-sm">
+                        <span className={`font-bold text-label-sm ${i === 0 ? "text-primary" : "text-secondary"}`}>
+                          {String(i + 1).padStart(2, "0")}
                         </span>
-                        <span className="text-label-sm text-secondary">{t.units} orders dispatched</span>
+                        <div className="flex min-w-0 flex-col">
+                          <span className="truncate text-body-sm font-headline-sm text-on-surface">
+                            {t.art} {t.name}
+                          </span>
+                          <span className="text-label-sm text-secondary">{t.units} orders dispatched</span>
+                        </div>
                       </div>
+                      <span className="text-tabular-metric !text-body-sm text-on-surface">{rupees(t.revenue)}</span>
                     </div>
-                    <span className="text-tabular-metric !text-body-sm text-on-surface">{rupees(t.revenue)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
         </div>
       </div>
 
@@ -276,7 +282,7 @@ export function Dashboard() {
           <div className="ml-auto flex items-center gap-space-xs">
             <span className="rounded bg-surface-container px-space-xs py-space-2xs text-label-sm text-secondary">Auto-syncing (3s)</span>
             <Button size="sm" onClick={() => navigate("/orders")}>Filter Kitchen Ready</Button>
-            <Button size="sm">Export Shift CSV</Button>
+            {advancedMode && <Button size="sm">Export Shift CSV</Button>}
           </div>
         }
       >

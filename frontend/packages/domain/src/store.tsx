@@ -33,6 +33,7 @@ interface StoreContextValue extends StoreData {
   markDelivered: (orderId: string) => Promise<void>;
   restockItem: (vendorId: string, menuItemId: string, amount: number) => Promise<void>;
   setItemPrice: (vendorId: string, menuItemId: string, price: number) => Promise<void>;
+  setItemBarcode: (vendorId: string, menuItemId: string, barcode: string) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -130,6 +131,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       setItemPrice: async (_vendorId, menuItemId, price) => {
         await api.updateItem(menuItemId, { price });
+        await refresh();
+      },
+      setItemBarcode: async (_vendorId, menuItemId, barcode) => {
+        await api.updateItem(menuItemId, { barcode });
         await refresh();
       },
     }),

@@ -119,7 +119,10 @@ export const api = {
       { method: "POST", body: JSON.stringify({ amount }) },
     ),
 
-  updateItem: (menuItemId: string, patch: { price?: number; lowStockThreshold?: number }) =>
+  updateItem: (
+    menuItemId: string,
+    patch: { price?: number; lowStockThreshold?: number; barcode?: string | null },
+  ) =>
     request<MenuItem>(`/menu-items/${menuItemId}`, {
       method: "PATCH",
       body: JSON.stringify(patch),

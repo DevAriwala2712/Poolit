@@ -17,6 +17,7 @@ import { Badge, Button, Card, EmptyState, Td, Th } from "../components/ui";
 import type { Tone } from "../components/ui";
 import { useMetrics } from "../hooks/useMetrics";
 import { useNow } from "../hooks/useNow";
+import { useUIMode } from "../state/UIModeContext";
 import { useVendor } from "../state/VendorContext";
 
 const STATUS_TONE: Record<OrderStatus, Tone> = {
@@ -45,6 +46,7 @@ export function Orders() {
   const now = useNow();
   const { vendor, hostel } = useVendor();
   const { orders, markDelivered, closeSlot, dispatchSlot } = useStore();
+  const { advancedMode } = useUIMode();
   const m = useMetrics();
 
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
@@ -115,9 +117,11 @@ export function Orders() {
             <MaterialIcon name="local_shipping" className="text-[16px] text-primary" />
             Active Pools: {m.mySlots.filter((s) => s.status !== "dispatched").length} Runs
           </span>
-          <Button variant="primary" icon="print">
-            Batch KOT <span className="opacity-70">⌘P</span>
-          </Button>
+          {advancedMode && (
+            <Button variant="primary" icon="print">
+              Batch KOT <span className="opacity-70">⌘P</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -164,7 +168,7 @@ export function Orders() {
             ))}
           </div>
 
-          {checked.size > 0 && (
+          {advancedMode && checked.size > 0 && (
             <div className="flex items-center gap-space-sm rounded-lg bg-primary-container/10 p-space-sm">
               <span className="rounded bg-primary-container px-space-xs py-space-2xs text-label-sm text-on-primary-container">
                 {checked.size}
@@ -192,7 +196,7 @@ export function Orders() {
             <table className="w-full min-w-[860px] border-collapse">
               <thead>
                 <tr>
-                  <Th className="w-10" />
+                  {advancedMode && <Th className="w-10" />}
                   <Th>Order ID</Th>
                   <Th>Student & Hostel Dest</Th>
                   <Th>Items Summary</Th>
@@ -209,15 +213,17 @@ export function Orders() {
                     onClick={() => setSelected(o.id)}
                     className="cursor-pointer border-b border-surface-container-low transition-colors last:border-0 hover:bg-surface-container-low"
                   >
-                    <Td>
-                      <input
-                        type="checkbox"
-                        checked={checked.has(o.id)}
-                        onChange={() => toggle(o.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-3.5 w-3.5 accent-primary"
-                      />
-                    </Td>
+                    {advancedMode && (
+                      <Td>
+                        <input
+                          type="checkbox"
+                          checked={checked.has(o.id)}
+                          onChange={() => toggle(o.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-3.5 w-3.5 accent-primary"
+                        />
+                      </Td>
+                    )}
                     <Td className="font-bold font-label-sm text-label-sm text-on-surface">
                       #{o.id.slice(-6).toUpperCase()}
                     </Td>
@@ -266,7 +272,9 @@ export function Orders() {
         )}
         <div className="flex flex-wrap items-center justify-between gap-space-xs px-space-md py-space-sm text-label-sm text-secondary">
           <span>Displaying {rows.length} of {m.myOrders.length} orders</span>
-          <span>Press <kbd className="rounded bg-surface-container px-space-xs py-space-2xs">⌘P</kbd> for batch KOT print</span>
+          {advancedMode && (
+            <span>Press <kbd className="rounded bg-surface-container px-space-xs py-space-2xs">⌘P</kbd> for batch KOT print</span>
+          )}
         </div>
       </Card>
 

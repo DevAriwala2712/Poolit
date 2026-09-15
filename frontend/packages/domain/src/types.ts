@@ -35,6 +35,8 @@ export interface MenuItem {
   art: string;
   /** Soft tint behind the product art. */
   tint: string;
+  /** UPC/EAN etc, assigned by a vendor via the barcode scanner. Unique per vendor. */
+  barcode?: string;
 }
 
 export interface Vendor {

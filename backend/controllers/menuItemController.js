@@ -38,7 +38,7 @@ exports.restockItem = async (req, res) => {
 // Vendor-side edits to an item's price and/or low-stock threshold.
 exports.updateItem = async (req, res) => {
   try {
-    const { price, lowStockThreshold } = req.body;
+    const { price, lowStockThreshold, barcode } = req.body;
     const update = {};
 
     if (price !== undefined) {
@@ -61,6 +61,15 @@ exports.updateItem = async (req, res) => {
       update.lowStockThreshold = lowStockThreshold;
     }
 
+    if (barcode !== undefined) {
+      if (barcode !== null && (typeof barcode !== "string" || !barcode.trim())) {
+        return res
+          .status(400)
+          .json({ message: "barcode must be a non-empty string or null" });
+      }
+      update.barcode = barcode === null ? null : barcode.trim();
+    }
+
     if (Object.keys(update).length === 0) {
       return res.status(400).json({ message: "Nothing to update" });
     }
@@ -68,6 +77,7 @@ exports.updateItem = async (req, res) => {
     const dbUpdate = { updated_at: new Date().toISOString() };
     if (update.price !== undefined) dbUpdate.price = update.price;
     if (update.lowStockThreshold !== undefined) dbUpdate.low_stock_threshold = update.lowStockThreshold;
+    if (update.barcode !== undefined) dbUpdate.barcode = update.barcode;
 
     const { data: item, error } = await supabase
       .from("menu_items")
@@ -75,7 +85,15 @@ exports.updateItem = async (req, res) => {
       .eq("id", req.params.itemId)
       .select()
       .maybeSingle();
-    if (error) throw error;
+    if (error) {
+      // Unique violation on (vendor_id, barcode) — see migration add_barcode_to_menu_items.
+      if (error.code === "23505") {
+        return res
+          .status(409)
+          .json({ message: "This barcode is already assigned to another item for this store" });
+      }
+      throw error;
+    }
     if (!item) {
       return res.status(404).json({ message: "Menu item not found" });
     }

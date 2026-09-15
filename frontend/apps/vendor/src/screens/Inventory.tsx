@@ -2,9 +2,11 @@ import { CATEGORIES, rupees, stockState, useStore } from "@poolit/domain";
 import type { MenuItem } from "@poolit/domain";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { BarcodeScanModal } from "../components/BarcodeScanModal";
 import { KpiCard } from "../components/KpiCard";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card, EmptyState, Td, Th } from "../components/ui";
+import { useUIMode } from "../state/UIModeContext";
 import { useVendor } from "../state/VendorContext";
 
 const QUICK = [10, 25];
@@ -13,6 +15,7 @@ export function Inventory() {
   const [params, setParams] = useSearchParams();
   const { vendor, allVendors } = useVendor();
   const { restockItem, setItemPrice } = useStore();
+  const { advancedMode } = useUIMode();
 
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("all");
@@ -21,6 +24,7 @@ export function Inventory() {
   const [editing, setEditing] = useState<string | null>(null);
   const [draftPrice, setDraftPrice] = useState("");
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
+  const [scanOpen, setScanOpen] = useState(false);
 
   const pool = useMemo(
     () =>
@@ -30,6 +34,12 @@ export function Inventory() {
             v.menu.map((item) => ({ item, vendorName: v.name, vendorId: v.id })),
           ),
     [scope, vendor, allVendors],
+  );
+
+  // Scanning should find an item regardless of the current store/scope filter.
+  const allItems = useMemo(
+    () => allVendors.flatMap((v) => v.menu.map((item) => ({ item, vendorName: v.name, vendorId: v.id }))),
+    [allVendors],
   );
 
   const rows = useMemo(
@@ -99,8 +109,17 @@ export function Inventory() {
               <option value="store">This Store</option>
               <option value="all">All Campus Hubs</option>
             </Select>
-            <Button size="sm" icon="download" className="ml-auto">Export Ledger</Button>
-            <Button variant="primary" size="sm" icon="add">Add New Item</Button>
+            <Button
+              variant="primary"
+              size="sm"
+              icon="qr_code_scanner"
+              className="ml-auto"
+              onClick={() => setScanOpen(true)}
+            >
+              Scan barcode
+            </Button>
+            {advancedMode && <Button size="sm" icon="download">Export Ledger</Button>}
+            {advancedMode && <Button size="sm" icon="add">Add New Item</Button>}
           </div>
 
           <div className="flex flex-wrap items-center gap-space-xs">
@@ -274,35 +293,39 @@ export function Inventory() {
       </Card>
 
       {/* Decorative — future hardware/automation integrations */}
-      <div className="grid grid-cols-1 gap-space-md lg:grid-cols-3">
-        <Card title="Auto-Order Webhook" action={<Badge tone="ready" dot={false}>Ready</Badge>}>
-          <p className="text-body-sm text-secondary">
-            Trigger vendor delivery slips directly once minimum inventory threshold is crossed on Campus Central DB.
-          </p>
-          <div className="mt-space-sm flex items-center justify-between text-body-sm">
-            <span className="text-secondary">Supplier: Metro Cash & Fresh Prep</span>
-            <span className="text-primary">Configure →</span>
-          </div>
-        </Card>
-        <Card title="Cold Holding Storage #02" action={<span className="flex items-center gap-space-2xs text-body-sm text-tertiary"><span className="h-2 w-2 rounded-full bg-tertiary" />3.8°C</span>}>
-          <p className="text-body-sm text-secondary">
-            Refrigeration sensor reading steady within safe compliance bounds for raw meat & dairy bases.
-          </p>
-          <div className="mt-space-sm flex items-center justify-between text-body-sm">
-            <span className="text-secondary">Chamber: Unit E-Walkin</span>
-            <span className="text-tertiary">Nominal</span>
-          </div>
-        </Card>
-        <Card title="Prep Consumption Run" action={<span className="text-body-sm text-secondary">1.4x Rush Factor</span>}>
-          <div className="h-1.5 overflow-hidden rounded-full bg-surface-container">
-            <div className="h-full w-[78%] rounded-full bg-primary" />
-          </div>
-          <div className="mt-space-sm flex items-center justify-between text-body-sm">
-            <span className="text-secondary">Peak rush: 12:30 PM - 2:00 PM</span>
-            <span className="text-primary">78% cap</span>
-          </div>
-        </Card>
-      </div>
+      {advancedMode && (
+        <div className="grid grid-cols-1 gap-space-md lg:grid-cols-3">
+          <Card title="Auto-Order Webhook" action={<Badge tone="ready" dot={false}>Ready</Badge>}>
+            <p className="text-body-sm text-secondary">
+              Trigger vendor delivery slips directly once minimum inventory threshold is crossed on Campus Central DB.
+            </p>
+            <div className="mt-space-sm flex items-center justify-between text-body-sm">
+              <span className="text-secondary">Supplier: Metro Cash & Fresh Prep</span>
+              <span className="text-primary">Configure →</span>
+            </div>
+          </Card>
+          <Card title="Cold Holding Storage #02" action={<span className="flex items-center gap-space-2xs text-body-sm text-tertiary"><span className="h-2 w-2 rounded-full bg-tertiary" />3.8°C</span>}>
+            <p className="text-body-sm text-secondary">
+              Refrigeration sensor reading steady within safe compliance bounds for raw meat & dairy bases.
+            </p>
+            <div className="mt-space-sm flex items-center justify-between text-body-sm">
+              <span className="text-secondary">Chamber: Unit E-Walkin</span>
+              <span className="text-tertiary">Nominal</span>
+            </div>
+          </Card>
+          <Card title="Prep Consumption Run" action={<span className="text-body-sm text-secondary">1.4x Rush Factor</span>}>
+            <div className="h-1.5 overflow-hidden rounded-full bg-surface-container">
+              <div className="h-full w-[78%] rounded-full bg-primary" />
+            </div>
+            <div className="mt-space-sm flex items-center justify-between text-body-sm">
+              <span className="text-secondary">Peak rush: 12:30 PM - 2:00 PM</span>
+              <span className="text-primary">78% cap</span>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      <BarcodeScanModal open={scanOpen} onClose={() => setScanOpen(false)} items={allItems} />
     </div>
   );
 }

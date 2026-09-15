@@ -3,6 +3,7 @@ import { useState } from "react";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card } from "../components/ui";
 import { useAuth } from "../state/AuthContext";
+import { useUIMode } from "../state/UIModeContext";
 import { useVendor } from "../state/VendorContext";
 
 const STAFF = [
@@ -17,6 +18,7 @@ export function Settings() {
   const { vendor, hostel } = useVendor();
   const { refresh } = useStore();
   const { session, signOut } = useAuth();
+  const { advancedMode, setAdvancedMode } = useUIMode();
   const [tab, setTab] = useState(TABS[0]);
   const [accepting, setAccepting] = useState(true);
   const [prep, setPrep] = useState(vendor.prepMinutes);
@@ -35,22 +37,38 @@ export function Settings() {
           <h1 className="text-headline-lg text-on-surface">Settings</h1>
           <p className="text-body-sm text-secondary">Configure store profile, delivery pooling rules, kitchen prep SLA, and dispatch parameters.</p>
         </div>
-        <Button variant="primary" icon="check_circle">Save Changes</Button>
+        {advancedMode && <Button variant="primary" icon="check_circle">Save Changes</Button>}
       </div>
 
-      <div className="flex flex-wrap items-center gap-space-xs">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`rounded px-space-sm py-space-xs text-body-sm transition ${
-              tab === t ? "bg-primary-container text-on-primary-container" : "bg-surface-container-lowest text-secondary shadow-sm hover:bg-surface-container"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+      <Card icon="tune" title="Interface Mode" subtitle="Choose how much of the console is visible">
+        <ToggleRow
+          icon="visibility"
+          label="Advanced mode"
+          hint={
+            advancedMode
+              ? "Every panel is visible: pooling tuning, kitchen SLA, staff, settlement, hardware, analytics."
+              : "Only the day-to-day essentials are visible: orders, inventory & restocking, and pool controls."
+          }
+          checked={advancedMode}
+          onChange={setAdvancedMode}
+        />
+      </Card>
+
+      {advancedMode && (
+        <div className="flex flex-wrap items-center gap-space-xs">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`rounded px-space-sm py-space-xs text-body-sm transition ${
+                tab === t ? "bg-primary-container text-on-primary-container" : "bg-surface-container-lowest text-secondary shadow-sm hover:bg-surface-container"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-space-md lg:grid-cols-12">
         <div className="flex flex-col gap-space-md lg:col-span-8">
@@ -85,7 +103,8 @@ export function Settings() {
             </div>
           </Card>
 
-          <Card icon="local_shipping" title="Campus Pooling & Batch Optimization" action={<span className="rounded bg-secondary-container px-space-xs py-space-2xs text-label-sm text-on-secondary-container">Algo v4.2 Active</span>}>
+          {advancedMode && (
+            <Card icon="local_shipping" title="Campus Pooling & Batch Optimization" action={<span className="rounded bg-secondary-container px-space-xs py-space-2xs text-label-sm text-on-secondary-container">Algo v4.2 Active</span>}>
             <div className="mt-space-sm grid grid-cols-1 gap-space-md sm:grid-cols-2">
               <div>
                 <div className="flex items-center justify-between">
@@ -132,9 +151,11 @@ export function Settings() {
                 <span className="font-semibold text-primary">{rupees(netFee)} Net</span>
               </div>
             </div>
-          </Card>
+            </Card>
+          )}
 
-          <Card icon="timer" title="Kitchen SLA & Ops" subtitle="Dispatch pacing & hardware triggers">
+          {advancedMode && (
+            <Card icon="timer" title="Kitchen SLA & Ops" subtitle="Dispatch pacing & hardware triggers">
             <div className="mt-space-sm">
               <p className="text-body-sm text-on-surface">Target Prep Time</p>
               <div className="mt-space-xs flex items-center gap-space-xs">
@@ -172,55 +193,62 @@ export function Settings() {
                 onChange={setRushBuzzer}
               />
             </div>
-          </Card>
+            </Card>
+          )}
 
-          <Card
-            flush
-            icon="badge"
-            title="Active Staff & Stations"
-            subtitle={`${STAFF.filter((s) => s.status !== "On Break").length} active members`}
-            action={<Button size="sm" icon="person_add">Invite Crew Member</Button>}
-          >
-            <ul className="divide-y divide-surface-container">
-              {STAFF.map((s) => (
-                <li key={s.email} className="flex items-center gap-space-sm px-space-md py-space-sm">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-container text-body-sm font-semibold text-secondary">
-                    {s.name.charAt(0)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-body-md text-on-surface">{s.name}</p>
-                    <p className="text-label-sm text-secondary">{s.role}</p>
-                  </div>
-                  <Badge tone={s.status === "Active" ? "ready" : "neutral"}>{s.status}</Badge>
-                </li>
-              ))}
-            </ul>
-          </Card>
+          {advancedMode && (
+            <Card
+              flush
+              icon="badge"
+              title="Active Staff & Stations"
+              subtitle={`${STAFF.filter((s) => s.status !== "On Break").length} active members`}
+              action={<Button size="sm" icon="person_add">Invite Crew Member</Button>}
+            >
+              <ul className="divide-y divide-surface-container">
+                {STAFF.map((s) => (
+                  <li key={s.email} className="flex items-center gap-space-sm px-space-md py-space-sm">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-container text-body-sm font-semibold text-secondary">
+                      {s.name.charAt(0)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-body-md text-on-surface">{s.name}</p>
+                      <p className="text-label-sm text-secondary">{s.role}</p>
+                    </div>
+                    <Badge tone={s.status === "Active" ? "ready" : "neutral"}>{s.status}</Badge>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </div>
 
         <div className="flex flex-col gap-space-md lg:col-span-4">
-          <Card icon="account_balance_wallet" title="Direct Settlement" subtitle="Treasury Route">
-            <p className="text-label-sm uppercase tracking-wide text-secondary">Scheduled Next Payout (04:00 AM IST)</p>
-            <p className="text-headline-lg text-on-surface">₹42,680.00</p>
-            <div className="mt-space-xs h-1.5 overflow-hidden rounded-full bg-surface-container">
-              <div className="h-full w-[78%] rounded-full bg-primary" />
-            </div>
-            <p className="mt-space-2xs text-label-sm text-secondary">78% of Daily Liquidity Cleared</p>
-            <div className="mt-space-sm space-y-1.5 text-body-sm">
-              <Row label="Gateway Engine" value="Razorpay Campus Treasury" />
-              <Row label="Merchant ID" value={`TIET_${vendor.name.split(" ")[0]?.toUpperCase()}_01`} />
-            </div>
-            <Button size="sm" icon="receipt_long" className="mt-space-sm w-full justify-center">Audit Settlement Logs</Button>
-          </Card>
+          {advancedMode && (
+            <Card icon="account_balance_wallet" title="Direct Settlement" subtitle="Treasury Route">
+              <p className="text-label-sm uppercase tracking-wide text-secondary">Scheduled Next Payout (04:00 AM IST)</p>
+              <p className="text-headline-lg text-on-surface">₹42,680.00</p>
+              <div className="mt-space-xs h-1.5 overflow-hidden rounded-full bg-surface-container">
+                <div className="h-full w-[78%] rounded-full bg-primary" />
+              </div>
+              <p className="mt-space-2xs text-label-sm text-secondary">78% of Daily Liquidity Cleared</p>
+              <div className="mt-space-sm space-y-1.5 text-body-sm">
+                <Row label="Gateway Engine" value="Razorpay Campus Treasury" />
+                <Row label="Merchant ID" value={`TIET_${vendor.name.split(" ")[0]?.toUpperCase()}_01`} />
+              </div>
+              <Button size="sm" icon="receipt_long" className="mt-space-sm w-full justify-center">Audit Settlement Logs</Button>
+            </Card>
+          )}
 
-          <Card title="Peripheral Topology" action={<span className="text-label-sm text-secondary">3/3 Online</span>}>
-            <div className="space-y-space-sm">
-              <Peripheral icon="print" name="Star Micronics TSP143" hint="KOT Station 1 · IP 192.168.1.104" status="Connected" />
-              <Peripheral icon="tablet" name="iPad Air Line Expeditor" hint="Battery 94% · Sync Latency 14ms" status="Active" />
-              <Peripheral icon="qr_code_scanner" name="Zebra DS2208 Handheld" hint="Runner Handshake Barcode" status="Paired" />
-            </div>
-            <Button size="sm" icon="network_ping" className="mt-space-sm w-full justify-center">Ping Local Devices</Button>
-          </Card>
+          {advancedMode && (
+            <Card title="Peripheral Topology" action={<span className="text-label-sm text-secondary">3/3 Online</span>}>
+              <div className="space-y-space-sm">
+                <Peripheral icon="print" name="Star Micronics TSP143" hint="KOT Station 1 · IP 192.168.1.104" status="Connected" />
+                <Peripheral icon="tablet" name="iPad Air Line Expeditor" hint="Battery 94% · Sync Latency 14ms" status="Active" />
+                <Peripheral icon="qr_code_scanner" name="Zebra DS2208 Handheld" hint="Runner Handshake Barcode" status="Paired" />
+              </div>
+              <Button size="sm" icon="network_ping" className="mt-space-sm w-full justify-center">Ping Local Devices</Button>
+            </Card>
+          )}
 
           <Card title="Account" subtitle="Signed in to the vendor console">
             <div className="flex items-center justify-between rounded-lg bg-surface-container-low p-space-sm">

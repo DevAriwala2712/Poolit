@@ -43,6 +43,9 @@ function toMenuItemJSON(row) {
   if (row.mrp !== null && row.mrp !== undefined) {
     json.mrp = row.mrp;
   }
+  if (row.barcode !== null && row.barcode !== undefined) {
+    json.barcode = row.barcode;
+  }
   return json;
 }
 
