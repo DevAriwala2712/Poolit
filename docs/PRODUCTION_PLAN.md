@@ -146,7 +146,8 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 ### Observability and operations
 
 - [ ] Error tracking (Sentry) on both apps and the API, with release tags.
-- [ ] Structured JSON logs with a request ID; uptime check on `GET /` (Better Stack or UptimeRobot) paging a phone.
+- [x] Structured JSON logs with a request ID (one line per request, `X-Request-Id` echoed, error bodies carry `{ code, message, requestId }`).
+- [ ] Uptime check on `GET /` (Better Stack or UptimeRobot) paging a phone.
 - [ ] Product analytics on the funnel: app open → cart → order → delivered.
 - [ ] Runbooks: "payments failing", "pool didn't close", "API down", and a restore drill.
 
