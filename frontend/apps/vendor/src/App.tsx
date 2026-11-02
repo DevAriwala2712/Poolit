@@ -1,4 +1,5 @@
 import { StoreProvider } from "@poolit/domain";
+import { lazy, Suspense } from "react";
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ConnectionGate } from "./components/ConnectionGate";
@@ -11,19 +12,26 @@ import { Login } from "./screens/Login";
 import { Orders } from "./screens/Orders";
 import { Settings } from "./screens/Settings";
 import { AuthProvider, useAuth } from "./state/AuthContext";
+import { ToastProvider, useToast } from "./state/ToastContext";
 import { UIModeProvider, useUIMode } from "./state/UIModeContext";
 import { VendorProvider } from "./state/VendorContext";
+
+// Camera + decoder code only loads when someone opens the scanner.
+const Scan = lazy(() => import("./screens/Scan").then((m) => ({ default: m.Scan })));
 
 export default function App() {
   return (
     <AuthProvider>
-      <AuthGate />
+      <ToastProvider>
+        <AuthGate />
+      </ToastProvider>
     </AuthProvider>
   );
 }
 
 function AuthGate() {
   const { session, loading } = useAuth();
+  const { notify } = useToast();
 
   if (loading) {
     return (
@@ -40,7 +48,7 @@ function AuthGate() {
   }
 
   return (
-    <StoreProvider>
+    <StoreProvider onMutationError={(message) => notify(message)}>
       <ConnectionGate>
         <VendorProvider>
           <UIModeProvider>
@@ -52,6 +60,15 @@ function AuthGate() {
                 <Route path="/analytics" element={<AdvancedOnly><Analytics /></AdvancedOnly>} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
+              {/* Full-screen, outside the Shell chrome — built for a phone at the shelf. */}
+              <Route
+                path="/scan"
+                element={
+                  <Suspense fallback={<div className="fixed inset-0 bg-black" />}>
+                    <Scan />
+                  </Suspense>
+                }
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </UIModeProvider>

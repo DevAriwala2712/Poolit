@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@poolit/domain": "*",
-    "@supabase/supabase-js": "^2.114.0"
+    "@supabase/supabase-js": "^2.114.0",
+    "barcode-detector": "^3.2.3",
+    "zxing-wasm": "^3.1.6"
   }
 }

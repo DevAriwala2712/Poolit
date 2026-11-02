@@ -116,7 +116,7 @@ export function Analytics() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-space-md sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-space-sm md:gap-space-md lg:grid-cols-4">
         <KpiCard
           label="Gross Kitchen Revenue"
           value={rupees(totalRevenue)}
