@@ -13,6 +13,7 @@ const inventoryRouter = require("./routes/inventory");
 const internalRouter = require("./routes/internal");
 const staffRouter = require("./routes/staff");
 const meRouter = require("./routes/me");
+const vendorConsoleRouter = require("./routes/vendorConsole");
 
 const app = express();
 app.disable("x-powered-by");
@@ -88,6 +89,7 @@ app.get("/", (req, res) => {
       "GET  /me",
       "PUT  /me",
       "GET  /me/orders",
+      "GET  /vendor/overview?days=7",
     ],
   });
 });
@@ -102,6 +104,7 @@ app.use("/inventory", inventoryRouter);
 app.use("/internal", internalRouter);
 app.use("/staff", staffRouter);
 app.use("/me", meRouter);
+app.use("/vendor", vendorConsoleRouter);
 
 // 404 handler
 app.use((req, res) => {

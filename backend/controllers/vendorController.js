@@ -89,7 +89,7 @@ exports.getVendorMenu = async (req, res) => {
 // PATCH /vendors/:vendorId
 exports.updateVendor = async (req, res) => {
   try {
-    const { acceptingOrders, prepMinutes } = req.body;
+    const { acceptingOrders, prepMinutes, poolWindowMinutes } = req.body;
     const update = {};
 
     if (acceptingOrders !== undefined) {
@@ -104,6 +104,18 @@ exports.updateVendor = async (req, res) => {
         return res.status(400).json({ message: "prepMinutes must be a positive integer" });
       }
       update.prep_minutes = prepMinutes;
+    }
+
+    if (poolWindowMinutes !== undefined) {
+      if (
+        typeof poolWindowMinutes !== "number" ||
+        !Number.isInteger(poolWindowMinutes) ||
+        poolWindowMinutes < 3 ||
+        poolWindowMinutes > 60
+      ) {
+        return res.status(400).json({ message: "poolWindowMinutes must be a whole number from 3 to 60" });
+      }
+      update.pool_window_minutes = poolWindowMinutes;
     }
 
     if (Object.keys(update).length === 0) {

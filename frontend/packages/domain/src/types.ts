@@ -45,6 +45,8 @@ export interface Vendor {
   hostelId: string;
   /** Minutes the store needs to pack a pooled run. */
   prepMinutes: number;
+  /** Length of each pooling window in minutes (3–60). Defaults to 10. */
+  poolWindowMinutes?: number;
   /** Whether the store is currently accepting new orders. */
   acceptingOrders: boolean;
   menu: MenuItem[];

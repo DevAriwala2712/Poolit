@@ -75,3 +75,8 @@ test("STUDENT_LOGIN_REQUIRED: anonymous orders and order lists are refused", asy
     delete process.env.STUDENT_LOGIN_REQUIRED;
   }
 });
+
+test("GET /vendor/overview requires a signed-in vendor", async () => {
+  const res = await fetch(`${base}/vendor/overview`);
+  assert.equal(res.status, 401);
+});

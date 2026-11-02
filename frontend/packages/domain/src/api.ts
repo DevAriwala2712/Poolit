@@ -93,6 +93,12 @@ export const api = {
   updateMe: (profile: StudentProfile) =>
     request<MeResponse>("/me", { method: "PUT", body: JSON.stringify(profile) }),
 
+  /** Vendor console: the signed-in vendor's stores, recent pools and their orders, in one call. */
+  getVendorOverview: (days = 7) =>
+    request<{ hostels: Hostel[]; vendors: Vendor[]; slots: Slot[]; orders: Order[]; days: number }>(
+      `/vendor/overview?days=${days}`,
+    ),
+
   /** Only the caller's own orders (and the slots they belong to). */
   getMyOrders: () => request<{ orders: Order[]; slots: Slot[] }>("/me/orders"),
 
@@ -105,7 +111,7 @@ export const api = {
 
   getVendor: (vendorId: string) => request<Vendor>(`/vendors/${vendorId}`),
 
-  updateVendor: (vendorId: string, patch: { acceptingOrders?: boolean; prepMinutes?: number }) =>
+  updateVendor: (vendorId: string, patch: { acceptingOrders?: boolean; prepMinutes?: number; poolWindowMinutes?: number }) =>
     request<Vendor>(`/vendors/${vendorId}`, {
       method: "PATCH",
       body: JSON.stringify(patch),
