@@ -75,3 +75,20 @@ test("STUDENT_LOGIN_REQUIRED: anonymous orders and order lists are refused", asy
     delete process.env.STUDENT_LOGIN_REQUIRED;
   }
 });
+
+test("GET /vendor/overview requires a signed-in vendor", async () => {
+  const res = await fetch(`${base}/vendor/overview`);
+  assert.equal(res.status, 401);
+});
+
+test("barcode generation and stock adjustment require a signed-in vendor", async () => {
+  for (const [method, path] of [
+    ["POST", "/menu-items/x/barcode"],
+    ["POST", "/menu-items/x/adjust"],
+    ["GET", "/menu-items/x/stock-history"],
+    ["POST", "/vendors/v1/barcodes"],
+  ]) {
+    const res = await fetch(`${base}${path}`, { method, headers: { "content-type": "application/json" }, body: method === "POST" ? "{}" : undefined });
+    assert.equal(res.status, 401, `${method} ${path}`);
+  }
+});

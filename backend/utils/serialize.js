@@ -18,6 +18,7 @@ function toVendorJSON(row) {
     hostelId: row.hostel_id,
     prepMinutes: row.prep_minutes,
     acceptingOrders: row.accepting_orders,
+    poolWindowMinutes: row.pool_window_minutes ?? 10,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

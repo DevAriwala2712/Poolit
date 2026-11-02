@@ -13,6 +13,7 @@ const inventoryRouter = require("./routes/inventory");
 const internalRouter = require("./routes/internal");
 const staffRouter = require("./routes/staff");
 const meRouter = require("./routes/me");
+const vendorConsoleRouter = require("./routes/vendorConsole");
 
 const app = express();
 app.disable("x-powered-by");
@@ -85,9 +86,14 @@ app.get("/", (req, res) => {
       "PATCH /menu-items/:itemId",
       "POST /menu-items/:itemId/restock",
       "GET  /menu-items/:itemId/restock-log",
+      "POST /menu-items/:itemId/barcode",
+      "POST /menu-items/:itemId/adjust",
+      "GET  /menu-items/:itemId/stock-history",
+      "POST /vendors/:vendorId/barcodes",
       "GET  /me",
       "PUT  /me",
       "GET  /me/orders",
+      "GET  /vendor/overview?days=7",
     ],
   });
 });
@@ -102,6 +108,7 @@ app.use("/inventory", inventoryRouter);
 app.use("/internal", internalRouter);
 app.use("/staff", staffRouter);
 app.use("/me", meRouter);
+app.use("/vendor", vendorConsoleRouter);
 
 // 404 handler
 app.use((req, res) => {

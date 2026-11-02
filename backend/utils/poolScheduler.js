@@ -1,41 +1,40 @@
 const supabase = require("../config/supabaseClient");
-const { closeSlot } = require("./slotCloser");
 
 /**
- * Finds every "open" slot whose timer has already expired and closes each
- * one via the same atomic close_slot() RPC the manual "Close pool" button
- * and the lazy per-request check use. This is what makes closing actually
- * automatic instead of only happening the next time some client happens to
- * GET that slot (see docs/POOLING.md).
+ * Keeps every hostel's pool cycling without anyone having to open the app:
+ * closes expired pools (locking fees) and opens the next one. Uses the same
+ * atomic ensure_open_slot() function as GET /hostels/:id/current-slot.
  */
 async function sweepExpiredSlots() {
-  const nowIso = new Date().toISOString();
-
-  const { data: expired, error } = await supabase
-    .from("slots")
-    .select("id")
-    .eq("status", "open")
-    .lte("closes_at", nowIso);
-
+  // Every hostel with a store gets ensure_open_slot(): expired pools with
+  // orders are closed (fees locked) and replaced by a fresh pool, empty
+  // expired pools have their timer restarted, paused stores open nothing.
+  const { data: vendors, error } = await supabase.from("vendors").select("hostel_id");
   if (error) {
-    console.error("[poolScheduler] Failed to query expired slots:", error.message);
+    console.error("[poolScheduler] Failed to list stores:", error.message);
     return { checked: 0, closed: 0, failed: 0 };
   }
 
   let closed = 0;
   let failed = 0;
-
-  for (const { id } of expired) {
-    try {
-      await closeSlot(id);
-      closed += 1;
-    } catch (err) {
+  for (const { hostel_id: hostelId } of vendors) {
+    const { data: before } = await supabase
+      .from("slots")
+      .select("id")
+      .eq("hostel_id", hostelId)
+      .eq("status", "open")
+      .lte("closes_at", new Date().toISOString())
+      .maybeSingle();
+    const { data: after, error: rpcErr } = await supabase.rpc("ensure_open_slot", { p_hostel_id: hostelId });
+    if (rpcErr) {
       failed += 1;
-      console.error(`[poolScheduler] Failed to close slot ${id}:`, err.message);
+      console.error(`[poolScheduler] Failed to rotate pool for hostel ${hostelId}:`, rpcErr.message);
+    } else if (before && after && after.id !== before.id) {
+      closed += 1;
     }
   }
 
-  return { checked: expired.length, closed, failed };
+  return { checked: vendors.length, closed, failed };
 }
 
 /**

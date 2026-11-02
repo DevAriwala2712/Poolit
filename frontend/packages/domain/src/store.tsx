@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { api, ApiError, hasAuthToken } from "./api";
-import type { PlaceOrderInput } from "./api";
+import type { PlaceOrderInput, StockAdjustmentInput } from "./api";
 import type { Hostel, MenuItem, Order, PickListLine, Slot, Vendor } from "./types";
 
 /**
@@ -49,9 +49,14 @@ interface StoreContextValue extends StoreData {
   restockItem: (vendorId: string, menuItemId: string, amount: number) => Promise<void>;
   setItemPrice: (vendorId: string, menuItemId: string, price: number) => Promise<void>;
   setItemBarcode: (vendorId: string, menuItemId: string, barcode: string) => Promise<void>;
+  /** Generate an in-store EAN-13 for an item; resolves to the new code. */
+  generateBarcode: (menuItemId: string) => Promise<string>;
+  /** Generate codes for every item in a store without one; resolves to the count. */
+  generateMissingBarcodes: (vendorId: string) => Promise<number>;
+  adjustStock: (menuItemId: string, input: StockAdjustmentInput) => Promise<void>;
   updateVendorSettings: (
     vendorId: string,
-    patch: { acceptingOrders?: boolean; prepMinutes?: number },
+    patch: { acceptingOrders?: boolean; prepMinutes?: number; poolWindowMinutes?: number },
   ) => Promise<void>;
   createMenuItem: (
     vendorId: string,
@@ -101,41 +106,15 @@ async function fetchStudentView(): Promise<StoreData> {
   return { hostels, vendors, slots: Array.from(bySlotId.values()), orders, poolCounts };
 }
 
-/** Vendor view: pull the whole world in one pass. The dataset is small enough to refetch. */
+/**
+ * Vendor view: one request for the signed-in vendor's stores, their pools
+ * from the last 7 days plus any unfinished ones, and those pools' orders.
+ * (Previously N stores × (orders + current pool + every historical pool),
+ * which grew with order history on every poll.)
+ */
 async function fetchAll(): Promise<StoreData> {
-  const [hostels, vendors] = await Promise.all([api.getHostels(), api.getVendors()]);
-
-  // Every slot for every vendor, plus that vendor's orders.
-  const perVendor = await Promise.all(
-    vendors.map(async (vendor) => {
-      const orders = await api.getVendorOrders(vendor.id);
-      const slotIds = Array.from(new Set(orders.map((o) => o.slotId)));
-
-      // The current slot per hostel is guaranteed; older slots come from orders.
-      let current: Slot | null = null;
-      try {
-        current = (await api.getCurrentSlot(vendor.hostelId)).slot;
-      } catch {
-        current = null;
-      }
-
-      const extraIds = slotIds.filter((id) => id !== current?.id);
-      const extras = await Promise.all(
-        extraIds.map((id) => api.getSlot(id).catch(() => null)),
-      );
-
-      const slots = [current, ...extras].filter((s): s is Slot => s !== null);
-      return { slots, orders };
-    }),
-  );
-
-  const slots = perVendor.flatMap((v) => v.slots);
-  const orders = perVendor.flatMap((v) => v.orders);
-
-  // De-dupe slots that appear via more than one path.
-  const bySlotId = new Map(slots.map((s) => [s.id, s]));
-
-  return { hostels, vendors, slots: Array.from(bySlotId.values()), orders, poolCounts: {} };
+  const { hostels, vendors, slots, orders } = await api.getVendorOverview(7);
+  return { hostels, vendors, slots, orders, poolCounts: {} };
 }
 
 export function StoreProvider({
@@ -250,6 +229,20 @@ export function StoreProvider({
       }),
       setItemBarcode: mutate(async (_vendorId, menuItemId, barcode) => {
         await api.updateItem(menuItemId, { barcode });
+        await refresh();
+      }),
+      generateBarcode: mutate(async (menuItemId) => {
+        const item = await api.generateBarcode(menuItemId);
+        await refresh();
+        return item.barcode ?? "";
+      }),
+      generateMissingBarcodes: mutate(async (vendorId) => {
+        const result = await api.generateMissingBarcodes(vendorId);
+        await refresh();
+        return result.generated;
+      }),
+      adjustStock: mutate(async (menuItemId, input) => {
+        await api.adjustStock(menuItemId, input);
         await refresh();
       }),
       updateVendorSettings: mutate(async (vendorId, patch) => {

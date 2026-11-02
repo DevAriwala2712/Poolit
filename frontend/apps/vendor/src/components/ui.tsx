@@ -64,7 +64,7 @@ export function Card({
     >
       {title && (
         <header className="flex flex-wrap items-center gap-2 px-4 pt-4">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 max-md:basis-full">
             {icon && <MaterialIcon name={icon} className="text-[16px] text-secondary" />}
             <h2 className="text-headline-sm text-on-surface">{title}</h2>
           </div>

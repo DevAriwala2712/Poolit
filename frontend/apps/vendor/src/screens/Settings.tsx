@@ -18,7 +18,7 @@ export function Settings() {
   const [tab, setTab] = useState(TABS[0]);
   const [accepting, setAccepting] = useState(vendor.acceptingOrders);
   const [prep, setPrep] = useState(vendor.prepMinutes);
-  const [batchWindow, setBatchWindow] = useState(SLOT_DURATION_MINUTES);
+  const [batchWindow, setBatchWindow] = useState(vendor.poolWindowMinutes ?? SLOT_DURATION_MINUTES);
   const [maxDensity, setMaxDensity] = useState(5);
   const [autoPrintKot, setAutoPrintKot] = useState(true);
   const [rushBuzzer, setRushBuzzer] = useState(true);
@@ -30,14 +30,20 @@ export function Settings() {
   useEffect(() => {
     setAccepting(vendor.acceptingOrders);
     setPrep(vendor.prepMinutes);
-  }, [vendor.id, vendor.acceptingOrders, vendor.prepMinutes]);
+    setBatchWindow(vendor.poolWindowMinutes ?? SLOT_DURATION_MINUTES);
+  }, [vendor.id, vendor.acceptingOrders, vendor.prepMinutes, vendor.poolWindowMinutes]);
 
-  const dirty = accepting !== vendor.acceptingOrders || prep !== vendor.prepMinutes;
+  const savedWindow = vendor.poolWindowMinutes ?? SLOT_DURATION_MINUTES;
+  const dirty = accepting !== vendor.acceptingOrders || prep !== vendor.prepMinutes || batchWindow !== savedWindow;
 
   async function saveChanges() {
     setSaving(true);
     try {
-      await updateVendorSettings(vendor.id, { acceptingOrders: accepting, prepMinutes: prep });
+      await updateVendorSettings(vendor.id, {
+        acceptingOrders: accepting,
+        prepMinutes: prep,
+        poolWindowMinutes: batchWindow,
+      });
       setSavedJustNow(true);
       setTimeout(() => setSavedJustNow(false), 2500);
     } finally {
@@ -193,13 +199,13 @@ export function Settings() {
                 <input
                   type="range"
                   min={3}
-                  max={20}
+                  max={60}
                   value={batchWindow}
                   onChange={(e) => setBatchWindow(Number(e.target.value))}
                   className="mt-space-xs w-full accent-primary"
                 />
                 <p className="mt-space-2xs text-label-sm text-secondary">
-                  Orders destined for the same hostel block placed within this window automatically group into a single runner run.
+                  How long each pool stays open. A new pool starts automatically when one closes; changes apply from the next pool.
                 </p>
               </div>
               <div>

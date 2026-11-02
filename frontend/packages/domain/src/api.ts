@@ -73,6 +73,25 @@ export interface PlaceOrderInput {
   note?: string;
 }
 
+export type StockAdjustmentReason = "count" | "damaged" | "expired" | "correction" | "other";
+
+export interface StockAdjustmentInput {
+  mode: "set" | "remove";
+  qty: number;
+  reason?: StockAdjustmentReason;
+  note?: string;
+}
+
+export interface StockHistoryEntry {
+  id: string;
+  kind: "restock" | StockAdjustmentReason;
+  delta: number;
+  previousQty?: number;
+  newQty?: number;
+  note?: string;
+  at: number;
+}
+
 export interface StudentProfile {
   name: string;
   hostelId?: string;
@@ -93,6 +112,12 @@ export const api = {
   updateMe: (profile: StudentProfile) =>
     request<MeResponse>("/me", { method: "PUT", body: JSON.stringify(profile) }),
 
+  /** Vendor console: the signed-in vendor's stores, recent pools and their orders, in one call. */
+  getVendorOverview: (days = 7) =>
+    request<{ hostels: Hostel[]; vendors: Vendor[]; slots: Slot[]; orders: Order[]; days: number }>(
+      `/vendor/overview?days=${days}`,
+    ),
+
   /** Only the caller's own orders (and the slots they belong to). */
   getMyOrders: () => request<{ orders: Order[]; slots: Slot[] }>("/me/orders"),
 
@@ -105,7 +130,7 @@ export const api = {
 
   getVendor: (vendorId: string) => request<Vendor>(`/vendors/${vendorId}`),
 
-  updateVendor: (vendorId: string, patch: { acceptingOrders?: boolean; prepMinutes?: number }) =>
+  updateVendor: (vendorId: string, patch: { acceptingOrders?: boolean; prepMinutes?: number; poolWindowMinutes?: number }) =>
     request<Vendor>(`/vendors/${vendorId}`, {
       method: "PATCH",
       body: JSON.stringify(patch),
@@ -196,6 +221,23 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
+
+  /** Give an item its own in-store EAN-13 (idempotent). */
+  generateBarcode: (menuItemId: string) =>
+    request<MenuItem>(`/menu-items/${menuItemId}/barcode`, { method: "POST" }),
+
+  /** Generate barcodes for every item in a store that has none. */
+  generateMissingBarcodes: (vendorId: string) =>
+    request<{ generated: number; items: MenuItem[] }>(`/vendors/${vendorId}/barcodes`, { method: "POST" }),
+
+  /** Set an exact count ("set") or remove units ("remove"), with a reason. */
+  adjustStock: (menuItemId: string, input: StockAdjustmentInput) =>
+    request<{ item: MenuItem; adjustment: StockHistoryEntry }>(`/menu-items/${menuItemId}/adjust`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  getStockHistory: (menuItemId: string) => request<StockHistoryEntry[]>(`/menu-items/${menuItemId}/stock-history`),
 
   getRestockLog: (menuItemId: string) =>
     request<RestockLogEntry[]>(`/menu-items/${menuItemId}/restock-log`),

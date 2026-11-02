@@ -301,7 +301,7 @@ export function Dashboard() {
         title="Recent Incoming Orders"
         action={
           <div className="ml-auto flex items-center gap-space-xs">
-            <span className="rounded bg-surface-container px-space-xs py-space-2xs text-label-sm text-secondary">Auto-syncing (3s)</span>
+            <span className="hidden rounded bg-surface-container px-space-xs py-space-2xs text-label-sm text-secondary md:inline">Auto-syncing (3s)</span>
             <Button size="sm" onClick={() => navigate("/orders")}>Filter Kitchen Ready</Button>
             {advancedMode && (
               <Button size="sm" onClick={exportShiftCSV} disabled={m.todayOrders.length === 0}>
@@ -311,7 +311,37 @@ export function Dashboard() {
           </div>
         }
       >
-        <div className="mt-space-sm w-full overflow-x-auto">
+        {m.myOrders.length > 0 && (
+          <ul className="mt-space-sm divide-y divide-surface-container-low md:hidden">
+            {[...m.myOrders]
+              .sort((a, b) => b.createdAt - a.createdAt)
+              .slice(0, 6)
+              .map((order) => (
+                <li key={order.id}>
+                  <button
+                    onClick={() => navigate("/orders")}
+                    className="flex w-full items-center gap-space-sm px-space-md py-space-sm text-left active:bg-surface-container-low"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-body-md text-on-surface">
+                        {order.studentName} · {orderItemCount(order)} items
+                      </span>
+                      <span className="block truncate text-label-sm text-secondary">
+                        {order.block}, Room {order.room} · {clockTime(order.createdAt)}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <span className="font-mono text-body-sm text-on-surface">{rupees(orderSubtotal(order, vendor.menu))}</span>
+                      <Badge tone={order.status === "placed" ? "error" : order.status === "pooled" ? "prep" : order.status === "dispatched" ? "dispatched" : "delivered"}>
+                        {order.status === "placed" ? "New" : order.status}
+                      </Badge>
+                    </span>
+                  </button>
+                </li>
+              ))}
+          </ul>
+        )}
+        <div className={`mt-space-sm w-full overflow-x-auto ${m.myOrders.length > 0 ? "hidden md:block" : ""}`}>
           {m.myOrders.length === 0 ? (
             <EmptyState icon="receipt_long" title="No orders yet" body="Orders will stream in here." />
           ) : (
@@ -361,7 +391,7 @@ export function Dashboard() {
             </table>
           )}
         </div>
-        <div className="mt-space-sm flex flex-wrap items-center justify-between gap-space-xs px-space-md pb-space-md text-label-sm text-secondary">
+        <div className="mt-space-sm hidden flex-wrap items-center justify-between gap-space-xs px-space-md pb-space-md text-label-sm text-secondary md:flex">
           <div className="flex items-center gap-space-xs">
             <span className="h-2 w-2 rounded-full bg-tertiary" />
             <span>Kitchen Line 01 (Fryer/Curry) & Line 02 (Grill/Tandoor) operating at 68% rated capacity</span>

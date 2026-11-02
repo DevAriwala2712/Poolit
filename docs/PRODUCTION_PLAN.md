@@ -32,7 +32,8 @@ The core business logic is sound: stock decrements, pool closing and dispatch al
 | CORS rejection and malformed JSON returned HTTP 500 | `backend/app.js` | Noise in error tracking, wrong client handling | Fixed (403 / 400) |
 | Auth check could throw when Supabase Auth is unreachable | `requireAuth.js` | Unhandled 500 | Fixed (503) |
 | Polling continued in background tabs | domain `store.tsx` | Battery drain, wasted API quota | Fixed |
-| Every poll refetches everything: N stores × (orders + current slot + every historical slot) | domain `fetchAll` | Load grows with order history; will hit limits within weeks of real use | Open — Phase 1 |
+| Every poll refetches everything: N stores × (orders + current slot + every historical slot) | domain `fetchAll` | Load grows with order history; will hit limits within weeks of real use | Fixed — `GET /vendor/overview` (one request, 7-day window) |
+| No new pool ever opens: only the seed script created slots | backend + DB | Ordering stops once the seeded pools close (all 5 hostels had no open pool on 2 Nov) | Fixed — automatic pool rotation |
 | Any vendor login sees and edits every store | backend + console | A rival store can change your prices | Ready — migration applied and logins linked; turn on `ENFORCE_VENDOR_SCOPING=true` in Vercel |
 | Students have no identity; `POST /slots/:id/orders` is public | backend | Fake orders can drain stock | Fixed in code — phone login; throttled to 30/min per IP |
 | No payments; "payment method" is a text field | everywhere | Cannot go live | Open — Phase 2 |
@@ -68,6 +69,13 @@ The scanner is a dedicated full-screen page (`/scan`) built for a phone held in 
 
 **Constraint to know:** browsers only allow the camera on HTTPS (or `localhost`). Testing from a phone on the LAN over `http://192.168.x.x` will show the HTTPS message; use the deployed Vercel URL or an HTTPS tunnel.
 
+**Generated barcodes and quantity tracking (added 2 Nov 2026):**
+
+- Any item without a barcode can get one: per item (Inventory → "Generate barcode") or all at once ("Generate N missing barcodes"). Codes are EAN-13 in the GS1 "29" in-store range, so they never collide with a manufacturer's code; the database assigns them atomically and they are unique across stores.
+- Labels: preview, print an A4 sheet (3 × 7 labels with name, price, MRP), or download an SVG.
+- Scanning any barcode shows the live quantity with three actions: **Add stock**, **Set count** (stock take: type what's on the shelf) and **Remove** (damaged / expired / other). Every change is recorded with the before/after quantity and who made it (`stock_adjustments`); `GET /menu-items/:id/stock-history` returns restocks and adjustments together.
+- Verified end to end: a printed label for the generated code `2900000000018` was decoded by the camera scanner, matched to its item, and a count of 46 was saved.
+
 **Next steps for scanning:**
 
 - [ ] Add a `barcodes` table (one item, many codes) so multipacks and alternate packaging map to one product.
@@ -92,7 +100,7 @@ The vendor console now behaves like a phone app and can be installed to the home
 
 **Still to do:**
 
-- [ ] Card layouts for the Orders table and the order detail drawer on phones.
+- [x] Card layouts for the Orders list and the Overview's recent orders on phones (desktop layout unchanged: phone-only elements below the `md` breakpoint).
 - [ ] Web Push notifications for new orders (supported on Android and on iPhone for installed PWAs, iOS 16.4+).
 - [ ] Replace 5-second polling with Supabase Realtime subscriptions (see Production architecture).
 - [ ] Code-split Analytics and charts; the main bundle is 550 KB (153 KB gzipped).
@@ -117,7 +125,9 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 
 ### API
 
-- [ ] Replace the frontend's `fetchAll` (N stores × orders × historical slots, every 5 s) with purpose-built endpoints: `GET /vendor/me/dashboard`, paginated `GET /vendors/:id/orders?since=`.
+- [x] Replace the frontend's `fetchAll` (N stores × orders × historical slots, every 5 s) with purpose-built endpoints. *(Vendor console: one `GET /vendor/overview` — 7 days + unfinished pools, scoped to the vendor's stores, fixed number of queries. Student app: public catalogue + `GET /me/orders` + live pool counts.)*
+- [x] Pools open and rotate automatically (`ensure_open_slot`): previously only the seed script created pools, so ordering stopped for good once a pool closed.
+- [ ] Analytics: the 14/30-day revenue trend is simulated ("wobble" numbers) except today — replace with a server-side daily revenue aggregate.
 - [ ] Then switch live updates to Supabase Realtime (Postgres changes on `orders` and `slots`), keeping a 30–60 s poll as a fallback.
 - [ ] Verify Supabase JWTs locally (JWKS) instead of calling Supabase Auth on every request.
 - [ ] Input validation with a schema library (zod) on every route; consistent error shape `{ code, message }`.

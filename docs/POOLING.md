@@ -1,5 +1,24 @@
 # Pool (slot) lifecycle & auto-closing
 
+> **Update (2 Nov 2026): pools now rotate automatically.** Before this, only
+> the seed script ever created slots — once a hostel's pool closed, no new
+> one opened and nobody could order. The database function
+> `ensure_open_slot(hostel_id)`
+> ([migration](../supabase/migrations/20261102023408_automatic_pool_rotation.sql))
+> now runs on every read of a hostel's current pool, on the vendor
+> console's overview, and in the background sweep:
+>
+> - pool still running → returned as is;
+> - expired with orders → closed via `close_slot` (fees locked), and a new
+>   pool opens for `vendors.pool_window_minutes` (default 10, set in the
+>   console under Settings → Batch Window Interval);
+> - expired with no orders → its timer restarts (no empty rows pile up);
+> - store paused (`accepting_orders = false`) → nothing opens.
+>
+> A per-hostel advisory lock and a unique index (one `open` slot per hostel)
+> make it safe under concurrent requests. The rest of this page describes the
+> closing paths, which still apply.
+
 A "pool" in the UI is a **slot** in the data model: `open → closed →
 dispatched`. This doc covers how a slot transitions from `open` to `closed`
 — specifically, what closes it automatically once its timer runs out.

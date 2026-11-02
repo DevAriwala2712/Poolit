@@ -151,7 +151,8 @@ export function Orders() {
       {/* Header band */}
       <div className="flex flex-wrap items-center justify-between gap-space-sm">
         <div>
-          <div className="flex items-center gap-space-sm">
+          {/* The phone top bar already shows this title. */}
+          <div className="hidden items-center gap-space-sm md:flex">
             <h1 className="text-headline-lg text-on-surface">Orders Management</h1>
             <span className="rounded bg-surface-container-highest px-space-xs py-space-2xs text-label-sm uppercase text-secondary">
               Live Station
@@ -251,7 +252,45 @@ export function Orders() {
             }
           />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phone: one tappable card per order, status and next action visible without sideways scrolling. */}
+          <ul className="divide-y divide-surface-container-low md:hidden">
+            {rows.map((o) => (
+              <li key={o.id}>
+                <button
+                  onClick={() => setSelected(o.id)}
+                  className="flex w-full items-start gap-space-sm px-space-md py-space-sm text-left active:bg-surface-container-low"
+                >
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-body-md font-semibold text-secondary">
+                    {o.studentName.charAt(0)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center justify-between gap-space-xs">
+                      <span className="truncate text-body-lg text-on-surface">{o.studentName}</span>
+                      <span className="shrink-0 font-mono text-body-md text-on-surface">{rupees(orderSubtotal(o, vendor.menu))}</span>
+                    </span>
+                    <span className="mt-0.5 block truncate text-body-sm text-secondary">
+                      {o.block}, Room {o.room} · {orderItemCount(o)} items · {clockTime(o.createdAt)}
+                    </span>
+                    <span className="mt-space-xs flex items-center justify-between gap-space-xs">
+                      <Badge tone={STATUS_TONE[o.status]} live={o.status === "placed"}>
+                        {STATUS_LABEL[o.status]}
+                      </Badge>
+                      <span className="font-mono text-label-sm text-secondary">#{o.id.slice(-6).toUpperCase()}</span>
+                    </span>
+                  </span>
+                </button>
+                {o.status === "dispatched" && (
+                  <div className="px-space-md pb-space-sm pl-[60px]">
+                    <Button variant="primary" className="!h-10 w-full" onClick={() => void markDelivered(o.id)}>
+                      Hand over to student
+                    </Button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[860px] border-collapse">
               <thead>
                 <tr>
@@ -328,6 +367,7 @@ export function Orders() {
               </tbody>
             </table>
           </div>
+          </>
         )}
         <div className="flex flex-wrap items-center justify-between gap-space-xs px-space-md py-space-sm text-label-sm text-secondary">
           <span>Displaying {rows.length} of {m.myOrders.length} orders</span>

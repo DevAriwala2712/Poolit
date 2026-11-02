@@ -1,6 +1,5 @@
 const supabase = require("../config/supabaseClient");
 const { toHostelJSON, toVendorJSON, toMenuItemJSON, toSlotJSON } = require("../utils/serialize");
-const { ensureSlotClosedIfExpired } = require("../utils/slotCloser");
 
 // GET /hostels
 exports.getAllHostels = async (req, res) => {
@@ -19,33 +18,20 @@ exports.getCurrentSlot = async (req, res) => {
   try {
     const { hostelId } = req.params;
 
-    let { data: slot } = await supabase
-      .from("slots")
-      .select("*")
-      .eq("hostel_id", hostelId)
-      .eq("status", "open")
-      .order("opens_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!slot) {
-      const { data } = await supabase
-        .from("slots")
-        .select("*")
-        .eq("hostel_id", hostelId)
-        .order("opens_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      slot = data;
+    // Opens a pool if the hostel has none, rotates an expired one (closing it
+    // and locking fees if anyone joined) — see ensure_open_slot() in
+    // supabase/migrations/20261102023408_automatic_pool_rotation.sql.
+    const { data: slot, error: slotErr } = await supabase.rpc("ensure_open_slot", {
+      p_hostel_id: hostelId,
+    });
+    if (slotErr) {
+      if (slotErr.message.includes("VENDOR_NOT_FOUND") || slotErr.code === "22P02") {
+        return res.status(404).json({ message: "No store serves this hostel yet" });
+      }
+      throw slotErr;
     }
-
-    if (!slot) {
+    if (!slot || !slot.id) {
       return res.status(404).json({ message: "No slot found for this hostel" });
-    }
-
-    const closeResult = await ensureSlotClosedIfExpired(slot);
-    if (!closeResult.skipped) {
-      slot = closeResult.slot;
     }
 
     const { data: vendor, error: vendorErr } = await supabase
