@@ -23,7 +23,7 @@ export function Tracking() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const now = useNow();
-  const { orders, slots, vendors, hostels } = useStore();
+  const { orders, slots, vendors, hostels, poolCounts } = useStore();
 
   const order = orders.find((o) => o.id === orderId);
   const slot = slots.find((s) => s.id === order?.slotId);
@@ -40,7 +40,7 @@ export function Tracking() {
   }
 
   const stageIndex = STAGES.indexOf(order.status);
-  const poolSize = orders.filter((o) => o.slotId === slot.id).length;
+  const poolSize = poolCounts[slot.id] ?? orders.filter((o) => o.slotId === slot.id).length;
   const fee = order.deliveryFeeCharged ?? feeForOrderCount(poolSize);
   const subtotal = orderSubtotal(order, vendor.menu);
   const etaMinutes = vendor.prepMinutes + 4;

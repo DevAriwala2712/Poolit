@@ -7,6 +7,8 @@ import { ProductArt } from "../components/ProductArt";
 import { Sheet } from "../components/Sheet";
 import { Button, Chip } from "../components/ui";
 import { useHostelContext } from "../hooks/useHostelContext";
+import { formatIndianPhone } from "../lib/phone";
+import { useAuth } from "../state/AuthContext";
 import { useCart } from "../state/CartContext";
 import { useProfile } from "../state/ProfileContext";
 import { useToast } from "../state/ToastContext";
@@ -21,10 +23,19 @@ export function Profile() {
   const [addressOpen, setAddressOpen] = useState(false);
   const [favOpen, setFavOpen] = useState(false);
 
-  const myOrders = orders.filter((o) => o.studentName === (profile.name || "Student").trim());
+  const { session, phone, signOut } = useAuth();
+  const myOrders = orders; // only the signed-in student's own orders
   const favourites = (vendor?.menu ?? []).filter((m) => profile.favorites.includes(m.id));
 
   const rows: { icon: IconName; label: string; hint: string; onClick: () => void }[] = [
+    {
+      icon: "phone",
+      label: session ? "Signed in" : "Sign in",
+      hint: session ? formatIndianPhone(phone) : "Use your mobile number to order and track",
+      onClick: () => {
+        if (!session) navigate("/login?next=/profile");
+      },
+    },
     {
       icon: "receipt",
       label: "Your orders",
@@ -152,6 +163,19 @@ export function Profile() {
         >
           Refresh data
         </Button>
+        {session && (
+          <Button
+            full
+            variant="ghost"
+            onClick={() => {
+              void signOut();
+              cart.clear();
+              toast("Signed out");
+            }}
+          >
+            Sign out
+          </Button>
+        )}
       </div>
 
       <p className="mt-6 text-center text-[11px] text-ink-faint">Poolit · Student app v1.0</p>

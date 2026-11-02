@@ -1,26 +1,36 @@
 const supabase = require("../config/supabaseClient");
+const flags = require("../utils/flags");
 
 /**
- * Per-store authorisation for vendor routes. Runs AFTER requireAuth.
+ * Vendor authorisation for vendor routes. Runs AFTER requireAuth.
  *
- * Until now any signed-in vendor could act on any store. This checks that
- * req.user is linked to the store that owns the resource, via the
- * `vendor_users` table (supabase/migrations/20261102000100_vendor_users.sql).
+ * Two levels:
+ *  - Always: the signed-in user must be a vendor, i.e. have at least one row
+ *    in `vendor_users`. Students sign in to the same Supabase project with
+ *    their phone, so "has a valid session" no longer means "is a vendor".
+ *  - With ENFORCE_VENDOR_SCOPING=true: the user must be linked to the store
+ *    that owns this particular resource (and have the right role).
  *
- * Rollout switch: enforcement is OFF unless ENFORCE_VENDOR_SCOPING=true, so
- * deploying this code before the migration is applied changes nothing. Once
- * the table exists and every vendor login is linked to its store(s), set the
- * env var and redeploy. See docs/PHASE1_RUNBOOK.md.
- *
- * `resolveVendorId(req)` returns the vendor (store) id that owns whatever the
- * route touches, or null if the resource doesn't exist.
+ * `resolveVendorId(req, db)` returns the vendor (store) id that owns whatever
+ * the route touches, or null if the resource doesn't exist.
  */
 function requireVendorAccess(resolveVendorId, { roles, db = supabase } = {}) {
   return async (req, res, next) => {
-    if (process.env.ENFORCE_VENDOR_SCOPING !== "true") return next();
     if (!req.user) return res.status(401).json({ message: "Not signed in" });
 
     try {
+      if (!flags.vendorScoping()) {
+        const { data, error } = await db
+          .from("vendor_users")
+          .select("vendor_id")
+          .eq("user_id", req.user.id)
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) return res.status(403).json({ message: "This account isn't a vendor account" });
+        return next();
+      }
+
       const vendorId = await resolveVendorId(req, db);
       if (!vendorId) return res.status(404).json({ message: "Not found" });
 

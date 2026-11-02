@@ -59,3 +59,49 @@ Rollback: set the variable back to `false` and redeploy.
 | `POST /vendors/:id/menu-items`, `PATCH /menu-items/:id`, `POST /menu-items/:id/restock` | Owner or staff of the item's store |
 | `POST /slots/:id/close`, `POST /slots/:id/dispatch`, `POST /orders/:id/deliver` | Owner or staff of the slot's store |
 | `POST /slots/:id/orders` (public) | Anyone, max 30 per minute per IP |
+
+---
+
+# Student phone login
+
+Students sign in with an Indian mobile number and a 6-digit SMS code
+(Supabase Auth phone OTP). Browsing stays open; checkout, "Your orders" and
+order tracking need a sign-in. Orders are linked to the student's account
+(`orders.student_id`) and the app fetches only `GET /me/orders`, so other
+students' names and rooms no longer reach anyone's browser.
+
+Database: done (`20261102010452_students_and_order_ownership` is applied).
+
+## A. Turn on phone sign-in in Supabase
+
+Dashboard → Authentication → Sign In / Providers → **Phone** → enable, then
+pick an SMS provider and paste its credentials. For India, the SMS sender ID
+and OTP template must be **DLT-registered** (TRAI rules) through that provider
+— this takes days, so start early. Supabase's built-in providers include
+Twilio, MessageBird, Textlocal and Vonage; an Indian gateway such as MSG91 can
+be wired in with Supabase's "Send SMS" auth hook instead.
+
+For testing before SMS is live: in the same Phone settings add **test phone
+numbers** with fixed codes (e.g. `919876543210=123456`). No SMS is sent for
+those numbers.
+
+## B. Deploy, in this order
+
+1. **Backend** (merge the PR; `STUDENT_LOGIN_REQUIRED` stays `false`). The
+   currently deployed student app keeps working: anonymous orders are still
+   accepted, and signed-in orders get linked to the student.
+2. **Student app** (same merge, its Vercel project). Students now sign in at
+   checkout.
+3. Set **`STUDENT_LOGIN_REQUIRED=true`** on the backend's Vercel project and
+   redeploy. This closes the privacy leak: order lists become vendor-only and
+   anonymous orders are refused.
+
+Rollback: set `STUDENT_LOGIN_REQUIRED=false` and redeploy the backend.
+
+## Vendor accounts after this change
+
+Because students now have Supabase accounts too, every vendor route checks
+that the signed-in user is a **vendor** — i.e. has a row in `vendor_users` —
+even while `ENFORCE_VENDOR_SCOPING` is off. Both existing vendor logins are
+linked. When you create a new vendor login, also link it (step 3 above), or
+its actions will return "This account isn't a vendor account".

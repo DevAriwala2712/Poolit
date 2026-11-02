@@ -85,6 +85,14 @@ supabase.auth.admin
 " you@example.com "a-strong-password"
 ```
 
+Then link the new login to the store(s) it runs (Supabase SQL editor) — vendor
+routes reject accounts that aren't in `vendor_users`:
+
+```sql
+insert into public.vendor_users (user_id, vendor_id, role)
+values ('<auth user uuid>', '<vendor uuid>', 'owner');
+```
+
 Sign in at `http://localhost:5174` with that email/password. Add more vendor
 users the same way — there's currently no self-serve signup or per-store
 scoping (every vendor login sees every store, same as the store-switcher
@@ -175,8 +183,8 @@ Deeper docs live in [docs/](docs/):
 - **Partial authentication.** The vendor console requires login (Supabase
   Auth, email + password) and the backend rejects unauthenticated vendor
   mutations (close/dispatch a slot, mark delivered, restock, edit price).
-  Student identity is still just a name typed into a field — deliberately, so
-  ordering stays frictionless — and every logged-in vendor can see every
-  store (no per-store account scoping yet).
+  Students sign in with their phone number (SMS code) at checkout; browsing
+  stays open. Per-store vendor scoping is built and switched on with
+  `ENFORCE_VENDOR_SCOPING=true` — see [docs/PHASE1_RUNBOOK.md](docs/PHASE1_RUNBOOK.md).
 - **Riders are static.** The tracking screen's rider is a constant in
   `frontend/packages/domain/src/constants.ts` — there's no dispatch service yet.

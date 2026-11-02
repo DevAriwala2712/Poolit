@@ -12,20 +12,16 @@ import { Icon } from "../components/Icon";
 import { ProductArt } from "../components/ProductArt";
 import { Badge, EmptyState } from "../components/ui";
 import { useCart } from "../state/CartContext";
-import { useProfile } from "../state/ProfileContext";
 import { useToast } from "../state/ToastContext";
 
 export function Orders() {
   const navigate = useNavigate();
   const { orders, slots, vendors } = useStore();
-  const { profile } = useProfile();
   const cart = useCart();
   const toast = useToast();
 
-  const myName = (profile.name || "Student").trim();
-  const mine = orders
-    .filter((o) => o.studentName === myName)
-    .sort((a, b) => b.createdAt - a.createdAt);
+  // The store only ever holds this signed-in student's own orders.
+  const mine = [...orders].sort((a, b) => b.createdAt - a.createdAt);
 
   const active = mine.filter((o) => o.status !== "delivered");
   const past = mine.filter((o) => o.status === "delivered");

@@ -12,6 +12,7 @@ function fakeDb(tables) {
       const filters = [];
       const q = {
         select() { return q; },
+        limit() { return q; },
         eq(col, val) { filters.push([col, val]); return q; },
         async maybeSingle() {
           const row = (tables[table] || []).find((r) => filters.every(([c, v]) => r[c] === v));
@@ -44,10 +45,19 @@ async function run(mw, req) {
   return { res, nextCalled };
 }
 
-test("does nothing unless ENFORCE_VENDOR_SCOPING=true", async () => {
+test("scoping off: any vendor passes for any store, non-vendors (e.g. students) get 403", async () => {
   delete process.env.ENFORCE_VENDOR_SCOPING;
-  const { nextCalled } = await run(requireVendorAccess(vendorFrom.param, { db }), { params: { vendorId: "v2" }, user: { id: "x" } });
-  assert.ok(nextCalled);
+  const mw = requireVendorAccess(vendorFrom.param, { db });
+  assert.ok((await run(mw, { params: { vendorId: "v2" }, user: { id: "u-staff" } })).nextCalled);
+
+  const student = await run(mw, { params: { vendorId: "v1" }, user: { id: "student-phone-user" } });
+  assert.equal(student.nextCalled, false);
+  assert.equal(student.res.statusCode, 403);
+});
+
+test("no signed-in user → 401", async () => {
+  const { res } = await run(requireVendorAccess(vendorFrom.param, { db }), { params: { vendorId: "v1" } });
+  assert.equal(res.statusCode, 401);
 });
 
 test("enforced: linked user passes, others get 403, missing resource 404", async () => {

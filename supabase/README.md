@@ -15,6 +15,7 @@ sees matching history.
 | `20261102004948_query_indexes` | `slots(vendor_id)`, `restock_logs(menu_item_id, at)` |
 | `20261102005026_harden_functions_and_grants` | Pinned `search_path`; quantity/amount guards inside `place_order` and `restock_item`; functions and tables usable by the API's service role only |
 | `20261102005310_staff_fk_index_and_vendor_users_grant` | `staff(vendor_id)` index; `vendor_users` server-only |
+| `20261102010452_students_and_order_ownership` | `students` profiles; `orders.student_id`; `place_order` takes an optional student id |
 
 ## Making a change
 

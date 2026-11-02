@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { api, ApiError } from "./api";
+import { api, ApiError, hasAuthToken } from "./api";
 import type { PlaceOrderInput } from "./api";
 import type { Hostel, MenuItem, Order, PickListLine, Slot, Vendor } from "./types";
 
@@ -18,10 +18,23 @@ interface StoreData {
   hostels: Hostel[];
   vendors: Vendor[];
   slots: Slot[];
+  /**
+   * Vendor mode: every order for every store.
+   * Student mode: only the signed-in student's own orders (empty when signed out).
+   */
   orders: Order[];
+  /** Live order count per open slot, from the server (student mode). */
+  poolCounts: Record<string, number>;
 }
 
-const EMPTY: StoreData = { hostels: [], vendors: [], slots: [], orders: [] };
+const EMPTY: StoreData = { hostels: [], vendors: [], slots: [], orders: [], poolCounts: {} };
+
+/**
+ * "vendor": the console's view — all stores' orders (needs a vendor session).
+ * "student": public catalogue + current pools + only the caller's own orders,
+ *   so no student's name or room is ever sent to another student's browser.
+ */
+export type StoreMode = "vendor" | "student";
 
 interface StoreContextValue extends StoreData {
   loading: boolean;
@@ -58,7 +71,37 @@ interface StoreContextValue extends StoreData {
 
 const StoreContext = createContext<StoreContextValue | null>(null);
 
-/** Pull the whole world in one pass. The dataset is small enough to refetch. */
+/** Student view: catalogue, each hostel's current pool + its size, own orders. */
+async function fetchStudentView(): Promise<StoreData> {
+  const [hostels, vendors] = await Promise.all([api.getHostels(), api.getVendors()]);
+
+  const hostelIds = Array.from(new Set(vendors.map((v) => v.hostelId)));
+  const current = await Promise.all(
+    hostelIds.map((id) => api.getCurrentSlot(id).then((r) => r.slot).catch(() => null)),
+  );
+  const openSlots = current.filter((s): s is Slot => s !== null);
+
+  const counts = await Promise.all(
+    openSlots.map((slot) =>
+      api.getLiveFee(slot.id).then((r) => [slot.id, r.orderCount] as const).catch(() => null),
+    ),
+  );
+  const poolCounts: Record<string, number> = {};
+  for (const entry of counts) if (entry) poolCounts[entry[0]] = entry[1];
+
+  let orders: Order[] = [];
+  let mySlots: Slot[] = [];
+  if (await hasAuthToken()) {
+    const mine = await api.getMyOrders();
+    orders = mine.orders;
+    mySlots = mine.slots;
+  }
+
+  const bySlotId = new Map([...mySlots, ...openSlots].map((s) => [s.id, s]));
+  return { hostels, vendors, slots: Array.from(bySlotId.values()), orders, poolCounts };
+}
+
+/** Vendor view: pull the whole world in one pass. The dataset is small enough to refetch. */
 async function fetchAll(): Promise<StoreData> {
   const [hostels, vendors] = await Promise.all([api.getHostels(), api.getVendors()]);
 
@@ -92,14 +135,16 @@ async function fetchAll(): Promise<StoreData> {
   // De-dupe slots that appear via more than one path.
   const bySlotId = new Map(slots.map((s) => [s.id, s]));
 
-  return { hostels, vendors, slots: Array.from(bySlotId.values()), orders };
+  return { hostels, vendors, slots: Array.from(bySlotId.values()), orders, poolCounts: {} };
 }
 
 export function StoreProvider({
   children,
   onMutationError,
+  mode = "vendor",
 }: {
   children: ReactNode;
+  mode?: StoreMode;
   /**
    * Called when a write (restock, close pool, …) fails, with a human-readable
    * message. The error is still re-thrown so callers that await can react.
@@ -120,7 +165,7 @@ export function StoreProvider({
     if (inFlight.current) return;
     inFlight.current = true;
     try {
-      const next = await fetchAll();
+      const next = mode === "student" ? await fetchStudentView() : await fetchAll();
       setData(next);
       setError(null);
       setLastSyncedAt(Date.now());
@@ -130,7 +175,7 @@ export function StoreProvider({
       inFlight.current = false;
       setLoading(false);
     }
-  }, []);
+  }, [mode]);
 
   // Poll while the tab is visible; pause in the background (saves battery and
   // API quota on phones) and catch up immediately when the user returns.

@@ -34,12 +34,12 @@ The core business logic is sound: stock decrements, pool closing and dispatch al
 | Polling continued in background tabs | domain `store.tsx` | Battery drain, wasted API quota | Fixed |
 | Every poll refetches everything: N stores × (orders + current slot + every historical slot) | domain `fetchAll` | Load grows with order history; will hit limits within weeks of real use | Open — Phase 1 |
 | Any vendor login sees and edits every store | backend + console | A rival store can change your prices | Ready — migration applied and logins linked; turn on `ENFORCE_VENDOR_SCOPING=true` in Vercel |
-| Students have no identity; `POST /slots/:id/orders` is public | backend | Fake orders can drain stock | Partly — now throttled to 30/min per IP; student login still open |
+| Students have no identity; `POST /slots/:id/orders` is public | backend | Fake orders can drain stock | Fixed in code — phone login; throttled to 30/min per IP |
 | No payments; "payment method" is a text field | everywhere | Cannot go live | Open — Phase 2 |
 | Schema, indexes, RLS and RPC function bodies exist only in the live Supabase project | repo | No reproducible environments, no rollback | Fixed — `supabase/migrations/` |
 | No automated tests, no CI | repo | Regressions ship unnoticed | Fixed — 20 tests + GitHub Actions |
 | Auth check is a network call to Supabase per request | `requireAuth.js` | Adds latency to every vendor action | Open — Phase 1 |
-| Every student's browser downloads **all** orders (names, block, room) via public `GET /vendors/:id/orders` | domain `fetchAll`, backend | Privacy breach; a DPDP problem once live | Open — Phase 1, fixed by student login + own-orders endpoint |
+| Every student's browser downloads **all** orders (names, block, room) via public `GET /vendors/:id/orders` | domain `fetchAll`, backend | Privacy breach; a DPDP problem once live | Fixed in code — closes when `STUDENT_LOGIN_REQUIRED=true` after the new student app is deployed |
 | Stray files: `test.md`, empty `backend/test` | repo root | Clutter | Fixed |
 
 ## Camera barcode scanner
@@ -128,9 +128,9 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 
 ### Identity
 
-- [ ] Stop exposing other students' orders: student app reads only its own orders (`GET /me/orders`), and `GET /vendors/:id/orders` becomes vendor-only.
-- [ ] Students sign in with phone OTP (Supabase Auth phone provider via an Indian SMS gateway such as MSG91, with a DLT-registered template).
-- [ ] Orders tied to `student_id`, not a typed name; addresses saved per student.
+- [x] Stop exposing other students' orders: student app reads only its own orders (`GET /me/orders`); order lists become vendor-only with `STUDENT_LOGIN_REQUIRED=true`.
+- [x] Students sign in with phone OTP (Supabase Auth). *(Built and tested; needs the Phone provider + a DLT-registered SMS sender enabled in Supabase — docs/PHASE1_RUNBOOK.md.)*
+- [x] Orders tied to `student_id`, not a typed name; name, hostel, block and room saved per student (`students` table).
 - [ ] Vendor staff invited by the store owner; roles enforced server-side.
 
 ### Observability and operations

@@ -2,12 +2,17 @@ const supabase = require("../config/supabaseClient");
 const { toOrderJSON } = require("../utils/serialize");
 const { ensureSlotClosedIfExpired } = require("../utils/slotCloser");
 const { feeForOrderCount } = require("../utils/feeLadder");
+const flags = require("../utils/flags");
 
 // POST /slots/:slotId/orders
 exports.placeOrder = async (req, res) => {
   try {
     const { slotId } = req.params;
     const { studentName, items, block, room, tip, paymentMethod, note } = req.body;
+
+    if (!req.user && flags.studentLoginRequired()) {
+      return res.status(401).json({ message: "Sign in with your phone number to place an order" });
+    }
 
     if (!studentName || typeof studentName !== "string" || !studentName.trim()) {
       return res.status(400).json({ message: "studentName is required" });
@@ -34,6 +39,7 @@ exports.placeOrder = async (req, res) => {
       p_payment_method: typeof paymentMethod === "string" ? paymentMethod.trim() : null,
       p_note: typeof note === "string" && note.trim() ? note.trim().slice(0, 140) : null,
       p_items: items.map((line) => ({ menuItemId: line.menuItemId, qty: line.qty })),
+      p_student_id: req.user ? req.user.id : null,
     });
 
     if (error) {
