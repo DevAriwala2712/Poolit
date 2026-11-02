@@ -10,7 +10,7 @@ poolit/
 └── frontend/
     ├── packages/domain/    Shared types, rules, API client
     ├── apps/student/       Mobile quick-commerce app      (port 5173)
-    └── apps/vendor/        Desktop admin console          (port 5174)
+    └── apps/vendor/        Vendor console, desktop + phone PWA (port 5174)
 ```
 
 ## Running the stack
@@ -117,6 +117,15 @@ with the full run pick list), inventory (cross-store table, inline price edit,
 quick restock via +10/+25 presets or a typed custom amount), analytics
 (revenue trend, volume by hour, peak-hours heatmap, hostel breakdown), and
 settings.
+
+### Barcode scanner (vendor console)
+
+Open **Scan** (centre button on phones, or Inventory → Scan barcode). The
+camera needs HTTPS or `localhost`. To test from a phone on your LAN, serve the
+vendor app over HTTPS (e.g. a tunnel) — plain `http://192.168.x.x` will be
+blocked by the browser. Printable test codes live in
+[dummy-barcodes/](dummy-barcodes/). A USB/Bluetooth handheld scanner also works
+on that screen.
 
 ## Business rules
 

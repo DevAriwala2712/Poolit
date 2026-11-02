@@ -1,9 +1,8 @@
 import { CATEGORIES, rupees, stockState, useStore } from "@poolit/domain";
 import type { MenuItem } from "@poolit/domain";
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AddItemModal } from "../components/AddItemModal";
-import { BarcodeScanModal } from "../components/BarcodeScanModal";
 import { KpiCard } from "../components/KpiCard";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card, EmptyState, Td, Th } from "../components/ui";
@@ -26,7 +25,7 @@ export function Inventory() {
   const [editing, setEditing] = useState<string | null>(null);
   const [draftPrice, setDraftPrice] = useState("");
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
-  const [scanOpen, setScanOpen] = useState(false);
+  const navigate = useNavigate();
   const [addItemOpen, setAddItemOpen] = useState(false);
 
   const pool = useMemo(
@@ -37,12 +36,6 @@ export function Inventory() {
             v.menu.map((item) => ({ item, vendorName: v.name, vendorId: v.id })),
           ),
     [scope, vendor, allVendors],
-  );
-
-  // Scanning should find an item regardless of the current store/scope filter.
-  const allItems = useMemo(
-    () => allVendors.flatMap((v) => v.menu.map((item) => ({ item, vendorName: v.name, vendorId: v.id }))),
-    [allVendors],
   );
 
   const rows = useMemo(
@@ -74,7 +67,7 @@ export function Inventory() {
     const raw = customAmounts[item.id];
     const amount = Number(raw);
     if (!raw || !Number.isFinite(amount) || !Number.isInteger(amount) || amount <= 0) return;
-    restockItem(vendorId, item.id, amount);
+    void restockItem(vendorId, item.id, amount);
     setCustomAmounts((prev) => ({ ...prev, [item.id]: "" }));
   }
 
@@ -104,7 +97,7 @@ export function Inventory() {
         <h1 className="text-headline-lg text-on-surface">Inventory Management</h1>
       </div>
 
-      <div className="grid grid-cols-1 gap-space-md sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-space-sm md:gap-space-md lg:grid-cols-4">
         <KpiCard label="Active SKUs" value={String(pool.length)} icon="inventory_2" hint={scope === "store" ? vendor.name : "all stores"} />
         <KpiCard label="Prep Valuation" value={rupees(stockValue)} icon="account_balance_wallet" hint="at current price" />
         <KpiCard label="Low Stock Alerts" value={String(low)} icon="warning" hint={low > 0 ? "Immediate restock suggested" : "healthy"} />
@@ -114,13 +107,13 @@ export function Inventory() {
       <Card flush>
         <div className="flex flex-col gap-space-sm border-b border-surface-container-low p-space-md">
           <div className="flex flex-wrap items-center gap-space-sm">
-            <div className="flex items-center gap-space-sm rounded-lg bg-surface-container-low px-space-sm py-space-xs">
+            <div className="flex w-full items-center gap-space-sm rounded-lg bg-surface-container-low px-space-sm py-space-xs md:w-auto">
               <MaterialIcon name="search" className="text-[16px] text-secondary" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search SKU, ingredient, category…"
-                className="w-56 bg-transparent text-body-lg text-on-surface outline-none placeholder:text-secondary"
+                className="w-full min-w-0 bg-transparent text-[16px] md:w-56 md:text-body-lg text-on-surface outline-none placeholder:text-secondary"
               />
             </div>
             <Select value={scope} onChange={(v) => setScope(v as "store" | "all")}>
@@ -132,7 +125,7 @@ export function Inventory() {
               size="sm"
               icon="qr_code_scanner"
               className="ml-auto"
-              onClick={() => setScanOpen(true)}
+              onClick={() => navigate("/scan")}
             >
               Scan barcode
             </Button>
@@ -191,7 +184,64 @@ export function Inventory() {
         {rows.length === 0 ? (
           <EmptyState icon="inventory_2" title="No items match" body="Adjust the filters to see more stock." />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phone: one card per item, big tap targets for restocking. */}
+          <ul className="divide-y divide-surface-container-low md:hidden">
+            {rows.map(({ item, vendorName, vendorId }) => {
+              const state = stockState(item);
+              return (
+                <li key={item.id} className="space-y-space-sm px-space-md py-space-sm">
+                  <div className="flex items-center gap-space-sm">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-surface-container text-lg">{item.art}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-body-lg text-on-surface">{item.name}</p>
+                      <p className="truncate text-label-sm text-secondary">
+                        {rupees(item.price)} · {item.unit}
+                        {scope === "all" && ` · ${vendorName}`}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-headline-sm text-on-surface">{item.stockQty}</p>
+                      <Badge tone={state === "out" ? "error" : state === "low" ? "primary" : "ready"}>
+                        {state === "out" ? "Out" : state === "low" ? "Low" : "OK"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-space-xs">
+                    {QUICK.map((amount) => (
+                      <button
+                        key={amount}
+                        onClick={() => void restockItem(vendorId, item.id, amount)}
+                        className="h-10 flex-1 rounded bg-surface-container text-body-md text-on-surface active:bg-surface-container-high"
+                      >
+                        +{amount}
+                      </button>
+                    ))}
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={customAmounts[item.id] ?? ""}
+                      onChange={(e) => setCustomAmounts((prev) => ({ ...prev, [item.id]: e.target.value.replace(/\D/g, "") }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitCustomRestock(vendorId, item);
+                      }}
+                      placeholder="Qty"
+                      aria-label={`Custom restock amount for ${item.name}`}
+                      className="h-10 w-16 rounded bg-surface-container-low px-2 text-[16px] text-on-surface outline-none ring-1 ring-surface-container-high focus:ring-2 focus:ring-primary"
+                    />
+                    <button
+                      onClick={() => commitCustomRestock(vendorId, item)}
+                      disabled={!customAmounts[item.id]}
+                      className="h-10 rounded bg-primary-container px-3 text-body-md text-on-primary-container disabled:opacity-40"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[900px] border-collapse">
               <thead>
                 <tr>
@@ -314,6 +364,7 @@ export function Inventory() {
               </tbody>
             </table>
           </div>
+          </>
         )}
         <div className="px-space-md py-space-sm text-label-sm text-secondary">Showing {rows.length} of {pool.length} items</div>
       </Card>
@@ -351,7 +402,6 @@ export function Inventory() {
         </div>
       )}
 
-      <BarcodeScanModal open={scanOpen} onClose={() => setScanOpen(false)} items={allItems} />
       <AddItemModal open={addItemOpen} onClose={() => setAddItemOpen(false)} vendorId={vendor.id} />
     </div>
   );

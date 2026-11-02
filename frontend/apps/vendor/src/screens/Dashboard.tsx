@@ -16,7 +16,7 @@ export function Dashboard() {
   const navigate = useNavigate();
   const now = useNow();
   const { vendor, hostel } = useVendor();
-  const { orders, closeSlot, dispatchSlot, restockItem } = useStore();
+  const { orders, closeSlot, dispatchSlot, restockItem, error: syncError, lastSyncedAt } = useStore();
   const { advancedMode } = useUIMode();
   const m = useMetrics();
 
@@ -64,18 +64,22 @@ export function Dashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-space-xs self-start sm:self-auto">
           <div className="flex items-center gap-space-2xs rounded-full bg-surface-container px-space-sm py-space-2xs text-label-sm text-on-surface-variant">
-            <span className="h-2 w-2 animate-live rounded-full bg-tertiary" />
-            <span>Live Sync: Active · 0ms lag</span>
+            <span className={`h-2 w-2 rounded-full ${syncError ? "bg-error" : "animate-live bg-tertiary"}`} />
+            <span>
+              {syncError
+                ? "Live sync: offline"
+                : `Live sync · updated ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}`}
+            </span>
           </div>
           <div className="flex items-center gap-space-2xs rounded-full bg-surface-container-low px-space-sm py-space-2xs text-label-sm text-primary">
             <MaterialIcon name="bolt" className="text-[14px]" />
-            <span>Shift: Operational Normal</span>
+            <span>{vendor.acceptingOrders ? "Accepting orders" : "Orders paused"}</span>
           </div>
         </div>
       </section>
 
       {/* KPI row */}
-      <div className="grid grid-cols-1 gap-space-md sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-space-sm md:gap-space-md lg:grid-cols-4">
         <KpiCard
           label="Today's Orders"
           value={String(m.todayOrders.length)}

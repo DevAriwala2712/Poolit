@@ -14,6 +14,10 @@ const internalRouter = require("./routes/internal");
 const staffRouter = require("./routes/staff");
 
 const app = express();
+app.disable("x-powered-by");
+// Behind Vercel / a load balancer: trust the first proxy so req.ip is the
+// real client (needed for any future rate limiting / audit logs).
+app.set("trust proxy", 1);
 
 // Middleware
 // ALLOWED_ORIGINS, if set, is a comma-separated allowlist (e.g. the deployed
@@ -30,14 +34,23 @@ app.use(
       ? {
           origin: (origin, callback) => {
             if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-            callback(new Error("Not allowed by CORS"));
+            const err = new Error("Not allowed by CORS");
+            err.status = 403;
+            callback(err);
           },
         }
       : undefined
   )
 );
-app.use(express.json());
-app.use(morgan("dev"));
+app.use(express.json({ limit: "100kb" }));
+app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  // API responses are live data — never let a proxy or the browser cache them.
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
 
 // Health check
 app.get("/", (req, res) => {
@@ -94,7 +107,16 @@ app.use((req, res) => {
 });
 
 // Global error handler
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
+  // Client errors raised by middleware (bad JSON, body too large, CORS) keep
+  // their 4xx status instead of being reported as a server crash.
+  const status = err.status || err.statusCode;
+  if (status && status >= 400 && status < 500) {
+    return res.status(status).json({
+      message: err.type === "entity.parse.failed" ? "Request body is not valid JSON" : err.message,
+    });
+  }
   console.error("❌ Error:", err.stack);
   res.status(500).json({
     message: "Internal server error",

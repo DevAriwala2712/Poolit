@@ -26,6 +26,8 @@ const EMPTY: StoreData = { hostels: [], vendors: [], slots: [], orders: [] };
 interface StoreContextValue extends StoreData {
   loading: boolean;
   error: string | null;
+  /** Epoch ms of the last successful sync with the API (null before the first). */
+  lastSyncedAt: number | null;
   refresh: () => Promise<void>;
   placeOrder: (input: PlaceOrderInput) => Promise<Order>;
   closeSlot: (slotId: string) => Promise<void>;
@@ -93,11 +95,26 @@ async function fetchAll(): Promise<StoreData> {
   return { hostels, vendors, slots: Array.from(bySlotId.values()), orders };
 }
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+export function StoreProvider({
+  children,
+  onMutationError,
+}: {
+  children: ReactNode;
+  /**
+   * Called when a write (restock, close pool, …) fails, with a human-readable
+   * message. The error is still re-thrown so callers that await can react.
+   */
+  onMutationError?: (message: string, error: unknown) => void;
+}) {
   const [data, setData] = useState<StoreData>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const inFlight = useRef(false);
+  const onErrorRef = useRef(onMutationError);
+  useEffect(() => {
+    onErrorRef.current = onMutationError;
+  }, [onMutationError]);
 
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
@@ -106,6 +123,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const next = await fetchAll();
       setData(next);
       setError(null);
+      setLastSyncedAt(Date.now());
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong loading Poolit.");
     } finally {
@@ -114,58 +132,92 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Poll while the tab is visible; pause in the background (saves battery and
+  // API quota on phones) and catch up immediately when the user returns.
   useEffect(() => {
     void refresh();
-    const id = setInterval(() => void refresh(), POLL_INTERVAL_MS);
-    return () => clearInterval(id);
+    const id = setInterval(() => {
+      if (typeof document === "undefined" || !document.hidden) void refresh();
+    }, POLL_INTERVAL_MS);
+    const onVisible = () => {
+      if (!document.hidden) void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onVisible);
+    };
   }, [refresh]);
+
+  /** Wrap a write so failures are always surfaced, then re-thrown. */
+  const mutate = useCallback(
+    <A extends unknown[], R>(fn: (...args: A) => Promise<R>) =>
+      async (...args: A): Promise<R> => {
+        try {
+          return await fn(...args);
+        } catch (err) {
+          const message =
+            err instanceof ApiError
+              ? err.status === 401
+                ? "Your session expired — sign in again."
+                : err.message
+              : "Something went wrong. Please try again.";
+          onErrorRef.current?.(message, err);
+          throw err;
+        }
+      },
+    [],
+  );
 
   const value = useMemo<StoreContextValue>(
     () => ({
       ...data,
       loading,
       error,
+      lastSyncedAt,
       refresh,
-      placeOrder: async (input) => {
+      placeOrder: mutate(async (input) => {
         const order = await api.placeOrder(input);
         await refresh();
         return order;
-      },
-      closeSlot: async (slotId) => {
+      }),
+      closeSlot: mutate(async (slotId) => {
         await api.closeSlot(slotId);
         await refresh();
-      },
-      dispatchSlot: async (slotId) => {
+      }),
+      dispatchSlot: mutate(async (slotId) => {
         await api.dispatchSlot(slotId);
         await refresh();
-      },
-      markDelivered: async (orderId) => {
+      }),
+      markDelivered: mutate(async (orderId) => {
         await api.markDelivered(orderId);
         await refresh();
-      },
-      restockItem: async (_vendorId, menuItemId, amount) => {
+      }),
+      restockItem: mutate(async (_vendorId, menuItemId, amount) => {
         await api.restockItem(menuItemId, amount);
         await refresh();
-      },
-      setItemPrice: async (_vendorId, menuItemId, price) => {
+      }),
+      setItemPrice: mutate(async (_vendorId, menuItemId, price) => {
         await api.updateItem(menuItemId, { price });
         await refresh();
-      },
-      setItemBarcode: async (_vendorId, menuItemId, barcode) => {
+      }),
+      setItemBarcode: mutate(async (_vendorId, menuItemId, barcode) => {
         await api.updateItem(menuItemId, { barcode });
         await refresh();
-      },
-      updateVendorSettings: async (vendorId, patch) => {
+      }),
+      updateVendorSettings: mutate(async (vendorId, patch) => {
         await api.updateVendor(vendorId, patch);
         await refresh();
-      },
-      createMenuItem: async (vendorId, input) => {
+      }),
+      createMenuItem: mutate(async (vendorId, input) => {
         const item = await api.createMenuItem(vendorId, input);
         await refresh();
         return item;
-      },
+      }),
     }),
-    [data, loading, error, refresh],
+    [data, loading, error, lastSyncedAt, refresh, mutate],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

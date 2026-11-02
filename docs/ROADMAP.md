@@ -33,6 +33,26 @@ log and code archaeology.
      was deliberately left open and why.
    - This `docs/` directory.
 
+8. **Mobile vendor console + camera scanner (2026-11-02)** —
+   - Dedicated full-screen scanner at `/scan` (`screens/Scan.tsx`,
+     `hooks/useBarcodeScanner.ts`, `lib/scanner.ts`). Uses the native
+     `BarcodeDetector` where it supports EAN/UPC, otherwise a self-hosted
+     ZXing WebAssembly decoder (works on iPhone Safari and Firefox). Check-digit
+     validation, torch, camera switch, beep/haptic, continuous
+     scan-restock-scan loop, session log, link-unknown-barcode flow, and
+     USB/Bluetooth handheld scanner (keyboard wedge) support. Replaces the old
+     Chromium-only `BarcodeScanModal`.
+   - Phone layout: bottom tab bar with a central Scan button, "More" sheet
+     (store switcher, settings, sign out), 2-up KPI grid, card list for
+     inventory, safe-area padding, 16px inputs (no iOS zoom).
+   - Installable PWA: manifest, icons, service worker (offline app shell;
+     API never cached), `vercel.json` SPA rewrites + security headers.
+   - Reliability: every failed write now shows a toast (was silent); polling
+     pauses in background tabs; real "last synced"/offline banner replace
+     hard-coded "12s ago"/"0ms lag"; Sync button works; no crash when the API
+     returns zero stores; backend returns 403/400 (not 500) for CORS and bad
+     JSON, and 503 when Supabase Auth is unreachable.
+
 ## Known gaps carried forward (from the README, still true)
 
 - No product imagery — student app renders an emoji tile, not photos.
