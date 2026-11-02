@@ -32,6 +32,15 @@ export async function hasAuthToken(): Promise<boolean> {
   return Boolean(await getAuthToken());
 }
 
+/** crypto.randomUUID only exists on HTTPS/localhost; fall back so LAN testing over http still works. */
+function newIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined") crypto.getRandomValues(bytes);
+  else for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 /**
  * `idempotent: true` sends one Idempotency-Key for the whole call and retries
  * network failures (twice, with backoff) under that same key, so a flaky
@@ -43,7 +52,7 @@ async function request<T>(
   init?: RequestInit & { idempotent?: boolean },
 ): Promise<T> {
   const { idempotent, ...fetchInit } = init ?? {};
-  const key = idempotent ? crypto.randomUUID() : undefined;
+  const key = idempotent ? newIdempotencyKey() : undefined;
   const attempts = idempotent ? 3 : 1;
   let res: Response | undefined;
   for (let attempt = 1; attempt <= attempts && !res; attempt++) {
