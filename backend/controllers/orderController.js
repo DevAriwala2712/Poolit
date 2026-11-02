@@ -2,12 +2,17 @@ const supabase = require("../config/supabaseClient");
 const { toOrderJSON } = require("../utils/serialize");
 const { ensureSlotClosedIfExpired } = require("../utils/slotCloser");
 const { feeForOrderCount } = require("../utils/feeLadder");
+const flags = require("../utils/flags");
 
 // POST /slots/:slotId/orders
 exports.placeOrder = async (req, res) => {
   try {
     const { slotId } = req.params;
     const { studentName, items, block, room, tip, paymentMethod, note } = req.body;
+
+    if (!req.user && flags.studentLoginRequired()) {
+      return res.status(401).json({ message: "Sign in with your phone number to place an order" });
+    }
 
     if (!studentName || typeof studentName !== "string" || !studentName.trim()) {
       return res.status(400).json({ message: "studentName is required" });
@@ -34,11 +39,16 @@ exports.placeOrder = async (req, res) => {
       p_payment_method: typeof paymentMethod === "string" ? paymentMethod.trim() : null,
       p_note: typeof note === "string" && note.trim() ? note.trim().slice(0, 140) : null,
       p_items: items.map((line) => ({ menuItemId: line.menuItemId, qty: line.qty })),
+      p_student_id: req.user ? req.user.id : null,
     });
 
     if (error) {
       if (error.message.includes("SLOT_NOT_FOUND")) {
         return res.status(404).json({ message: "Slot not found" });
+      }
+      // Guards inside the place_order function (migration 20261102005026).
+      if (error.message.includes("INVALID_QTY") || error.message.includes("INVALID_ITEMS")) {
+        return res.status(400).json({ message: "Each item needs a quantity between 1 and 100 (max 50 lines)" });
       }
       if (error.message.includes("SLOT_NOT_OPEN")) {
         const status = error.message.split(":")[1];
@@ -59,7 +69,7 @@ exports.placeOrder = async (req, res) => {
     res.status(201).json(toOrderJSON(order));
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to place order", error: err.message });
+    res.status(500).json({ message: "Failed to place order" });
   }
 };
 

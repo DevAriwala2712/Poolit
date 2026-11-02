@@ -27,6 +27,11 @@ export function setAuthTokenProvider(fn: AuthTokenProvider) {
   getAuthToken = fn;
 }
 
+/** True when a signed-in session token is available for API calls. */
+export async function hasAuthToken(): Promise<boolean> {
+  return Boolean(await getAuthToken());
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
@@ -68,7 +73,29 @@ export interface PlaceOrderInput {
   note?: string;
 }
 
+export interface StudentProfile {
+  name: string;
+  hostelId?: string;
+  block?: string;
+  room?: string;
+}
+
+export interface MeResponse {
+  userId: string;
+  phone: string | null;
+  profile: StudentProfile | null;
+}
+
 export const api = {
+  /** Signed-in student (phone OTP). */
+  getMe: () => request<MeResponse>("/me"),
+
+  updateMe: (profile: StudentProfile) =>
+    request<MeResponse>("/me", { method: "PUT", body: JSON.stringify(profile) }),
+
+  /** Only the caller's own orders (and the slots they belong to). */
+  getMyOrders: () => request<{ orders: Order[]; slots: Slot[] }>("/me/orders"),
+
   getHostels: () => request<Hostel[]>("/hostels"),
 
   getCurrentSlot: (hostelId: string) =>

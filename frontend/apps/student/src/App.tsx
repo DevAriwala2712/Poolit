@@ -1,16 +1,18 @@
 import { StoreProvider } from "@poolit/domain";
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { ConnectionGate } from "./components/ConnectionGate";
 import { TabBar } from "./components/TabBar";
 import { Cart } from "./screens/Cart";
 import { Categories } from "./screens/Categories";
 import { Checkout } from "./screens/Checkout";
 import { Home } from "./screens/Home";
+import { Login } from "./screens/Login";
 import { Onboarding } from "./screens/Onboarding";
 import { Orders } from "./screens/Orders";
 import { ProductDetail } from "./screens/ProductDetail";
 import { Profile } from "./screens/Profile";
 import { Tracking } from "./screens/Tracking";
+import { AuthProvider, useAuth } from "./state/AuthContext";
 import { CartProvider } from "./state/CartContext";
 import { ProfileProvider, useProfile } from "./state/ProfileContext";
 import { ToastProvider } from "./state/ToastContext";
@@ -45,6 +47,21 @@ function PlainLayout() {
   );
 }
 
+/**
+ * Browsing is open to everyone; ordering and order history need a phone
+ * sign-in (so orders belong to an account, not to a typed name).
+ */
+function RequireSignIn() {
+  const { session, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return null;
+  if (!session) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
+  return <Outlet />;
+}
+
 function RequireOnboarding() {
   const { profile } = useProfile();
   if (!profile.onboarded) return <Navigate to="/onboarding" replace />;
@@ -53,8 +70,9 @@ function RequireOnboarding() {
 
 export default function App() {
   return (
-    <StoreProvider>
+    <StoreProvider mode="student">
       <ProfileProvider>
+        <AuthProvider>
         <CartProvider>
           <ToastProvider>
             <ConnectionGate>
@@ -73,14 +91,19 @@ export default function App() {
                   <Route path="/" element={<Home />} />
                   <Route path="/categories" element={<Categories />} />
                   <Route path="/cart" element={<Cart />} />
-                  <Route path="/orders" element={<Orders />} />
                   <Route path="/profile" element={<Profile />} />
+                  <Route element={<RequireSignIn />}>
+                    <Route path="/orders" element={<Orders />} />
+                  </Route>
                 </Route>
 
                 <Route element={<PlainLayout />}>
                   <Route path="/product/:itemId" element={<ProductDetail />} />
-                  <Route path="/checkout" element={<Checkout />} />
-                  <Route path="/track/:orderId" element={<Tracking />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route element={<RequireSignIn />}>
+                    <Route path="/checkout" element={<Checkout />} />
+                    <Route path="/track/:orderId" element={<Tracking />} />
+                  </Route>
                 </Route>
               </Route>
 
@@ -89,6 +112,7 @@ export default function App() {
             </ConnectionGate>
           </ToastProvider>
         </CartProvider>
+        </AuthProvider>
       </ProfileProvider>
     </StoreProvider>
   );
