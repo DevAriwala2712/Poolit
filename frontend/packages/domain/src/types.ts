@@ -79,6 +79,9 @@ export type OrderStatus = "placed" | "pooled" | "dispatched" | "delivered";
 export interface OrderLineItem {
   menuItemId: string;
   qty: number;
+  /** Item name and unit price (integer paise) frozen when the order was placed. */
+  name?: string;
+  unitPricePaise?: number;
 }
 
 export interface Order {
@@ -89,6 +92,8 @@ export interface Order {
   block?: string;
   room?: string;
   items: OrderLineItem[];
+  /** What the goods cost at the time of sale, in paise (sum of qty × frozen unit price). */
+  subtotalPaise?: number;
   status: OrderStatus;
   /** Locked in once the slot closes; undefined while the slot is still open. */
   deliveryFeeCharged?: number;
