@@ -40,6 +40,10 @@ exports.placeOrder = async (req, res) => {
       if (error.message.includes("SLOT_NOT_FOUND")) {
         return res.status(404).json({ message: "Slot not found" });
       }
+      // Guards inside the place_order function (migration 20261102005026).
+      if (error.message.includes("INVALID_QTY") || error.message.includes("INVALID_ITEMS")) {
+        return res.status(400).json({ message: "Each item needs a quantity between 1 and 100 (max 50 lines)" });
+      }
       if (error.message.includes("SLOT_NOT_OPEN")) {
         const status = error.message.split(":")[1];
         return res.status(409).json({ message: `Cannot place order: slot is "${status}"` });
@@ -59,7 +63,7 @@ exports.placeOrder = async (req, res) => {
     res.status(201).json(toOrderJSON(order));
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to place order", error: err.message });
+    res.status(500).json({ message: "Failed to place order" });
   }
 };
 

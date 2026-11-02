@@ -82,6 +82,9 @@ exports.restockItem = async (req, res) => {
       if (error.message.includes("ITEM_NOT_FOUND")) {
         return res.status(404).json({ message: "Menu item not found" });
       }
+      if (error.message.includes("INVALID_AMOUNT")) {
+        return res.status(400).json({ message: "amount must be between 1 and 10,000" });
+      }
       throw error;
     }
 

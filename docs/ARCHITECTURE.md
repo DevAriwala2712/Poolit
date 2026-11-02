@@ -56,7 +56,7 @@ routes/*.js  →  controllers/*.js  →  supabase (table query or RPC call)  →
 
 ✅ = `requireAuth` (Supabase Auth bearer token, vendor session).
 
-## Tables (inferred from queries — no migrations are checked into this repo)
+## Tables (full definitions: [supabase/migrations/](../supabase/migrations/))
 
 - `hostels` — `id, name, blocks, created_at, updated_at`
 - `vendors` — `id, name, hostel_id, prep_minutes, created_at, updated_at`
@@ -71,10 +71,12 @@ routes/*.js  →  controllers/*.js  →  supabase (table query or RPC call)  →
   updated_at`
 - `restock_logs` — `id, vendor_id, menu_item_id, amount, at`
 
-**Gap:** none of this — table definitions, indexes, RLS policies, or the RPC
-function bodies below — is version-controlled. It only exists in the live
-Supabase project. See [BACKEND_NOTES.md](BACKEND_NOTES.md) for why that's
-flagged as a risk, not just a style nitpick.
+- `staff` — `id, vendor_id, name, role, email, status, created_at, updated_at`
+- `vendor_users` — `user_id, vendor_id, role (owner|staff), created_at`
+
+The schema, indexes, RLS and the RPC function bodies are version-controlled
+in [supabase/migrations/](../supabase/migrations/) (exact copies of the
+migrations applied to the live project).
 
 ## RPC functions (Postgres, called via `supabase.rpc(...)`)
 
