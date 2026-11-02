@@ -7,12 +7,17 @@ export function AddItemModal({
   open,
   onClose,
   vendorId,
+  onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   vendorId: string;
+  /** Called with the new item's id once it (and its barcode) is saved. */
+  onCreated?: (itemId: string) => void;
 }) {
-  const { createMenuItem } = useStore();
+  const { createMenuItem, generateBarcode, setItemBarcode } = useStore();
+  const [barcodeMode, setBarcodeMode] = useState<"auto" | "existing" | "none">("auto");
+  const [existingCode, setExistingCode] = useState("");
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
@@ -27,7 +32,9 @@ export function AddItemModal({
   if (!open) return null;
 
   const priceNum = Number(price);
-  const valid = name.trim() && unit.trim() && Number.isFinite(priceNum) && priceNum > 0;
+  const valid =
+    name.trim() && unit.trim() && Number.isFinite(priceNum) && priceNum > 0 &&
+    (barcodeMode !== "existing" || existingCode.trim().length >= 4);
 
   function reset() {
     setName("");
@@ -37,6 +44,8 @@ export function AddItemModal({
     setStockQty("0");
     setLowStockThreshold("5");
     setArt("📦");
+    setBarcodeMode("auto");
+    setExistingCode("");
     setError(null);
   }
 
@@ -50,7 +59,7 @@ export function AddItemModal({
     setSaving(true);
     setError(null);
     try {
-      await createMenuItem(vendorId, {
+      const item = await createMenuItem(vendorId, {
         name: name.trim(),
         category,
         price: priceNum,
@@ -59,7 +68,16 @@ export function AddItemModal({
         lowStockThreshold: Number(lowStockThreshold) || 0,
         art: art.trim() || "📦",
       });
+      // The item exists now; a barcode failure is reported but doesn't lose it.
+      try {
+        if (barcodeMode === "auto") await generateBarcode(item.id);
+        if (barcodeMode === "existing") await setItemBarcode(vendorId, item.id, existingCode.trim());
+      } catch (err) {
+        setError(`Item added, but the barcode couldn't be saved: ${err instanceof Error ? err.message : "try again from Inventory"}`);
+        return;
+      }
       handleClose();
+      onCreated?.(item.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create item");
     } finally {
@@ -158,6 +176,38 @@ export function AddItemModal({
                 className="w-full rounded-lg bg-surface-container-low px-space-sm py-1.5 text-body-md text-on-surface outline-none focus:ring-2 focus:ring-primary"
               />
             </Field>
+          </div>
+
+          <div>
+            <span className="mb-1 block text-label-sm uppercase tracking-wide text-secondary">Barcode</span>
+            <div className="grid grid-cols-3 gap-1 rounded-lg bg-surface-container-low p-1">
+              {([
+                ["auto", "Generate"],
+                ["existing", "Has one"],
+                ["none", "None"],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setBarcodeMode(key)}
+                  className={`h-8 rounded-md text-body-sm transition ${barcodeMode === key ? "bg-surface-container-lowest text-on-surface shadow-sm" : "text-secondary"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {barcodeMode === "auto" && (
+              <p className="mt-1 text-label-sm text-secondary">A unique in-store barcode is created and its label opens for printing.</p>
+            )}
+            {barcodeMode === "existing" && (
+              <input
+                inputMode="numeric"
+                value={existingCode}
+                onChange={(e) => setExistingCode(e.target.value.trim())}
+                placeholder="Type the code printed on the pack"
+                className="mt-1 w-full rounded-lg bg-surface-container-low px-space-sm py-1.5 text-[16px] text-on-surface outline-none focus:ring-2 focus:ring-primary md:text-body-md"
+              />
+            )}
           </div>
 
           {error && <p className="text-body-sm text-error">{error}</p>}

@@ -181,6 +181,9 @@ export function Inventory() {
             >
               Scan barcode
             </Button>
+            <Button size="sm" icon="add" onClick={() => setAddItemOpen(true)}>
+              Add item
+            </Button>
             {missingBarcodes > 0 && (
               <Button size="sm" icon="add_circle" onClick={() => void generateAllMissing()} disabled={generating !== null}>
                 {generating === "all" ? "Generating…" : `Generate ${missingBarcodes} missing barcode${missingBarcodes === 1 ? "" : "s"}`}
@@ -199,11 +202,7 @@ export function Inventory() {
                 Export Ledger
               </Button>
             )}
-            {advancedMode && (
-              <Button size="sm" icon="add" onClick={() => setAddItemOpen(true)}>
-                Add New Item
-              </Button>
-            )}
+
           </div>
 
           <div className="flex flex-wrap items-center gap-space-xs">
@@ -469,7 +468,15 @@ export function Inventory() {
         </div>
       )}
 
-      <AddItemModal open={addItemOpen} onClose={() => setAddItemOpen(false)} vendorId={vendor.id} />
+      <AddItemModal
+        open={addItemOpen}
+        onClose={() => setAddItemOpen(false)}
+        vendorId={vendor.id}
+        onCreated={(id) => {
+          setScope("store");
+          setLabelItemId(id);
+        }}
+      />
       <BarcodeLabelDrawer item={labelItem} storeName={vendor.name} onClose={() => setLabelItemId(null)} />
     </div>
   );
