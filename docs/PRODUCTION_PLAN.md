@@ -81,7 +81,7 @@ The scanner is a dedicated full-screen page (`/scan`) built for a phone held in 
 - [ ] Add a `barcodes` table (one item, many codes) so multipacks and alternate packaging map to one product.
 - [ ] "Stock count" mode: scan everything on a shelf, then reconcile the counts in one go.
 - [ ] Look up unknown EANs in a product database (e.g. GS1 India DataKart or Open Food Facts) to pre-fill name and MRP when creating new items.
-- [ ] Make restock idempotent (client request ID) so a retry on bad Wi-Fi can't double-count.
+- [x] Make restock idempotent (client request ID) so a retry on bad Wi-Fi can't double-count. *(Needs the idempotency migration applied.)*
 
 ## Mobile-first, installable vendor console
 
@@ -130,8 +130,9 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 - [ ] Analytics: the 14/30-day revenue trend is simulated ("wobble" numbers) except today — replace with a server-side daily revenue aggregate.
 - [ ] Then switch live updates to Supabase Realtime (Postgres changes on `orders` and `slots`), keeping a 30–60 s poll as a fallback.
 - [ ] Verify Supabase JWTs locally (JWKS) instead of calling Supabase Auth on every request.
-- [ ] Input validation with a schema library (zod) on every route; consistent error shape `{ code, message }`.
-- [ ] Idempotency keys on order placement, restock and payment callbacks.
+- [x] Consistent error shape `{ code, message, requestId }` on every error.
+- [ ] Input validation with zod: done for order placement, restock, stock adjust, profile update and item creation (`backend/schemas/`, `validate` middleware → `400 validation_failed` with an `issues` list). Still to cover: the remaining PATCH/POST routes (vendor settings, staff, item update, slot actions).
+- [x] Idempotency keys on order placement, restock and stock adjustment (`Idempotency-Key` header; retries replay the first response; the web client retries network failures under one key). **Migration `20261102120000_idempotency_keys.sql` must be applied before it takes effect** — until then the middleware fails open. Payment callbacks come with Phase 2. Run `purge_idempotency_keys()` daily.
 - [ ] Rate limiting with a shared store (Upstash Redis): per student once login exists, 60 writes/minute per vendor. *(Interim per-IP limiter on order placement shipped: 30/min, since a hostel often shares one IP.)*
 - [ ] Pool closing via Vercel Cron calling the existing `POST /internal/sweep-slots` every minute (Hobby plan only allows daily cron jobs, so this needs Pro or Supabase `pg_cron`).
 - [ ] Version the API (`/v1`) before a native app ever ships, so old app versions keep working.

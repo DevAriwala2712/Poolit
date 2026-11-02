@@ -32,20 +32,39 @@ export async function hasAuthToken(): Promise<boolean> {
   return Boolean(await getAuthToken());
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let res: Response;
-  try {
-    const token = await getAuthToken();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers.Authorization = `Bearer ${token}`;
+/**
+ * `idempotent: true` sends one Idempotency-Key for the whole call and retries
+ * network failures (twice, with backoff) under that same key, so a flaky
+ * connection can't place an order or add stock twice: the server replays the
+ * first result instead of running it again.
+ */
+async function request<T>(
+  path: string,
+  init?: RequestInit & { idempotent?: boolean },
+): Promise<T> {
+  const { idempotent, ...fetchInit } = init ?? {};
+  const key = idempotent ? crypto.randomUUID() : undefined;
+  const attempts = idempotent ? 3 : 1;
+  let res: Response | undefined;
+  for (let attempt = 1; attempt <= attempts && !res; attempt++) {
+    try {
+      const token = await getAuthToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      if (key) headers["Idempotency-Key"] = key;
 
-    res = await fetch(`${API_URL}${path}`, {
-      ...init,
-      headers: { ...headers, ...init?.headers },
-    });
-  } catch {
-    throw new ApiError(0, `Can't reach the Poolit API at ${API_URL}. Is the backend running?`);
+      res = await fetch(`${API_URL}${path}`, {
+        ...fetchInit,
+        headers: { ...headers, ...fetchInit.headers },
+      });
+    } catch {
+      if (attempt === attempts) {
+        throw new ApiError(0, `Can't reach the Poolit API at ${API_URL}. Is the backend running?`);
+      }
+      await new Promise((r) => setTimeout(r, 400 * attempt));
+    }
   }
+  if (!res) throw new ApiError(0, "No response from the Poolit API");
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
@@ -187,6 +206,7 @@ export const api = {
   placeOrder: ({ slotId, ...body }: PlaceOrderInput) =>
     request<Order>(`/slots/${slotId}/orders`, {
       method: "POST",
+      idempotent: true,
       body: JSON.stringify(body),
     }),
 
@@ -210,7 +230,7 @@ export const api = {
   restockItem: (menuItemId: string, amount: number) =>
     request<{ item: MenuItem; restockLog: RestockLogEntry }>(
       `/menu-items/${menuItemId}/restock`,
-      { method: "POST", body: JSON.stringify({ amount }) },
+      { method: "POST", idempotent: true, body: JSON.stringify({ amount }) },
     ),
 
   updateItem: (
@@ -234,6 +254,7 @@ export const api = {
   adjustStock: (menuItemId: string, input: StockAdjustmentInput) =>
     request<{ item: MenuItem; adjustment: StockHistoryEntry }>(`/menu-items/${menuItemId}/adjust`, {
       method: "POST",
+      idempotent: true,
       body: JSON.stringify(input),
     }),
 
