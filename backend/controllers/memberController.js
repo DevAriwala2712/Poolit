@@ -59,9 +59,12 @@ exports.inviteMember = async (req, res) => {
     const { data: invited, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(email);
     if (inviteErr) {
       if (!/already.*(registered|exists)/i.test(inviteErr.message)) throw inviteErr;
-      const { data: list, error: listErr } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-      if (listErr) throw listErr;
-      userId = list.users.find((u) => u.email?.toLowerCase() === email)?.id;
+      for (let page = 1; page <= 20 && !userId; page++) {
+        const { data: list, error: listErr } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+        if (listErr) throw listErr;
+        userId = list.users.find((u) => u.email?.toLowerCase() === email)?.id;
+        if (list.users.length < 1000) break;
+      }
       if (!userId) return res.status(404).json({ code: "user_not_found", message: "Couldn't find that account" });
     } else {
       userId = invited.user.id;
