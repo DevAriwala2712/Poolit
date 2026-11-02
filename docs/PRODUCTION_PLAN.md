@@ -33,13 +33,14 @@ The core business logic is sound: stock decrements, pool closing and dispatch al
 | Auth check could throw when Supabase Auth is unreachable | `requireAuth.js` | Unhandled 500 | Fixed (503) |
 | Polling continued in background tabs | domain `store.tsx` | Battery drain, wasted API quota | Fixed |
 | Every poll refetches everything: N stores × (orders + current slot + every historical slot) | domain `fetchAll` | Load grows with order history; will hit limits within weeks of real use | Open — Phase 1 |
-| Any vendor login sees and edits every store | backend + console | A rival store can change your prices | Open — Phase 1 |
-| Students have no identity; `POST /slots/:id/orders` is public and unthrottled | backend | Fake orders can drain stock | Open — Phase 1 |
+| Any vendor login sees and edits every store | backend + console | A rival store can change your prices | In progress — code shipped behind `ENFORCE_VENDOR_SCOPING`; needs migration applied (docs/PHASE1_RUNBOOK.md) |
+| Students have no identity; `POST /slots/:id/orders` is public | backend | Fake orders can drain stock | Partly — now throttled to 30/min per IP; student login still open |
 | No payments; "payment method" is a text field | everywhere | Cannot go live | Open — Phase 2 |
 | Schema, indexes, RLS and RPC function bodies exist only in the live Supabase project | repo | No reproducible environments, no rollback | Open — Phase 1 |
-| No automated tests, no CI | repo | Regressions ship unnoticed | Open — Phase 1 |
+| No automated tests, no CI | repo | Regressions ship unnoticed | Fixed — 20 tests + GitHub Actions |
 | Auth check is a network call to Supabase per request | `requireAuth.js` | Adds latency to every vendor action | Open — Phase 1 |
-| Stray files: `test.md`, empty `backend/test` | repo root | Clutter | Open — delete |
+| Every student's browser downloads **all** orders (names, block, room) via public `GET /vendors/:id/orders` | domain `fetchAll`, backend | Privacy breach; a DPDP problem once live | Open — Phase 1, fixed by student login + own-orders endpoint |
+| Stray files: `test.md`, empty `backend/test` | repo root | Clutter | Fixed |
 
 ## Camera barcode scanner
 
@@ -104,11 +105,11 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 
 ### Data and schema
 
-- [ ] Export the live schema, indexes, RLS policies and the four RPC functions (`place_order`, `close_slot`, `dispatch_slot`, `restock_item`) into `supabase/migrations/` using the Supabase CLI. From then on, every change is a reviewed migration.
+- [ ] Export the live schema, indexes, RLS policies and the four RPC functions (`place_order`, `close_slot`, `dispatch_slot`, `restock_item`) into `supabase/migrations/` using the Supabase CLI. From then on, every change is a reviewed migration. *(Tooling ready: `scripts/export-schema.sh`; blocked until the paused Supabase project is restored.)*
 - [ ] Separate Supabase projects for staging and production, with migrations applied by CI.
-- [ ] Add a `vendor_users` table (user ↔ store, role: owner / staff) and check it on every vendor route. This closes the "any vendor edits any store" hole.
+- [x] Add a `vendor_users` table (user ↔ store, role: owner / staff) and check it on every vendor route. This closes the "any vendor edits any store" hole. *(Migration + middleware written and tested; apply and switch on per docs/PHASE1_RUNBOOK.md.)*
 - [ ] Turn on Row Level Security on every table, even though the API uses the service key — it protects against a leaked anon key and enables direct Realtime reads later.
-- [ ] Indexes: `orders(slot_id)`, `orders(status)`, `slots(hostel_id, status)`, `menu_items(vendor_id)`, unique `menu_items(vendor_id, barcode)`.
+- [x] Indexes: `orders(slot_id)`, `orders(status)`, `slots(hostel_id, status)`, `menu_items(vendor_id)` *(migration written, not yet applied)*; unique `menu_items(vendor_id, barcode)` already exists.
 - [ ] Money in integer paise, every order line storing the price at the time of sale (today the bill is recomputed from the current menu price, so editing a price changes old receipts).
 - [ ] Enable Supabase Point-in-Time Recovery (Pro plan) and test a restore once.
 
@@ -119,12 +120,13 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 - [ ] Verify Supabase JWTs locally (JWKS) instead of calling Supabase Auth on every request.
 - [ ] Input validation with a schema library (zod) on every route; consistent error shape `{ code, message }`.
 - [ ] Idempotency keys on order placement, restock and payment callbacks.
-- [ ] Rate limiting with a shared store (Upstash Redis): e.g. 5 orders/minute per student, 60 writes/minute per vendor.
+- [ ] Rate limiting with a shared store (Upstash Redis): per student once login exists, 60 writes/minute per vendor. *(Interim per-IP limiter on order placement shipped: 30/min, since a hostel often shares one IP.)*
 - [ ] Pool closing via Vercel Cron calling the existing `POST /internal/sweep-slots` every minute (Hobby plan only allows daily cron jobs, so this needs Pro or Supabase `pg_cron`).
 - [ ] Version the API (`/v1`) before a native app ever ships, so old app versions keep working.
 
 ### Identity
 
+- [ ] Stop exposing other students' orders: student app reads only its own orders (`GET /me/orders`), and `GET /vendors/:id/orders` becomes vendor-only.
 - [ ] Students sign in with phone OTP (Supabase Auth phone provider via an Indian SMS gateway such as MSG91, with a DLT-registered template).
 - [ ] Orders tied to `student_id`, not a typed name; addresses saved per student.
 - [ ] Vendor staff invited by the store owner; roles enforced server-side.
@@ -138,8 +140,9 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 
 ### Quality
 
-- [ ] GitHub Actions on every PR: typecheck, lint, build, unit tests.
-- [ ] Unit tests for the fee ladder and order-state transitions; integration tests for the RPCs against a local Supabase.
+- [x] GitHub Actions on every PR: typecheck, lint, build, unit tests.
+- [x] Unit tests for the fee ladder (frontend/backend parity), barcode validation, rate limiter, vendor access, API error handling.
+- [ ] Integration tests for the RPCs and order-state transitions against a local Supabase.
 - [ ] Playwright smoke tests for: place order, close pool, dispatch, deliver, scan-to-restock.
 - [ ] Preview deployments per PR pointed at the staging Supabase project.
 
