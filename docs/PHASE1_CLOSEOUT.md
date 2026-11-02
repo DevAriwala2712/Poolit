@@ -23,7 +23,23 @@ Everything in Phase 1 that can be done in code and in the live database is done.
 4. **Uptime alert**: add an UptimeRobot / Better Stack check on `GET /` of the API paging a phone. (`GET /` returns `status: healthy`.)
 5. **Staging project**: create a second Supabase project and Vercel preview environment, then apply the migrations to it with `supabase db push` (the files are the source of truth). Point preview deployments at it.
 6. **Restore drill** (gate for Phase 1): upgrade to Supabase Pro, enable Point-in-Time Recovery, restore to a new project once, confirm the app works against it, write down the time it took.
-7. **Security review sign-off**: a human pass over `docs/PHASE1_CLOSEOUT.md` plus the diff. A self-review was done on 2 Nov; the live security advisor shows no errors.
+7. **Security review sign-off**: a human pass over this file plus the diff.
+
+## Security review (2 Nov 2026)
+
+Reviewed the whole branch diff by hand plus tooling. Result: no open findings in code; two Supabase Auth settings are dashboard-only (item 1 above).
+
+| Check | Result |
+| --- | --- |
+| `npm audit` (API, prod deps) | 7 findings at start (zod DoS *high*, qs via express, glob/minimatch via Sentry). Fixed by upgrading zod to 4.6.7, Sentry to 10.78, express/qs. **0 vulnerabilities.** Frontend: 0. |
+| Secret scan | No keys or tokens in the repo. Only the Supabase *publishable* key is present (meant to be public). |
+| Supabase security advisor (live) | No errors. "RLS enabled, no policy" notes are intentional (deny-all; only the server's service role reads data). Warnings: leaked-password protection and MFA (dashboard). |
+| Function grants (live) | `place_order`, `adjust_stock`, `ensure_open_slot`, `sweep_expired_slots`, `purge_idempotency_keys`, `vendor_daily_revenue`: not executable by `anon` or `authenticated`. |
+| Authorisation | Team routes are always store-scoped and owner-only; students (phone logins) are refused on vendor routes; last owner can't be removed or demoted; price edits are owner-only. |
+| Token handling | Local JWT check requires signature, issuer, audience and subject; failures are never retried against a weaker path; forged/expired tokens tested. |
+| Input handling | zod on all write bodies (unknown keys dropped); request IDs are pattern-restricted before being echoed in headers. |
+| Fixed during review | Cron secret was compared with `!==` (now constant-time). Idempotency keys used `crypto.randomUUID`, which throws over plain `http://` LAN testing (now falls back). Invite lookup only searched the first 1,000 accounts (now pages). |
+| Accepted, documented | Locally verified tokens outlive sign-out until expiry (1 h). CORS is open when `ALLOWED_ORIGINS` is unset: **set it in production**. Request logs include IP and user id (keep ≥180 days for CERT-In; covered by the privacy notice). |
 
 ## Known limits
 
