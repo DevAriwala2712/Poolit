@@ -138,6 +138,12 @@ export const api = {
     ),
 
   /** Only the caller's own orders (and the slots they belong to). */
+  getRevenue: (days: number) =>
+    request<{
+      days: number;
+      stores: { vendorId: string; days: { day: string; orders: number; revenue: number }[] }[];
+    }>(`/vendor/revenue?days=${days}`),
+
   getMyOrders: () => request<{ orders: Order[]; slots: Slot[] }>("/me/orders"),
 
   getHostels: () => request<Hostel[]>("/hostels"),

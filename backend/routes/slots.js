@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const slotController = require("../controllers/slotController");
 const orderController = require("../controllers/orderController");
+const { vendorWriteLimit } = require("../middleware/limiters");
 const requireAuth = require("../middleware/requireAuth");
 const { requireVendorAccess, vendorFrom } = require("../middleware/requireVendorAccess");
 const { rateLimit } = require("../middleware/rateLimit");
@@ -27,7 +28,7 @@ router.get("/:slotId/live-fee", orderController.getLiveFee);
 router.post("/:slotId/orders", orderLimiter, optionalAuth, validate({ body: S.placeOrderBody }), idempotency(), orderController.placeOrder);
 
 // Vendor-only actions.
-router.post("/:slotId/close", requireAuth, requireVendorAccess(vendorFrom.slot), slotController.closeSlotHandler);
-router.post("/:slotId/dispatch", requireAuth, requireVendorAccess(vendorFrom.slot), slotController.dispatchSlot);
+router.post("/:slotId/close", requireAuth, vendorWriteLimit, requireVendorAccess(vendorFrom.slot), slotController.closeSlotHandler);
+router.post("/:slotId/dispatch", requireAuth, vendorWriteLimit, requireVendorAccess(vendorFrom.slot), slotController.dispatchSlot);
 
 module.exports = router;

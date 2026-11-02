@@ -48,3 +48,50 @@ const createItemBody = z.object({
 });
 
 module.exports = { placeOrderBody, restockBody, adjustBody, updateMeBody, createItemBody };
+
+// ---- remaining write routes ----
+const updateVendorBody = z
+  .object({
+    acceptingOrders: z.boolean().optional(),
+    prepMinutes: whole(1, 240).optional(),
+    poolWindowMinutes: whole(3, 60).optional(),
+  })
+  .refine((b) => Object.keys(b).length > 0, { message: "Nothing to update" });
+
+const createStaffBody = z.object({
+  name: z.string().trim().min(1, "is required").max(80),
+  role: z.string().trim().min(1, "is required").max(40),
+  email: z.string().trim().email().max(200).nullish().or(z.literal("")),
+});
+
+const updateStaffBody = z
+  .object({
+    name: z.string().trim().min(1).max(80).optional(),
+    role: z.string().trim().min(1).max(40).optional(),
+    status: z.enum(["active", "break", "inactive"]).optional(),
+  })
+  .refine((b) => Object.keys(b).length > 0, { message: "Nothing to update" });
+
+const updateItemBody = z
+  .object({
+    price: z.number().positive().max(100_000).optional(),
+    lowStockThreshold: whole(0, 1_000_000).optional(),
+    barcode: z.string().trim().min(1).max(64).nullable().optional(),
+  })
+  .refine((b) => Object.keys(b).length > 0, { message: "Nothing to update" });
+
+const inviteMemberBody = z.object({
+  email: z.string().trim().toLowerCase().email().max(200),
+  role: z.enum(["owner", "staff"]).default("staff"),
+});
+
+const updateMemberBody = z.object({ role: z.enum(["owner", "staff"]) });
+
+const revenueQuery = z.object({
+  days: z.coerce.number().int().min(1).max(92).default(30),
+});
+
+Object.assign(module.exports, {
+  updateVendorBody, createStaffBody, updateStaffBody, updateItemBody,
+  inviteMemberBody, updateMemberBody, revenueQuery,
+});

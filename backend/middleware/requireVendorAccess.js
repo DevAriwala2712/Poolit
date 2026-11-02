@@ -14,12 +14,14 @@ const flags = require("../utils/flags");
  * `resolveVendorId(req, db)` returns the vendor (store) id that owns whatever
  * the route touches, or null if the resource doesn't exist.
  */
-function requireVendorAccess(resolveVendorId, { roles, db = supabase } = {}) {
+function requireVendorAccess(resolveVendorId, { roles, db = supabase, alwaysScoped = false } = {}) {
   return async (req, res, next) => {
     if (!req.user) return res.status(401).json({ message: "Not signed in" });
 
     try {
-      if (!flags.vendorScoping()) {
+      // alwaysScoped: sensitive routes (team management) never fall back to the
+      // "any vendor" behaviour, whatever ENFORCE_VENDOR_SCOPING says.
+      if (!alwaysScoped && !flags.vendorScoping()) {
         const { data, error } = await db
           .from("vendor_users")
           .select("vendor_id")

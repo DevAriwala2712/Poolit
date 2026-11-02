@@ -1,3 +1,4 @@
+const { reportError } = require("../utils/reportError");
 const supabase = require("../config/supabaseClient");
 const { toMenuItemJSON, toRestockLogJSON } = require("../utils/serialize");
 
@@ -58,7 +59,7 @@ exports.createItem = async (req, res) => {
 
     res.status(201).json(toMenuItemJSON(item));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to create menu item" });
   }
 };
@@ -94,7 +95,7 @@ exports.restockItem = async (req, res) => {
       restockLog: toRestockLogJSON(data.restockLog),
     });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to restock item" });
   }
 };
@@ -105,6 +106,12 @@ exports.updateItem = async (req, res) => {
   try {
     const { price, lowStockThreshold, barcode } = req.body;
     const update = {};
+
+    // Changing what customers pay is an owner decision; staff can still
+    // restock, count and link barcodes. (vendorRole is set when store scoping is on.)
+    if (price !== undefined && req.vendorRole === "staff") {
+      return res.status(403).json({ code: "owner_only", message: "Only a store owner can change prices" });
+    }
 
     if (price !== undefined) {
       if (typeof price !== "number" || !Number.isFinite(price) || price <= 0) {
@@ -165,7 +172,7 @@ exports.updateItem = async (req, res) => {
 
     res.json(toMenuItemJSON(item));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to update menu item" });
   }
 };
@@ -181,7 +188,7 @@ exports.getRestockLog = async (req, res) => {
     if (error) throw error;
     res.json(logs.map(toRestockLogJSON));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to fetch restock log" });
   }
 };
