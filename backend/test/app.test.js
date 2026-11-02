@@ -92,3 +92,8 @@ test("barcode generation and stock adjustment require a signed-in vendor", async
     assert.equal(res.status, 401, `${method} ${path}`);
   }
 });
+
+test("GET /vendor/analytics requires a signed-in vendor", async () => {
+  const res = await fetch(`${base}/vendor/analytics?vendorId=v1`);
+  assert.equal(res.status, 401);
+});

@@ -107,3 +107,30 @@ exports.getOverview = async (req, res) => {
     res.status(500).json({ message: "Failed to load the console" });
   }
 };
+
+/**
+ * GET /vendor/analytics?vendorId=&days=30
+ * Real daily orders and revenue (IST days, zero-filled) for one store.
+ */
+exports.getAnalytics = async (req, res) => {
+  try {
+    const days = Math.min(92, Math.max(1, Number.parseInt(req.query.days, 10) || 30));
+    const vendorId = req.query.vendorId;
+    if (typeof vendorId !== "string" || !vendorId) {
+      return res.status(400).json({ message: "vendorId is required" });
+    }
+    const allowed = await storesFor(req.user.id);
+    if (!allowed) return res.status(403).json({ message: "This account isn't a vendor account" });
+    if (!allowed.includes(vendorId)) return res.status(403).json({ message: "You don't have access to this store" });
+
+    const { data, error } = await supabase.rpc("vendor_daily_revenue", { p_vendor_id: vendorId, p_days: days });
+    if (error) throw error;
+    res.json({
+      days,
+      daily: data.map((r) => ({ date: r.day, orders: Number(r.orders), revenue: Number(r.revenue) })),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to load analytics" });
+  }
+};
