@@ -39,7 +39,7 @@ The core business logic is sound: stock decrements, pool closing and dispatch al
 | No payments; "payment method" is a text field | everywhere | Cannot go live | Open — Phase 2 |
 | Schema, indexes, RLS and RPC function bodies exist only in the live Supabase project | repo | No reproducible environments, no rollback | Fixed — `supabase/migrations/` |
 | No automated tests, no CI | repo | Regressions ship unnoticed | Fixed — 20 tests + GitHub Actions |
-| Auth check is a network call to Supabase per request | `requireAuth.js` | Adds latency to every vendor action | Open — Phase 1 |
+| Auth check is a network call to Supabase per request | `requireAuth.js` | Adds latency to every vendor action | Fixed in code — local JWKS verification (needs asymmetric signing keys enabled) |
 | Every student's browser downloads **all** orders (names, block, room) via public `GET /vendors/:id/orders` | domain `fetchAll`, backend | Privacy breach; a DPDP problem once live | Fixed in code — closes when `STUDENT_LOGIN_REQUIRED=true` after the new student app is deployed |
 | Stray files: `test.md`, empty `backend/test` | repo root | Clutter | Fixed |
 
@@ -129,10 +129,10 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 - [x] Pools open and rotate automatically (`ensure_open_slot`): previously only the seed script created pools, so ordering stopped for good once a pool closed.
 - [ ] Analytics: the 14/30-day revenue trend is simulated ("wobble" numbers) except today — replace with a server-side daily revenue aggregate.
 - [ ] Then switch live updates to Supabase Realtime (Postgres changes on `orders` and `slots`), keeping a 30–60 s poll as a fallback.
-- [ ] Verify Supabase JWTs locally (JWKS) instead of calling Supabase Auth on every request.
+- [x] Verify Supabase JWTs locally (JWKS) instead of calling Supabase Auth on every request (`backend/utils/verifyToken.js`). Works once the project uses asymmetric JWT signing keys (Supabase dashboard → Authentication → JWT signing keys); legacy HS256 tokens and JWKS outages fall back to the old server check automatically. Trade-off: a signed-out or banned user's token stays valid until it expires (default 1 h); `LOCAL_JWT_VERIFY=false` restores the per-request check.
 - [x] Consistent error shape `{ code, message, requestId }` on every error.
 - [ ] Input validation with zod: done for order placement, restock, stock adjust, profile update and item creation (`backend/schemas/`, `validate` middleware → `400 validation_failed` with an `issues` list). Still to cover: the remaining PATCH/POST routes (vendor settings, staff, item update, slot actions).
-- [x] Idempotency keys on order placement, restock and stock adjustment (`Idempotency-Key` header; retries replay the first response; the web client retries network failures under one key). **Migration `20261102120000_idempotency_keys.sql` must be applied before it takes effect** — until then the middleware fails open. Payment callbacks come with Phase 2. Run `purge_idempotency_keys()` daily.
+- [x] Idempotency keys on order placement, restock and stock adjustment (`Idempotency-Key` header; retries replay the first response; the web client retries network failures under one key). Migration `20261102062903_idempotency_keys.sql` applied to the live project on 2 Nov. Payment callbacks come with Phase 2. Run `purge_idempotency_keys()` daily.
 - [ ] Rate limiting with a shared store (Upstash Redis): per student once login exists, 60 writes/minute per vendor. *(Interim per-IP limiter on order placement shipped: 30/min, since a hostel often shares one IP.)*
 - [ ] Pool closing via Vercel Cron calling the existing `POST /internal/sweep-slots` every minute (Hobby plan only allows daily cron jobs, so this needs Pro or Supabase `pg_cron`).
 - [ ] Version the API (`/v1`) before a native app ever ships, so old app versions keep working.
