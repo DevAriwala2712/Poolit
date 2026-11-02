@@ -73,6 +73,25 @@ export interface PlaceOrderInput {
   note?: string;
 }
 
+export type StockAdjustmentReason = "count" | "damaged" | "expired" | "correction" | "other";
+
+export interface StockAdjustmentInput {
+  mode: "set" | "remove";
+  qty: number;
+  reason?: StockAdjustmentReason;
+  note?: string;
+}
+
+export interface StockHistoryEntry {
+  id: string;
+  kind: "restock" | StockAdjustmentReason;
+  delta: number;
+  previousQty?: number;
+  newQty?: number;
+  note?: string;
+  at: number;
+}
+
 export interface StudentProfile {
   name: string;
   hostelId?: string;
@@ -202,6 +221,23 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
+
+  /** Give an item its own in-store EAN-13 (idempotent). */
+  generateBarcode: (menuItemId: string) =>
+    request<MenuItem>(`/menu-items/${menuItemId}/barcode`, { method: "POST" }),
+
+  /** Generate barcodes for every item in a store that has none. */
+  generateMissingBarcodes: (vendorId: string) =>
+    request<{ generated: number; items: MenuItem[] }>(`/vendors/${vendorId}/barcodes`, { method: "POST" }),
+
+  /** Set an exact count ("set") or remove units ("remove"), with a reason. */
+  adjustStock: (menuItemId: string, input: StockAdjustmentInput) =>
+    request<{ item: MenuItem; adjustment: StockHistoryEntry }>(`/menu-items/${menuItemId}/adjust`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  getStockHistory: (menuItemId: string) => request<StockHistoryEntry[]>(`/menu-items/${menuItemId}/stock-history`),
 
   getRestockLog: (menuItemId: string) =>
     request<RestockLogEntry[]>(`/menu-items/${menuItemId}/restock-log`),

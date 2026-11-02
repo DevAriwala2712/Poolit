@@ -3,6 +3,7 @@ import type { MenuItem } from "@poolit/domain";
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AddItemModal } from "../components/AddItemModal";
+import { BarcodeLabelDrawer, printLabels } from "../components/BarcodeLabels";
 import { KpiCard } from "../components/KpiCard";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card, EmptyState, Td, Th } from "../components/ui";
@@ -15,7 +16,7 @@ const QUICK = [10, 25];
 export function Inventory() {
   const [params, setParams] = useSearchParams();
   const { vendor, allVendors } = useVendor();
-  const { restockItem, setItemPrice } = useStore();
+  const { restockItem, setItemPrice, generateBarcode, generateMissingBarcodes } = useStore();
   const { advancedMode } = useUIMode();
 
   const [query, setQuery] = useState("");
@@ -27,6 +28,8 @@ export function Inventory() {
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
   const navigate = useNavigate();
   const [addItemOpen, setAddItemOpen] = useState(false);
+  const [labelItemId, setLabelItemId] = useState<string | null>(null);
+  const [generating, setGenerating] = useState<string | null>(null);
 
   const pool = useMemo(
     () =>
@@ -71,6 +74,55 @@ export function Inventory() {
     setCustomAmounts((prev) => ({ ...prev, [item.id]: "" }));
   }
 
+  const missingBarcodes = vendor.menu.filter((m) => !m.barcode).length;
+  const labelItem = labelItemId ? pool.find(({ item }) => item.id === labelItemId)?.item ?? null : null;
+
+  async function generateFor(item: MenuItem) {
+    setGenerating(item.id);
+    try {
+      await generateBarcode(item.id);
+      setLabelItemId(item.id);
+    } catch {
+      // failure already shown as a toast by the store
+    } finally {
+      setGenerating(null);
+    }
+  }
+
+  async function generateAllMissing() {
+    setGenerating("all");
+    try {
+      await generateMissingBarcodes(vendor.id);
+    } catch {
+      // toast shown by the store
+    } finally {
+      setGenerating(null);
+    }
+  }
+
+  /** Barcode line under an item: open its label, or generate one. */
+  function barcodeLine(item: MenuItem) {
+    return item.barcode ? (
+      <button
+        onClick={() => setLabelItemId(item.id)}
+        className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded text-label-sm text-tertiary hover:underline"
+        title="View / print barcode label"
+      >
+        <MaterialIcon name="barcode" className="text-[14px]" />
+        <span className="truncate font-mono">{item.barcode}</span>
+      </button>
+    ) : (
+      <button
+        onClick={() => void generateFor(item)}
+        disabled={generating !== null}
+        className="mt-0.5 inline-flex items-center gap-1 rounded text-label-sm text-primary hover:underline disabled:opacity-50"
+      >
+        <MaterialIcon name="add_circle" className="text-[14px]" />
+        {generating === item.id ? "Generating…" : "Generate barcode"}
+      </button>
+    );
+  }
+
   function categoryCount(c: string) {
     return c === "all" ? pool.length : pool.filter(({ item }) => item.category === c).length;
   }
@@ -94,7 +146,7 @@ export function Inventory() {
     <div className="space-y-space-md">
       <div>
         <p className="text-label-sm uppercase tracking-wide text-secondary">{vendor.name} / SKU Realtime Stock & Prep</p>
-        <h1 className="text-headline-lg text-on-surface">Inventory Management</h1>
+        <h1 className="hidden text-headline-lg text-on-surface md:block">Inventory Management</h1>
       </div>
 
       <div className="grid grid-cols-2 gap-space-sm md:gap-space-md lg:grid-cols-4">
@@ -128,6 +180,19 @@ export function Inventory() {
               onClick={() => navigate("/scan")}
             >
               Scan barcode
+            </Button>
+            {missingBarcodes > 0 && (
+              <Button size="sm" icon="add_circle" onClick={() => void generateAllMissing()} disabled={generating !== null}>
+                {generating === "all" ? "Generating…" : `Generate ${missingBarcodes} missing barcode${missingBarcodes === 1 ? "" : "s"}`}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              icon="print"
+              onClick={() => printLabels(rows.map((r) => r.item), vendor.name)}
+              disabled={!rows.some((r) => r.item.barcode)}
+            >
+              Print labels
             </Button>
             {advancedMode && (
               <Button size="sm" icon="download" onClick={exportLedger} disabled={rows.length === 0}>
@@ -199,6 +264,7 @@ export function Inventory() {
                         {rupees(item.price)} · {item.unit}
                         {scope === "all" && ` · ${vendorName}`}
                       </p>
+                      {barcodeLine(item)}
                     </div>
                     <div className="text-right">
                       <p className="font-mono text-headline-sm text-on-surface">{item.stockQty}</p>
@@ -272,6 +338,7 @@ export function Inventory() {
                           <div>
                             <p className="text-body-md text-on-surface">{item.name}</p>
                             <p className="font-label-sm text-label-sm text-secondary">SKU: {item.id.slice(0, 8).toUpperCase()}</p>
+                            {barcodeLine(item)}
                           </div>
                         </div>
                       </Td>
@@ -403,6 +470,7 @@ export function Inventory() {
       )}
 
       <AddItemModal open={addItemOpen} onClose={() => setAddItemOpen(false)} vendorId={vendor.id} />
+      <BarcodeLabelDrawer item={labelItem} storeName={vendor.name} onClose={() => setLabelItemId(null)} />
     </div>
   );
 }

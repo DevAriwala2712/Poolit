@@ -1,5 +1,5 @@
 import { rupees, useStore } from "@poolit/domain";
-import type { MenuItem } from "@poolit/domain";
+import type { MenuItem, StockAdjustmentReason } from "@poolit/domain";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MaterialIcon } from "../components/MaterialIcon";
@@ -24,6 +24,17 @@ interface LogEntry {
 }
 
 const QUICK = [1, 5, 10, 25];
+type Mode = "add" | "set" | "remove";
+const MODES: { key: Mode; label: string }[] = [
+  { key: "add", label: "Add stock" },
+  { key: "set", label: "Set count" },
+  { key: "remove", label: "Remove" },
+];
+const REMOVE_REASONS: { key: StockAdjustmentReason; label: string }[] = [
+  { key: "damaged", label: "Damaged" },
+  { key: "expired", label: "Expired" },
+  { key: "other", label: "Other" },
+];
 
 /**
  * Dedicated, full-screen barcode scanner — built for a phone held in one hand
@@ -38,7 +49,7 @@ const QUICK = [1, 5, 10, 25];
 export function Scan() {
   const navigate = useNavigate();
   const { vendor, allVendors } = useVendor();
-  const { restockItem, setItemBarcode } = useStore();
+  const { restockItem, setItemBarcode, adjustStock } = useStore();
 
   const [code, setCode] = useState<string | null>(null);
   const [manual, setManual] = useState("");
@@ -51,6 +62,8 @@ export function Scan() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [logOpen, setLogOpen] = useState(false);
   const [autoResume, setAutoResume] = useState(true);
+  const [mode, setMode] = useState<Mode>("add");
+  const [removeReason, setRemoveReason] = useState<StockAdjustmentReason>("damaged");
 
   const allItems = useMemo<ScopedItem[]>(
     () => allVendors.flatMap((v) => v.menu.map((item) => ({ item, vendorName: v.name, vendorId: v.id }))),
@@ -135,6 +148,31 @@ export function Scan() {
     }
   }
 
+  async function adjust(kind: "set" | "remove", amount: number) {
+    if (!match || busy) return;
+    if (!Number.isInteger(amount) || amount < (kind === "remove" ? 1 : 0) || amount > 100000) {
+      setError(kind === "set" ? "Enter the number you counted (0 or more)." : "Enter how many to remove (1 or more).");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await adjustStock(match.item.id, kind === "set" ? { mode: "set", qty: amount, reason: "count" } : { mode: "remove", qty: amount, reason: removeReason });
+      pushLog({
+        code: code!,
+        label: kind === "set" ? `${match.item.name}: counted ${amount}` : `${match.item.name}: removed (${removeReason})`,
+        amount: kind === "set" ? amount - match.item.stockQty : -amount,
+        ok: true,
+      });
+      if (autoResume) next();
+      else setQty("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't update the stock — try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function assign() {
     if (!code || !assignTarget || busy) return;
     const target = vendor.menu.find((m) => m.id === assignTarget);
@@ -210,7 +248,7 @@ export function Scan() {
         <div className="absolute inset-x-0 top-0 flex items-center gap-2 bg-gradient-to-b from-black/70 to-transparent px-3 pb-6 pt-[max(env(safe-area-inset-top),12px)]">
           <IconButton icon="arrow_back" label="Close scanner" onClick={close} />
           <div className="min-w-0 flex-1">
-            <p className="text-headline-sm leading-tight">Scan to restock</p>
+            <p className="text-headline-sm leading-tight">Scan stock</p>
             <p className="truncate text-label-sm text-white/70">
               {vendor.name}
               {scanner.engine === "wasm" && " · compatibility decoder"}
@@ -231,7 +269,7 @@ export function Scan() {
 
         {!code && scanner.status === "live" && (
           <p className="pointer-events-none absolute inset-x-0 bottom-4 text-center text-body-md text-white/85">
-            Point at a product barcode — it scans automatically
+            Point at a product or Poolit label barcode — it scans automatically
           </p>
         )}
       </div>
@@ -280,44 +318,161 @@ export function Scan() {
                     </p>
                   </div>
                   <Badge tone={match.item.stockQty === 0 ? "error" : match.item.stockQty <= match.item.lowStockThreshold ? "prep" : "ready"}>
-                    {match.item.stockQty} in stock
+                    {match.item.stockQty === 0 ? "Out" : match.item.stockQty <= match.item.lowStockThreshold ? "Low" : "OK"}
                   </Badge>
                 </div>
                 {match.vendorId !== vendor.id && (
                   <p className="text-body-sm text-secondary">Note: this item belongs to {match.vendorName}, not your active store.</p>
                 )}
-                <div className="grid grid-cols-4 gap-2">
-                  {QUICK.map((n) => (
+                <div className="flex items-end justify-between rounded-lg bg-surface-container-low px-3 py-2">
+                  <span className="text-label-md uppercase text-secondary">On hand now</span>
+                  <span className="font-mono text-[28px] font-semibold leading-none text-on-surface">{match.item.stockQty}</span>
+                </div>
+
+                <div role="tablist" aria-label="What to do" className="grid grid-cols-3 gap-1 rounded-lg bg-surface-container-low p-1">
+                  {MODES.map((m) => (
                     <button
-                      key={n}
-                      disabled={busy}
-                      onClick={() => void restock(n)}
-                      className="h-12 rounded-lg bg-primary-container text-headline-sm text-on-primary-container transition active:scale-95 disabled:opacity-50"
+                      key={m.key}
+                      role="tab"
+                      aria-selected={mode === m.key}
+                      onClick={() => {
+                        setMode(m.key);
+                        setQty(m.key === "set" ? String(match.item.stockQty) : "");
+                        setError(null);
+                      }}
+                      className={`h-10 rounded-md text-body-md transition ${
+                        mode === m.key ? "bg-surface-container-lowest text-on-surface shadow-sm" : "text-secondary"
+                      }`}
                     >
-                      +{n}
+                      {m.label}
                     </button>
                   ))}
                 </div>
-                <form
-                  className="flex gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void restock(Number(qty));
-                  }}
-                >
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={qty}
-                    onChange={(e) => setQty(e.target.value.replace(/\D/g, "").slice(0, 5))}
-                    placeholder="Custom quantity"
-                    className="h-12 min-w-0 flex-1 rounded-lg bg-surface-container-low px-3 text-[16px] outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <Button type="submit" variant="tertiary" className="!h-12 px-5" disabled={!qty || busy}>
-                    Add
-                  </Button>
-                </form>
+
+                {mode === "add" && (
+                  <>
+                    <div className="grid grid-cols-4 gap-2">
+                      {QUICK.map((n) => (
+                        <button
+                          key={n}
+                          disabled={busy}
+                          onClick={() => void restock(n)}
+                          className="h-12 rounded-lg bg-primary-container text-headline-sm text-on-primary-container transition active:scale-95 disabled:opacity-50"
+                        >
+                          +{n}
+                        </button>
+                      ))}
+                    </div>
+                    <form
+                      className="flex gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void restock(Number(qty));
+                      }}
+                    >
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={qty}
+                        onChange={(e) => setQty(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                        placeholder="Custom quantity"
+                        className="h-12 min-w-0 flex-1 rounded-lg bg-surface-container-low px-3 text-[16px] outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <Button type="submit" variant="tertiary" className="!h-12 px-5" disabled={!qty || busy}>
+                        Add
+                      </Button>
+                    </form>
+                  </>
+                )}
+
+                {mode === "set" && (
+                  <form
+                    className="space-y-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void adjust("set", Number(qty));
+                    }}
+                  >
+                    <label className="block text-body-md text-secondary" htmlFor="count-input">
+                      How many are on the shelf right now?
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="count-input"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={qty}
+                        onChange={(e) => setQty(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        className="h-12 min-w-0 flex-1 rounded-lg bg-surface-container-low px-3 font-mono text-[20px] outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <Button type="submit" variant="primary" className="!h-12 px-5" disabled={qty === "" || busy}>
+                        Save count
+                      </Button>
+                    </div>
+                    {qty !== "" && Number(qty) !== match.item.stockQty && (
+                      <p className="text-body-sm text-secondary">
+                        Changes stock by{" "}
+                        <span className="font-mono text-on-surface">
+                          {Number(qty) - match.item.stockQty > 0 ? "+" : ""}
+                          {Number(qty) - match.item.stockQty}
+                        </span>
+                        . Recorded in the stock history.
+                      </p>
+                    )}
+                  </form>
+                )}
+
+                {mode === "remove" && (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      {REMOVE_REASONS.map((r) => (
+                        <button
+                          key={r.key}
+                          onClick={() => setRemoveReason(r.key)}
+                          className={`h-9 flex-1 rounded-lg text-body-md transition ${
+                            removeReason === r.key ? "bg-error-container text-on-error-container" : "bg-surface-container-low text-secondary"
+                          }`}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[1, 2, 5, 10].map((n) => (
+                        <button
+                          key={n}
+                          disabled={busy || n > match.item.stockQty}
+                          onClick={() => void adjust("remove", n)}
+                          className="h-12 rounded-lg bg-error-container text-headline-sm text-on-error-container transition active:scale-95 disabled:opacity-40"
+                        >
+                          −{n}
+                        </button>
+                      ))}
+                    </div>
+                    <form
+                      className="flex gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void adjust("remove", Number(qty));
+                      }}
+                    >
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={qty}
+                        onChange={(e) => setQty(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                        placeholder="Custom quantity"
+                        className="h-12 min-w-0 flex-1 rounded-lg bg-surface-container-low px-3 text-[16px] outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <Button type="submit" variant="danger" className="!h-12 px-5" disabled={!qty || busy}>
+                        Remove
+                      </Button>
+                    </form>
+                  </div>
+                )}
                 <label className="flex items-center gap-2 text-body-md text-secondary">
                   <input
                     type="checkbox"
@@ -325,7 +480,7 @@ export function Scan() {
                     onChange={(e) => setAutoResume(e.target.checked)}
                     className="h-4 w-4 accent-[var(--color-primary)]"
                   />
-                  Return to camera after each restock
+                  Return to camera after each update
                 </label>
               </div>
             )}
@@ -406,7 +561,7 @@ export function Scan() {
             <button onClick={() => setLogOpen((v) => !v)} className="flex w-full items-center justify-between">
               <span className="text-headline-sm">
                 This session · {log.length} scan{log.length === 1 ? "" : "s"}
-                {totalUnits > 0 && ` · +${totalUnits} units`}
+                {totalUnits !== 0 && ` · ${totalUnits > 0 ? "+" : "−"}${Math.abs(totalUnits)} units`}
               </span>
               <MaterialIcon name={logOpen ? "expand_more" : "expand_less"} className="text-[20px] text-secondary" />
             </button>
@@ -416,7 +571,11 @@ export function Scan() {
                   <li key={e.id} className="flex items-center gap-2 text-body-md">
                     <MaterialIcon name="check_circle" className="text-[16px] text-tertiary" />
                     <span className="min-w-0 flex-1 truncate">{e.label}</span>
-                    {e.amount !== undefined && <span className="font-mono text-tertiary">+{e.amount}</span>}
+                    {e.amount !== undefined && (
+                      <span className={`font-mono ${e.amount < 0 ? "text-error" : "text-tertiary"}`}>
+                        {e.amount > 0 ? `+${e.amount}` : e.amount < 0 ? `−${Math.abs(e.amount)}` : "±0"}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

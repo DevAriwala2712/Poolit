@@ -69,6 +69,13 @@ The scanner is a dedicated full-screen page (`/scan`) built for a phone held in 
 
 **Constraint to know:** browsers only allow the camera on HTTPS (or `localhost`). Testing from a phone on the LAN over `http://192.168.x.x` will show the HTTPS message; use the deployed Vercel URL or an HTTPS tunnel.
 
+**Generated barcodes and quantity tracking (added 2 Nov 2026):**
+
+- Any item without a barcode can get one: per item (Inventory → "Generate barcode") or all at once ("Generate N missing barcodes"). Codes are EAN-13 in the GS1 "29" in-store range, so they never collide with a manufacturer's code; the database assigns them atomically and they are unique across stores.
+- Labels: preview, print an A4 sheet (3 × 7 labels with name, price, MRP), or download an SVG.
+- Scanning any barcode shows the live quantity with three actions: **Add stock**, **Set count** (stock take: type what's on the shelf) and **Remove** (damaged / expired / other). Every change is recorded with the before/after quantity and who made it (`stock_adjustments`); `GET /menu-items/:id/stock-history` returns restocks and adjustments together.
+- Verified end to end: a printed label for the generated code `2900000000018` was decoded by the camera scanner, matched to its item, and a count of 46 was saved.
+
 **Next steps for scanning:**
 
 - [ ] Add a `barcodes` table (one item, many codes) so multipacks and alternate packaging map to one product.
@@ -93,7 +100,7 @@ The vendor console now behaves like a phone app and can be installed to the home
 
 **Still to do:**
 
-- [ ] Card layouts for the Orders table and the order detail drawer on phones.
+- [x] Card layouts for the Orders list and the Overview's recent orders on phones (desktop layout unchanged: phone-only elements below the `md` breakpoint).
 - [ ] Web Push notifications for new orders (supported on Android and on iPhone for installed PWAs, iOS 16.4+).
 - [ ] Replace 5-second polling with Supabase Realtime subscriptions (see Production architecture).
 - [ ] Code-split Analytics and charts; the main bundle is 550 KB (153 KB gzipped).
