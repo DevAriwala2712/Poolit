@@ -26,3 +26,13 @@ $$;
 
 grant usage on schema auth to anon, authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;
+
+-- pg_cron is a Supabase extension that plain Postgres (local, CI) lacks. The
+-- test runner drops the `create extension pg_cron` line and these stand-ins
+-- let the scheduling statements in the migrations run as no-ops.
+create schema if not exists cron;
+create table if not exists cron.job (jobid bigserial primary key, jobname text, schedule text, command text);
+create or replace function cron.schedule(p_name text, p_schedule text, p_command text) returns bigint language sql as
+  $$ insert into cron.job (jobname, schedule, command) values (p_name, p_schedule, p_command) returning jobid $$;
+create or replace function cron.unschedule(p_jobid bigint) returns boolean language sql as
+  $$ delete from cron.job where jobid = p_jobid returning true $$;

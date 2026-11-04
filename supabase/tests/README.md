@@ -16,7 +16,7 @@ DATABASE_URL=postgres://postgres@localhost:5432/postgres scripts/test-db.sh
   each can do exactly what they own. It also checks the grants: no table is
   reachable by the public roles, and only the listed `api_*` functions are
   callable without signing in.
-- `20_pool_rotation.test.sql` covers the every-minute pool rotation.
+- `20_pool_rotation.test.sql` covers the every-minute pool rotation (`sweep_expired_slots`).
 
 Every new `api_*` function must be added to the public list in test 10 or it
 fails the "anonymous access must match the public list" check.

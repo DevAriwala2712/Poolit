@@ -22,7 +22,8 @@ run() { psql "$TEST_URL" -v ON_ERROR_STOP=1 -q -f "$1"; }
 run supabase/tests/00_stubs.sql
 for f in supabase/migrations/*.sql; do
   echo "migrate  $(basename "$f")"
-  run "$f"
+  # pg_cron only exists on Supabase; its stand-in is in 00_stubs.sql.
+  sed 's/^create extension if not exists pg_cron;/-- pg_cron stubbed in tests/' "$f" | psql "$TEST_URL" -v ON_ERROR_STOP=1 -q
 done
 
 status=0

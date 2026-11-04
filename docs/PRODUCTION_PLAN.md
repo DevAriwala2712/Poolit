@@ -259,13 +259,15 @@ Dates assume a start on **Monday 9 Nov 2026** and **two full-time developers** (
 
 | Item | Status |
 | --- | --- |
-| 31 `api_*` functions covering every Express route, same JSON shape as before (checked row-by-row against the old serializers) | Written, tested locally; **not yet applied to the live project** |
+| 32 `api_*` functions covering every Express route, same JSON shape as before (checked row-by-row against the old serializers), plus the frozen price fields | **Applied to the live project** (migration `20261104122329`), checked there as anonymous, store owner and stranger |
 | Access-control test suite (anonymous, two students, a stranger, store owner, store staff, another store's owner) in CI | Done; deliberately breaking five rules in a scratch copy made it fail each time |
-| `pg_cron` pool rotation every minute, with tests | Written, tested; applies where `pg_cron` exists |
+| Pool rotation every minute | Already live: `poolit-sweep-slots` (from the `wonderful-fermi` branch). My duplicate was dropped; tests now cover that job |
 | Keep-alive workflow for the free plan | Written; needs two repository secrets |
+| Live migrations missing from this branch (`vendor_daily_revenue`, `idempotency_keys`, `order_price_snapshot`, `scheduled_jobs`) | Recorded in `supabase/migrations/` so the repo matches the live project |
 | Staging Supabase project | Not started (needs your Supabase account) |
 | Nightly encrypted backup to R2 | Not started (needs the R2 bucket and keys) |
 | Interim flags on Vercel (`ENFORCE_VENDOR_SCOPING`, `ALLOWED_ORIGINS`) | Not started (your Vercel account) |
+| Idempotency keys on order, restock and stock-adjust calls | Not ported: the live `idempotency_keys` table exists but the new functions do not use it yet. Week 2 |
 
 **Week 2 (16–20 Nov): prove it, switch the apps, photos, COD**
 

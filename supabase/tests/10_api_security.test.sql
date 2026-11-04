@@ -190,6 +190,8 @@ begin
   perform t.ok(o ? 'slotId' and o ? 'studentName' and o ? 'paymentMethod' and o ? 'note' and o ? 'tip', 'order has the camelCase keys');
   perform t.ok(not (o ? 'deliveryFeeCharged'), 'fee is not set until the pool closes');
   perform t.ok(o->'items'->0->>'menuItemId' = m1 and (o->'items'->0->>'qty')::int = 2, 'order lines kept');
+  perform t.ok((o->'items'->0->>'unitPricePaise')::int = 5600 and o->'items'->0->>'name' = 'Maggi', 'order line carries the frozen name and price');
+  perform t.ok((o->>'subtotalPaise')::int = 11200, 'order carries its subtotal in paise (2 x 56 rupees)');
   perform t.as_admin();
   perform t.ok((select stock_qty from menu_items where id = t.id('i1')) = 8, 'stock went down by 2');
   perform t.ok((select student_id from orders where id = (o->>'id')::uuid) = t.id('A'), 'order is tied to the student, not the typed name');

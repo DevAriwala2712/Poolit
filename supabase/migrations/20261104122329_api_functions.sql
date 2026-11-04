@@ -84,8 +84,13 @@ as $function$
     'id', r.id, 'slotId', r.slot_id, 'studentName', r.student_name,
     'block', r.block, 'room', r.room, 'tip', r.tip,
     'paymentMethod', r.payment_method, 'note', r.note,
-    'items', coalesce((select jsonb_agg(jsonb_build_object('menuItemId', i->>'menuItemId', 'qty', (i->>'qty')::integer))
+    -- name and unitPricePaise are the price frozen when the order was placed
+    -- (absent on orders that predate it).
+    'items', coalesce((select jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+                         'menuItemId', i->>'menuItemId', 'qty', (i->>'qty')::integer,
+                         'name', i->>'name', 'unitPricePaise', (i->>'unitPricePaise')::integer)))
                        from jsonb_array_elements(r.items) i), '[]'::jsonb),
+    'subtotalPaise', r.subtotal_paise,
     'status', r.status, 'createdAt', private.ms(r.created_at),
     'deliveryFeeCharged', r.delivery_fee_charged))
 $function$;
