@@ -1,6 +1,6 @@
 # Poolit — Production Readiness Plan
 
-As of 2 Nov 2026. Living version (with comments and the drawn roadmap): https://claude.ai/artifact/6VVhZgzxfnwiYuhkmitBr1
+As of 4 Nov 2026 (architecture, scale and photo sections added; the rest as of 2 Nov 2026). Living version (with comments and the drawn roadmap): https://claude.ai/artifact/6VVhZgzxfnwiYuhkmitBr1
 
 ## Summary
 
@@ -132,8 +132,13 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 - [ ] Verify Supabase JWTs locally (JWKS) instead of calling Supabase Auth on every request.
 - [ ] Input validation with a schema library (zod) on every route; consistent error shape `{ code, message }`.
 - [ ] Idempotency keys on order placement, restock and payment callbacks.
-- [ ] Rate limiting with a shared store (Upstash Redis): per student once login exists, 60 writes/minute per vendor. *(Interim per-IP limiter on order placement shipped: 30/min, since a hostel often shares one IP.)*
-- [ ] Pool closing via Vercel Cron calling the existing `POST /internal/sweep-slots` every minute (Hobby plan only allows daily cron jobs, so this needs Pro or Supabase `pg_cron`).
+- [ ] Rate limiting with a shared store (Upstash Redis): deferred; the database rule above covers the order-abuse case at pilot scale. *(Interim per-IP limiter on order placement shipped: 30/min, since a hostel often shares one IP.)*
+- [ ] Pool closing and rotation via Supabase `pg_cron` calling `ensure_open_slot` every minute; then remove the in-process scheduler and `/internal/sweep-slots`. (Chosen over Vercel Cron: no plan limit, no extra cost.)
+- [ ] Student and vendor polling from 5 s to 30 s, plus an immediate refetch when the tab becomes visible.
+- [ ] Product photos: `menu_items.image_path`, Supabase Storage bucket with vendor-scoped upload policy, in-browser resize to 400 px and 800 px (WebP, JPEG fallback on Safari), one-year cache headers, emoji tile fallback.
+- [ ] RLS read policies for hostels, stores, menu items and the current pool; student catalogue reads go direct to Supabase.
+- [ ] Set `ALLOWED_ORIGINS` on Vercel to the two app URLs.
+- [ ] "One order per student per pool" enforced inside `place_order` (the in-memory rate limiter only works per serverless instance).
 - [ ] Version the API (`/v1`) before a native app ever ships, so old app versions keep working.
 
 ### Identity
@@ -169,6 +174,40 @@ Approximate, from memory of list prices — confirm before budgeting.
 | Sentry, uptime monitoring | Free tiers at this scale |
 | SMS OTP (India) | Roughly ₹0.15–0.25 per SMS |
 | Payment gateway | ~2% per transaction; UPI often lower |
+
+## Architecture decisions, scale and product photos
+
+Full numbers and reasoning: [SCALE_AND_IMAGES_ANALYSIS.md](SCALE_AND_IMAGES_ANALYSIS.md). Meters: **S** = sustainable (keeps working and stays affordable as usage grows), **P** = practical (a one- or two-person team can ship and run it in the time available). Five blocks is best.
+
+**Headline findings** (assumptions: 15 hostels, 9,000 residents, 40% weekly active, 3 orders a week; all to be verified with the college):
+
+- The stack is **not** capacity-limited. The busiest hour is about 390 orders (0.1 per second) and about 93 simultaneous users; even a hostile 60% adoption case needs under 30 requests a second. One Supabase project is enough.
+- Vendor consoles polling every 5 seconds produce about 9 M requests a month, more than all students combined. Moving to 30 seconds is a one-line change.
+- **Product photos are the real risk.** Raw phone photos would use 15–38× the included monthly bandwidth; resized WebP uses 6–11%. Resizing on the vendor's phone before upload is mandatory. Storage itself stays tiny: 600 products at two sizes is about 36 MB.
+- Infrastructure costs about ₹0.08–0.10 per order. The payment gateway costs about 50× more.
+
+| Decision | Verdict | S | P |
+| --- | --- | --- | --- |
+| Remove Express entirely right now | Not now. Stage it after payments | ▰▰▰▰▱ | ▰▰▱▱▱ |
+| `pg_cron` for pool rotation (replaces scheduler and sweep route) | Yes, first | ▰▰▰▰▰ | ▰▰▰▰▰ |
+| Poll every 30 s plus refetch on tab focus | Yes | ▰▰▰▰▰ | ▰▰▰▰▰ |
+| Public catalogue reads through RLS read policies | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
+| Orders and student data through RLS | Later, with cross-user tests | ▰▰▰▰▰ | ▰▰▰▱▱ |
+| Product photos in Supabase Storage, resized to 400 px and 800 px on the phone | Yes | ▰▰▰▰▱ | ▰▰▰▰▱ |
+| Separate S3 and paid CDN | Not until egress passes about 150 GB a month | ▰▰▰▰▰ | ▰▰▱▱▱ |
+| `ALLOWED_ORIGINS` CORS allowlist | Yes, today | ▰▰▰▱▱ | ▰▰▰▰▰ |
+| One-order-per-student-per-pool rule inside `place_order` (instead of Redis rate limiting for now) | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
+| Realtime for vendor new-order alerts | Week 4, with polling as fallback | ▰▰▰▰▱ | ▰▰▰▱▱ |
+| Queues, caches, multi-region, microservices | No | ▰▱▱▱▱ | ▰▱▱▱▱ |
+
+**Stop-gaps if time runs short:** vendors paste an image link (`image_url`) and the emoji tile covers the rest; keep vendor access checks in Express rather than RLS; keep short-interval polling rather than Realtime.
+
+**Four-week sequence**
+
+1. **Week 1:** switch on `ENFORCE_VENDOR_SCOPING` and `ALLOWED_ORIGINS`; 30 s polling; `pg_cron` pool rotation; Sentry and uptime check; ten-photo size test.
+2. **Week 2:** photos: `image_path` column, Storage bucket with vendor-scoped upload policy, resize and upload in Add/Edit item, thumbnails in the student app. Test on a real iPhone (Safari may not encode WebP; fall back to JPEG).
+3. **Week 3:** RLS read policies for catalogue data; one-order-per-pool rule; student-A-versus-student-B access tests; staging Supabase project; restore drill.
+4. **Week 4:** vendor Realtime; Playwright smoke tests; replay of 200 orders in 10 minutes against staging (pass: 95th percentile under 1 s); go/no-go for a one- or two-hostel pilot.
 
 ## India compliance and business documentation
 
