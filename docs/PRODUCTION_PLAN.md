@@ -138,7 +138,7 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 - [ ] Product photos: `menu_items.image_path`, Supabase Storage bucket with vendor-scoped upload policy, in-browser resize to 400 px and 800 px (WebP, JPEG fallback on Safari), one-year cache headers, emoji tile fallback.
 - [ ] RLS read policies for hostels, stores, menu items and the current pool; student catalogue reads go direct to Supabase.
 - [ ] Set `ALLOWED_ORIGINS` on Vercel to the two app URLs.
-- [ ] "One order per student per pool" enforced inside `place_order` (the in-memory rate limiter only works per serverless instance).
+- [x] At most 3 orders per student per pool enforced inside the database (the in-memory rate limiter only works per serverless instance). *(Written and tested; not yet applied to the live project.)*
 - [ ] Version the API (`/v1`) before a native app ever ships, so old app versions keep working.
 
 ### Identity
@@ -197,7 +197,7 @@ Full numbers and reasoning: [SCALE_AND_IMAGES_ANALYSIS.md](SCALE_AND_IMAGES_ANAL
 | Product photos in Supabase Storage, resized to 400 px and 800 px on the phone | Yes | ▰▰▰▰▱ | ▰▰▰▰▱ |
 | Cloudflare free cache in front of the photo bucket (S3-style storage and a paid CDN are not needed) | Yes, week 3 | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | `ALLOWED_ORIGINS` CORS allowlist | Yes, today | ▰▰▰▱▱ | ▰▰▰▰▰ |
-| One-order-per-student-per-pool rule inside `place_order` (instead of Redis rate limiting for now) | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
+| At-most-3-orders-per-student-per-pool rule inside the order function (instead of Redis rate limiting for now) | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | Realtime for vendor new-order alerts | Phase 2; polling every 30 s until then | ▰▰▰▰▱ | ▰▰▰▱▱ |
 | Queues, caches, multi-region, microservices | No | ▰▱▱▱▱ | ▰▱▱▱▱ |
 
@@ -250,10 +250,22 @@ Dates assume a start on **Monday 9 Nov 2026** and **two full-time developers** (
 | Free-plan safeguards: a scheduled keep-alive request (free projects pause after about a week of inactivity, as happened on 2 Nov) and a nightly encrypted backup to a private Cloudflare R2 bucket (the free plan has no point-in-time restore) | 0.5 |
 | Helper functions: caller's role in a store (`auth.uid()` plus `vendor_users`); caller's student identity | 0.5 |
 | Convert the 35 Express routes into about 25 Postgres functions that check the caller inside | 5 |
-| RLS read policies for public data only (hostels, stores, menu, current pool) | 1.5 |
+| Public data (hostels, stores, menu, current pool) served by read-only functions; tables stay closed to the public roles with no policies, which leaves one door instead of two | 1.5 |
 | `pg_cron` pool rotation and closing every minute | 0.5 |
-| One order per student per pool and quantity limits inside `place_order` | 0.5 |
+| At most 3 orders per student per pool (a top-up is allowed, flooding is not) and quantity limits, inside the order function | 0.5 |
 | **Total** | **10.25** |
+
+**Week 1 status (updated 4 Nov 2026)**
+
+| Item | Status |
+| --- | --- |
+| 31 `api_*` functions covering every Express route, same JSON shape as before (checked row-by-row against the old serializers) | Written, tested locally; **not yet applied to the live project** |
+| Access-control test suite (anonymous, two students, a stranger, store owner, store staff, another store's owner) in CI | Done; deliberately breaking five rules in a scratch copy made it fail each time |
+| `pg_cron` pool rotation every minute, with tests | Written, tested; applies where `pg_cron` exists |
+| Keep-alive workflow for the free plan | Written; needs two repository secrets |
+| Staging Supabase project | Not started (needs your Supabase account) |
+| Nightly encrypted backup to R2 | Not started (needs the R2 bucket and keys) |
+| Interim flags on Vercel (`ENFORCE_VENDOR_SCOPING`, `ALLOWED_ORIGINS`) | Not started (your Vercel account) |
 
 **Week 2 (16–20 Nov): prove it, switch the apps, photos, COD**
 

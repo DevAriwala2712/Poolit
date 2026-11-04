@@ -1,0 +1,32 @@
+name: Keep Supabase awake
+
+# Free Supabase projects pause after about a week without activity (it
+# happened on 2 Nov 2026). This calls a harmless public function every three
+# days. Set the repository secrets SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY
+# (the publishable key is safe to expose; it is already in the apps). Not
+# needed on a paid plan. GitHub disables scheduled workflows after 60 days
+# without repository activity, so re-enable it from the Actions tab if needed.
+
+on:
+  schedule:
+    - cron: "17 5 */3 * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call api_hostels
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::notice::Secrets not set; skipping keep-alive"
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 30 \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/api_hostels" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            -H "Content-Type: application/json" -d '{}' > /dev/null
+          echo "Supabase responded"

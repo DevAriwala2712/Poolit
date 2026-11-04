@@ -239,7 +239,7 @@ Decision 1 is the answer to "should we remove the Vercel backend?".
 | 8 | Product photos in Supabase Storage, resized on the phone | **Yes** | See section 5 | ▰▰▰▰▱ | ▰▰▰▰▱ |
 | 9 | Separate S3 and a paid CDN | **No, not yet** | Only worth it above 150 GB a month of egress | ▰▰▰▰▰ | ▰▰▱▱▱ |
 | 10 | CORS allowlist (`ALLOWED_ORIGINS`) | **Yes, today** | A config change. Not a security control on its own, since RLS and keys are the real protection. | ▰▰▰▱▱ | ▰▰▰▰▰ |
-| 11 | Shared rate limiting (Upstash Redis) | **Defer. Use a database rule instead.** | The in-memory limiter is per serverless instance, so it is only a speed bump. A database rule ("one order per student per pool", checked inside `place_order`) is exact, free and needs no new service. | ▰▰▰▰▰ | ▰▰▰▰▱ |
+| 11 | Shared rate limiting (Upstash Redis) | **Defer. Use a database rule instead.** | The in-memory limiter is per serverless instance, so it is only a speed bump. A database rule (a per-student cap on orders in one pool, checked inside the order function) is exact, free and needs no new service. | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | 12 | Sentry plus uptime check | **Yes** | Free tiers cover this volume | ▰▰▰▰▰ | ▰▰▰▰▰ |
 | 13 | Multi-region, queues, Redis cache, microservices | **No** | 0.16 orders/s. No problem exists to solve. | ▰▱▱▱▱ | ▰▱▱▱▱ |
 
