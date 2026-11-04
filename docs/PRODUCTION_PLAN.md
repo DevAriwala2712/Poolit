@@ -1,10 +1,10 @@
 # Poolit — Production Readiness Plan
 
-As of 2 Nov 2026. Living version (with comments and the drawn roadmap): https://claude.ai/artifact/6VVhZgzxfnwiYuhkmitBr1
+As of 4 Nov 2026 (architecture, scale and photo sections added; the rest as of 2 Nov 2026). Living version (with comments and the drawn roadmap): https://claude.ai/artifact/6VVhZgzxfnwiYuhkmitBr1
 
 ## Summary
 
-Poolit is a working prototype; it needs about 10–12 weeks of focused work (three phases below) before taking real money from real students. The blocking gaps are payments, student identity, per-store vendor access control, a version-controlled database schema, and Indian legal/compliance setup.
+Poolit is a working prototype; it now has a five-week Phase 1 (section "Plan: phases, weeks and dates" below) with two developers, ending in a pilot with a native Android student app; UPI payments and the compliance sign-offs follow in Phase 2 because they wait on gateway and registration approvals. The blocking gaps are payments, student identity, per-store vendor access control, a version-controlled database schema, and Indian legal/compliance setup.
 
 Poolit is pooled quick-commerce for college hostels: students in one hostel order inside a shared time window, and the per-student delivery fee drops as the pool grows (₹20 → ₹10 → ₹5 → free). It has three parts: an Express + Supabase (Postgres) API on Vercel, a student web app, and a vendor console.
 
@@ -132,8 +132,13 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 - [ ] Verify Supabase JWTs locally (JWKS) instead of calling Supabase Auth on every request.
 - [ ] Input validation with a schema library (zod) on every route; consistent error shape `{ code, message }`.
 - [ ] Idempotency keys on order placement, restock and payment callbacks.
-- [ ] Rate limiting with a shared store (Upstash Redis): per student once login exists, 60 writes/minute per vendor. *(Interim per-IP limiter on order placement shipped: 30/min, since a hostel often shares one IP.)*
-- [ ] Pool closing via Vercel Cron calling the existing `POST /internal/sweep-slots` every minute (Hobby plan only allows daily cron jobs, so this needs Pro or Supabase `pg_cron`).
+- [ ] Rate limiting with a shared store (Upstash Redis): deferred; the database rule above covers the order-abuse case at pilot scale. *(Interim per-IP limiter on order placement shipped: 30/min, since a hostel often shares one IP.)*
+- [ ] Pool closing and rotation via Supabase `pg_cron` calling `ensure_open_slot` every minute; then remove the in-process scheduler and `/internal/sweep-slots`. (Chosen over Vercel Cron: no plan limit, no extra cost.)
+- [ ] Student and vendor polling from 5 s to 30 s, plus an immediate refetch when the tab becomes visible.
+- [ ] Product photos: `menu_items.image_path`, Supabase Storage bucket with vendor-scoped upload policy, in-browser resize to 400 px and 800 px (WebP, JPEG fallback on Safari), one-year cache headers, emoji tile fallback.
+- [ ] RLS read policies for hostels, stores, menu items and the current pool; student catalogue reads go direct to Supabase.
+- [ ] Set `ALLOWED_ORIGINS` on Vercel to the two app URLs.
+- [ ] "One order per student per pool" enforced inside `place_order` (the in-memory rate limiter only works per serverless instance).
 - [ ] Version the API (`/v1`) before a native app ever ships, so old app versions keep working.
 
 ### Identity
@@ -170,6 +175,181 @@ Approximate, from memory of list prices — confirm before budgeting.
 | SMS OTP (India) | Roughly ₹0.15–0.25 per SMS |
 | Payment gateway | ~2% per transaction; UPI often lower |
 
+## Architecture decisions, scale and product photos
+
+Full numbers and reasoning: [SCALE_AND_IMAGES_ANALYSIS.md](SCALE_AND_IMAGES_ANALYSIS.md). Meters: **S** = sustainable (keeps working and stays affordable as usage grows), **P** = practical (a one- or two-person team can ship and run it in the time available). Five blocks is best.
+
+**Headline findings** (about 17 hostels and 11,000 residents, 40% weekly active, 3 orders a week; the active share is an assumption):
+
+- The stack is **not** capacity-limited. The busiest hour is about 470 orders (0.13 per second) and about 113 people using the app at once; even a hostile 60% adoption case needs under 35 requests a second. One Supabase project is enough for load.
+- The **free** Supabase plan is enough for a one- to three-hostel pilot. For the whole campus it runs out of monthly data transfer (5 GB) and database space (500 MB) within a few months, so plan to move to the $25 plan when a trigger in the analysis document is hit.
+- Vendor consoles polling every 5 seconds produce about 10 M requests a month, more than all students combined. Moving to 30 seconds is a one-line change.
+- **Product photos are the real risk.** Raw phone photos would use hundreds of times the free data transfer; resized WebP served through Cloudflare's free cache stays inside the free plan. Storage itself stays tiny: 600 products at two sizes is about 36 MB.
+- Infrastructure on the paid plan costs about ₹0.04–0.10 per order; the free plan costs nothing but needs the safeguards in week 1.
+
+| Decision | Verdict | S | P |
+| --- | --- | --- | --- |
+| Remove Express entirely | Yes, in weeks 1–3 behind a rollback switch; UPI payments are built as Edge Functions in Phase 2 | ▰▰▰▰▰ | ▰▰▰▱▱ |
+| `pg_cron` for pool rotation (replaces scheduler and sweep route) | Yes, first | ▰▰▰▰▰ | ▰▰▰▰▰ |
+| Poll every 30 s plus refetch on tab focus | Yes | ▰▰▰▰▰ | ▰▰▰▰▰ |
+| Public catalogue reads through RLS read policies | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
+| Orders and student data protected by function checks and RLS | Yes, weeks 1–2, gated by a cross-user test suite in CI | ▰▰▰▰▰ | ▰▰▰▱▱ |
+| Product photos in Supabase Storage, resized to 400 px and 800 px on the phone | Yes | ▰▰▰▰▱ | ▰▰▰▰▱ |
+| Cloudflare free cache in front of the photo bucket (S3-style storage and a paid CDN are not needed) | Yes, week 3 | ▰▰▰▰▰ | ▰▰▰▰▱ |
+| `ALLOWED_ORIGINS` CORS allowlist | Yes, today | ▰▰▰▱▱ | ▰▰▰▰▰ |
+| One-order-per-student-per-pool rule inside `place_order` (instead of Redis rate limiting for now) | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
+| Realtime for vendor new-order alerts | Phase 2; polling every 30 s until then | ▰▰▰▰▱ | ▰▰▰▱▱ |
+| Queues, caches, multi-region, microservices | No | ▰▱▱▱▱ | ▰▱▱▱▱ |
+
+**Stop-gaps if time runs short:** vendors paste an image link (`image_url`) and the emoji tile covers the rest; keep short-interval polling rather than Realtime; ship the pilot on cash/UPI-on-delivery while gateway KYC completes.
+
+## Plan: phases, weeks and dates
+
+Decisions from the owner on 4 Nov 2026 (see "Decisions made" at the end of this document): about 17 hostels and 10–12 thousand students, all 18+; delivery by store staff; cash on delivery (COD) and UPI both wanted; commission versus fixed charge per store is undecided; run on free plans as long as possible; a native student app and the vendor website are both in Phase 1; keep the current look and only smooth out inconsistencies. Numbers and reasoning: [SCALE_AND_IMAGES_ANALYSIS.md](SCALE_AND_IMAGES_ANALYSIS.md).
+
+### At a glance
+
+Dates assume a start on **Monday 9 Nov 2026** and **two full-time developers** (about 50 developer-days over five weeks). I do not know the real team size; if it differs, see "Changing the length" below.
+
+| Phase | Weeks | Dates | What is done at the end | Exit gate |
+| --- | --- | --- | --- | --- |
+| **Phase 0** · Paperwork | Starts day 1, runs alongside everything | From 4 Nov | Registrations and agreements are in progress | Nothing blocks on it until Phase 2 |
+| **Phase 1A** · Secure web pilot | Weeks 1–3 | 9–27 Nov | Express backend retired; access rules enforced by the database and proven by tests; product photos work; COD ordering works; legal drafts and in-app consent pages exist | **Milestone A (27 Nov):** web pilot-ready on the free stack |
+| **Phase 1B** · Native app and polish | Weeks 4–5 | 30 Nov–11 Dec | Android student app; consistent UI across both apps; end-to-end tests; store listing in review | **Milestone B (11 Dec):** pilot launch go/no-go |
+| **Phase 2** · UPI and compliance | Weeks 6–9 (depends on approvals) | From 14 Dec | UPI through a payment gateway; commission/fixed-fee settlement; legal sign-off; MoU | Gateway live; legal sign-off |
+| **Phase 3** · Campus rollout | After Phase 2 | 2027 | All 17 hostels; move to paid Supabase when a trigger is hit | Pilot metrics |
+
+**Why Phase 1 is five weeks, not three.** The three-week plan I gave earlier covered the backend change, security, photos and legal drafts (about 31 developer-days, now Phase 1A). Adding the native student app and the UI clean-up adds about 19 more. Two developers cannot do 50 days of work in 3 weeks (30 days).
+
+**Changing the length:**
+
+- **Three weeks, as originally asked:** needs about **3–4 developers**, or moving the native app and UI clean-up to after the pilot (Phase 1B becomes "week 4–5, after launch"). The web pilot is still fully usable on phones as an installable web app.
+- **One developer:** about 10 weeks.
+
+### Phase 0: paperwork (owner, from day 1, in parallel)
+
+| Action | Why now | Lead time (estimate) |
+| --- | --- | --- |
+| Incorporate the company, then GST, then open a bank account | Gateway KYC, vendor agreements and the app-store organisation account all need it | Weeks |
+| Start FSSAI application for the platform; collect each store's FSSAI number | Required before launch | Weeks |
+| DLT registration (sender ID, OTP template) through the SMS provider | Phone login cannot send real SMS without it | Days to weeks |
+| College/hostel MoU meeting | Required to deliver inside hostels | Weeks |
+| Decide commission versus fixed charge with the first stores | Needed for the settlement design in Phase 2; the system will store either (see Week 2) | Whenever ready |
+| Register a domain (about ₹800–1,000 a year) | Needed for Cloudflare hosting and the image cache | One sitting |
+| Pay Google Play developer fee ($25, one time); decide on Apple ($99 a year) later | Google may require a closed test with 12 testers for 14 days before a new personal account can publish (verify the current rule); start early | Days |
+| File the "Poolit" trademark; book a lawyer and a CA for week 3–5 | Cheap and early; calendar availability | Days |
+
+### Phase 1A: secure web pilot (weeks 1–3)
+
+**Week 1 (9–13 Nov): the database enforces the rules**
+
+| Task | Dev-days |
+| --- | --- |
+| Interim safety on the live system: `ENFORCE_VENDOR_SCOPING=true`, `ALLOWED_ORIGINS` | 0.25 |
+| Staging Supabase project; migrations applied by CI | 1.5 |
+| Free-plan safeguards: a scheduled keep-alive request (free projects pause after about a week of inactivity, as happened on 2 Nov) and a nightly encrypted backup to a private Cloudflare R2 bucket (the free plan has no point-in-time restore) | 0.5 |
+| Helper functions: caller's role in a store (`auth.uid()` plus `vendor_users`); caller's student identity | 0.5 |
+| Convert the 35 Express routes into about 25 Postgres functions that check the caller inside | 5 |
+| RLS read policies for public data only (hostels, stores, menu, current pool) | 1.5 |
+| `pg_cron` pool rotation and closing every minute | 0.5 |
+| One order per student per pool and quantity limits inside `place_order` | 0.5 |
+| **Total** | **10.25** |
+
+**Week 2 (16–20 Nov): prove it, switch the apps, photos, COD**
+
+| Task | Dev-days |
+| --- | --- |
+| Security test suite in CI: signed in as student A, student B, vendor X, vendor Y, anonymous; each may read and write only what they own; fails the build on any leak | 2 |
+| Rewire `frontend/packages/domain/src/api.ts` (the single point both apps use to reach the backend) to Supabase; keep a `VITE_BACKEND=express\|supabase` switch for instant rollback | 3 |
+| COD ordering: payment method per order, "cash collected" recorded by store staff on delivery, daily cash summary per store | 1.5 |
+| Per-store commission settings: a type (percent or fixed per order) and a value, stored per store and applied to each delivered order in a ledger table; deciding the actual numbers can wait | 0.5 |
+| Polling 5 s → 30 s plus refresh on tab focus | 0.5 |
+| Photos: `image_path` column, Storage bucket, vendor-scoped upload policy; resize to 400 px and 800 px on the phone (WebP, JPEG fallback), upload in Add/Edit item, thumbnails in the student app, emoji fallback; ten-photo size test | 3 |
+| **Total** | **10.5** |
+
+**Week 3 (23–27 Nov): cut over, harden, legal drafts** → *Milestone A*
+
+| Task | Dev-days |
+| --- | --- |
+| Replay 200 orders in 10 minutes on staging (pass: 95th percentile under 1 s) | 0.5 |
+| Production cutover: apply migrations, flip `VITE_BACKEND=supabase`, watch errors; delete Express after 48 stable hours | 1 |
+| Security review, MFA for vendor accounts, leaked-password protection, secrets audit, log retention of at least 180 days | 1 |
+| Restore drill from the nightly backup into staging; runbooks: pool did not close, orders failing, database down | 1.5 |
+| Move the three frontends from Vercel Hobby (non-commercial use only) to Cloudflare Pages (free, commercial use allowed); put Cloudflare's cache in front of the photo bucket | 1 |
+| Sentry on both apps; uptime check | 0.5 |
+| In-app legal pieces: 18+ confirmation and consent screen at sign-up, Terms, Privacy, Refund/Cancellation/Delivery and Grievance pages, data-deletion request, store licence details on store pages, MRP/net quantity/manufacturer/origin fields on items | 3 |
+| Vendor console flow for store-staff delivery (mark out for delivery, delivered, cash collected) checked on a phone | 0.5 |
+| Documentation drafts (list below) | 1.5 |
+| **Total** | **10.5** |
+
+**Milestone A gate (27 Nov):** security suite green; no table readable by `anon` except public catalogue data; no Express traffic for 48 hours; replay test passed; restore drill done; consent and policy pages live.
+
+### Phase 1B: native app and polish (weeks 4–5)
+
+**Week 4 (30 Nov–4 Dec): student app on Android, UI foundations**
+
+| Task | Dev-days |
+| --- | --- |
+| Wrap the existing student web app with Capacitor (same screens and look, no rebuild): project setup and build | 1 |
+| Native behaviour: status bar and safe areas, hardware back button, splash screen and icons, haptics on key actions | 1.5 |
+| Push notifications for order status through Firebase Cloud Messaging (free), triggered by an Edge Function | 2 |
+| Signed Android build in GitHub Actions; deep links; offline start screen | 1.5 |
+| Testing on at least three real Android phones | 1.5 |
+| UI consistency, part 1: shared type scale, control heights, spacing and radii as tokens; shared loading, empty and error components; shared copy of duplicated code (toast, connection gate, auth, logo) | 2.5 |
+| **Total** | **10** |
+
+**Week 5 (7–11 Dec): finish, test, submit** → *Milestone B*
+
+| Task | Dev-days |
+| --- | --- |
+| UI consistency, part 2: apply the tokens and shared components to every screen in both apps; before-and-after screenshots to prove nothing changed except the intended fixes | 3 |
+| Playwright smoke tests: place a COD order, close pool, dispatch, deliver, collect cash, scan-to-restock | 2 |
+| Play Store listing, privacy and data-safety forms, closed-test rollout; direct APK download from the website as a fallback | 1 |
+| iPhone: polished install-to-home-screen flow for the web app (native iOS app waits for Phase 2 budget) | 0.5 |
+| Self-host fonts; add a Content-Security-Policy header; split the vendor Analytics code out of the main bundle | 1 |
+| Apply lawyer and CA feedback on the drafts | 1 |
+| Pilot go/no-go review | 0.5 |
+| **Total** | **9** |
+
+**Milestone B gate (11 Dec):** all of Milestone A still true; Android app installed and tested on three phones; screenshots show no unintended visual change; smoke tests green; MoU signed for the pilot hostel(s).
+
+### Phase 2: UPI and compliance (weeks 6–9, depends on approvals)
+
+- UPI payments through a licensed payment gateway: Edge Functions for create-payment, webhook (signature check, idempotent) and refund; order states `pending_payment` / `placed` / `expired`; stock reservation with `pg_cron` expiry of unpaid orders; fee ladder counts paid orders only. About 5 developer-days, built in the gateway's test mode, live when KYC clears.
+- Commission or fixed-charge settlement once decided: monthly store statement and invoice (ask the CA about GST on commission and about TCS when the platform does not collect payment itself).
+- Vendor Realtime new-order alerts.
+- Native iOS app if the budget allows ($99 a year).
+- Legal sign-off on all documents; GST, FSSAI and DLT completed; MoU for each campus.
+
+### Phase 3: campus rollout
+
+Add hostels in waves. Move to paid Supabase on any of the triggers in the analysis document (monthly data transfer above 3.5 GB, database above 350 MB, a pause incident, or a need for point-in-time restore).
+
+### Documentation set (drafts finished in week 3, reviewed in weeks 4–5)
+
+Each is a draft for a lawyer or CA to review, not a final legal instrument.
+
+1. Terms of Use for students
+2. Privacy Policy and consent notice (DPDP-aligned)
+3. Refund, Cancellation and Delivery policy
+4. Grievance Redressal page (officer name, contact, timelines)
+5. Vendor/Seller Agreement (commission or fixed charge, payout schedule, FSSAI and stock-accuracy duties, store staff delivering orders and handling cash)
+6. Data processing terms with Supabase, Cloudflare, the SMS provider, Firebase and the payment gateway; record where data is stored
+7. Information Security Policy and Incident Response Plan
+8. College/Hostel MoU template
+9. Engineering handoff: updated README, architecture diagram, runbooks, secrets inventory
+
+The Rider Agreement is dropped: delivery is by store staff, so it is covered in the Vendor Agreement. Ask the lawyer whether any worker-protection rules apply to store staff delivering on the platform's behalf.
+
+### If time runs short, cut in this order
+
+1. Playwright suite (keep the security suite and a manual end-to-end checklist)
+2. Push notifications (use in-app status only)
+3. UI consistency part 2 (keep part 1's shared components)
+4. Native app moves after the pilot (the web app is installable on phones)
+
+**Never cut:** the security test suite, database access checks, the nightly backup and restore drill, the consent screen and policy pages, and the rollback switch.
+
 ## India compliance and business documentation
 
 Poolit should launch as a **marketplace**: hostel stores remain the sellers, Poolit is the platform plus delivery coordinator, and money flows through an RBI-licensed payment aggregator. This keeps Poolit out of food-licence and payment-licence territory it can't yet carry. The registrations below are the minimum; have a CA and a lawyer confirm each one before launch — this section is a planning checklist, not legal advice.
@@ -196,7 +376,7 @@ Poolit should launch as a **marketplace**: hostel stores remain the sellers, Poo
 - [ ] Refund, Cancellation and Delivery Policy
 - [ ] Grievance Redressal page (officer name, email, phone, timelines)
 - [ ] Vendor / Seller Agreement: commission, payout schedule, TCS deduction, FSSAI and stock-accuracy obligations, data handling
-- [ ] Rider Agreement (if applicable)
+- [x] ~~Rider Agreement~~ not needed: store staff deliver (covered in the Vendor Agreement)
 - [ ] Data Processing Agreements with Supabase, Vercel, the SMS provider and the payment aggregator; note where data is stored (Supabase region)
 - [ ] Information Security Policy and Incident Response Plan (supports CERT-In and DPDP)
 - [ ] College/Hostel MoU template
@@ -215,6 +395,8 @@ From search results; the primary government pages could not be opened when this 
 
 ## Roadmap to completion
 
+> Superseded for the near term by the [phase and week plan](#plan-phases-weeks-and-dates). The table below is the original longer sequence; items it lists are now pulled into those three weeks where they appear in the plan.
+
 Phase 1 starts once the open questions below are answered; each phase ends at a gate that must pass before the next begins. Registrations in Phase 2 take weeks of government processing, so file them at the start of Phase 1.
 
 | Phase | When | Scope | Exit gate |
@@ -226,15 +408,23 @@ Phase 1 starts once the open questions below are answered; each phase ends at a 
 
 The week counts assume one to two full-time developers. The detailed task lists for each phase are the checkboxes in the sections above.
 
-## Open questions
+## Decisions made (4 Nov 2026)
 
-These decisions change what gets built; each needs an answer before its phase starts.
+| Question | Decision | What it changes |
+| --- | --- | --- |
+| Business model | Marketplace with the stores. Commission versus fixed charge **not decided yet** | Each store gets a configurable fee type and value, so the choice can wait. Settlement and invoicing are Phase 2. |
+| Who delivers | Store staff | No rider app and no rider agreement; the vendor console carries the delivery steps (out for delivery, delivered, cash collected) |
+| Payments | Both cash on delivery and UPI | COD ships first (Phase 1, no gateway needed); UPI follows when the gateway approves the account (Phase 2) |
+| Age | Everyone is 18+ | No parental-consent flow; sign-up asks the student to confirm they are 18 or older |
+| Launch campus | One campus: about 17 hostels, 10–12 thousand students | Capacity targets in the analysis document; pilot starts with one to three hostels |
+| Hosting budget | Free as long as possible; paid Supabase if sustainable and needed | Free-plan safeguards in week 1; upgrade triggers in the analysis document |
+| Native app | Native student app and the vendor website, both in Phase 1 | Android student app in weeks 4–5; iPhone uses the installable web app until the Apple fee is approved |
+| UI | Do not redesign; smooth out and make consistent | UI consistency work in weeks 4–5, with screenshots to prove nothing else changed |
+| Vendor console deployment | Checked from the repository | Findings in the analysis document, section 14 |
 
-- [ ] **Business model:** marketplace (stores sell, Poolit takes a commission) or Poolit buys and resells stock? This plan assumes marketplace; the other model changes GST, FSSAI and payment setup.
-- [ ] **Who delivers?** Store staff, Poolit riders, or student runners? Decides rider app scope and gig-worker obligations.
-- [ ] **Payments at launch:** UPI-only prepaid, or also cash on delivery? COD is simpler to start but complicates TCS and reconciliation.
-- [ ] **Under-18 students:** allow them (needs verifiable parental consent under DPDP) or require 18+?
-- [ ] **Launch campus and size:** which college first, how many hostels and stores? Sets capacity targets and the MoU to sign.
-- [ ] **Vercel Pro / Supabase Pro budget:** approve roughly $45/month plus usage from Phase 1.
-- [ ] **Native app stores:** is a home-screen PWA enough for year one, or is a Play Store listing a requirement?
-- [ ] **Where the vendor console is deployed:** the `vercel.json` files assume each app's Vercel project uses its app folder (`frontend/apps/vendor`) as the root directory — confirm, or the deep-link rewrites won't apply.
+### Still open
+
+- [ ] Commission or fixed charge, and the amounts.
+- [ ] Team size and start date (the dates above assume two developers starting 9 Nov).
+- [ ] Whether to pay Apple's $99 a year for a native iPhone app.
+- [ ] The campus's name and the pilot hostels.
