@@ -1,6 +1,6 @@
 # Poolit — Scale, Cost and Product-Photo Analysis
 
-As of 4 Nov 2026. Companion to [PRODUCTION_PLAN.md](PRODUCTION_PLAN.md). It answers three questions with numbers:
+As of 4 Nov 2026 (updated after the owner's answers: 17 hostels, 10–12 thousand students, free plans, native app). Companion to [PRODUCTION_PLAN.md](PRODUCTION_PLAN.md). It answers three questions with numbers:
 
 1. How much traffic can Poolit realistically get at Thapar, and is the current stack enough?
 2. Are modern phone photos too big for product images, and what should we do about it?
@@ -21,99 +21,118 @@ As of 4 Nov 2026. Companion to [PRODUCTION_PLAN.md](PRODUCTION_PLAN.md). It answ
 
 | Question | Answer |
 | --- | --- |
-| Is the current stack big enough for all of Thapar? | **Yes, by a wide margin.** The busiest evening needs about 12–28 requests per second even with the current 5-second polling. A single small Supabase project handles that. |
-| Is the traffic the risk? | **No. Product photos are.** Unprocessed phone photos would use roughly 10–40× the included bandwidth. Resized photos use about 10% of it. |
-| Do we need to remove the Vercel backend to scale? | **No.** Scale does not require it. The reasons to simplify are cost, fewer moving parts and the cron limit, and they can be handled in steps. |
-| Biggest hidden cost? | Vendor consoles polling every 5 seconds: about 9 M requests a month, more than all students combined. Slowing this is a one-line change. |
-| Infrastructure cost per order? | About ₹0.08–0.10. The payment gateway (about ₹5 on a ₹250 basket) costs roughly 50× more. Infrastructure is not where money is lost. |
+| Is the stack big enough for the whole campus? | **Yes for load.** The busiest evening needs about 14–34 requests per second even with 5-second polling (2–6 with 30-second polling). One small Supabase project handles that. |
+| Does the **free** plan work? | **For a one- to three-hostel pilot, yes. For all 17 hostels, not for long.** Free Supabase allows 5 GB of data transfer and 500 MB of database a month; the campus-wide good case needs about 4–6 GB of transfer and fills the database in about 3–4 months. See section 11. |
+| Biggest risk | **Product photos.** Unprocessed phone photos would use hundreds of times the free transfer. Resized photos behind Cloudflare's free cache stay inside it. |
+| Do we need to remove the Vercel backend to scale? | **No.** Load does not require it. Doing it removes a system, the cron limit, and the Hobby plan's non-commercial restriction. |
+| Biggest hidden cost? | Vendor consoles polling every 5 seconds: about 10 M requests a month, more than all students combined. |
+| Infrastructure cost per order? | Free plan: nothing but your time. Paid plan: about ₹0.04–0.10 per order. The payment gateway (about ₹5 on a ₹250 basket) costs 50–100× more. |
 
 ## 2. Assumptions
 
-### 2.1 Campus size (verify with the college)
+### 2.1 Campus size
 
-I do not have verified figures for Thapar. These are planning numbers.
+Hostel count and student count come from the owner. The active share is a guess.
 
 | Input | Value | Why |
 | --- | --- | --- |
-| Hostels with a store | 15 | Planning figure for a large residential campus; the seed data has 5 |
-| Hostel residents | 9,000 | About 600 per hostel |
+| Hostels with a store | 17 | Owner |
+| Hostel residents | 11,000 | Owner: 10–12 thousand; about 650 per hostel |
 | Weekly active users (WAU) | 20% pilot, 25% base, 40% good, 60% stress | Quick-commerce adoption on a captive campus; 60% is a deliberately hostile case |
 | Orders per active user per week | 3 | Snack and essentials ordering |
 | App sessions per active user per week | 6 | About two sessions per order (browse, order, track) |
 | Foreground time per session | 3 minutes | Polling only runs while the app is visible |
 | Busiest hour share | 25% of a day's orders, 20% of a day's sessions | Evening cluster (about 9–11 pm) |
 | Burst factor inside that hour | 3× | Pools close on timers, so people arrive together |
-| Rows per order | 4 (1 order plus about 3 lines) at about 250 bytes | Small |
+| Rows per order | 4 (1 order plus about 3 lines) at about 250 bytes, doubled for indexes | Small |
+| Catalogue | 600 distinct products across all stores | Planning figure |
 
 ### 2.2 Scenarios
 
 | Scenario | Hostels | Active users | Orders / day | Orders / month | Orders in busiest hour |
 | --- | --- | --- | --- | --- | --- |
-| Pilot | 2 | 200 | 86 | 2,600 | 21 |
-| Campus, base | 15 | 2,250 | 964 | 29,200 | 241 |
-| Campus, good | 15 | 3,600 | 1,543 | 46,800 | 386 |
-| Stress | 15 | 5,400 | 2,314 | 70,100 | 579 |
+| Pilot | 2 | 260 | 111 | 3,400 | 27 |
+| Campus, base | 17 | 2,750 | 1,178 | 35,700 | 294 |
+| Campus, good | 17 | 4,400 | 1,885 | 57,200 | 471 |
+| Stress | 17 | 6,600 | 2,828 | 85,700 | 707 |
 
 ## 3. Traffic and database load
 
 ### 3.1 Concurrent users and requests per second
 
-Concurrent users are the average foreground sessions in the busiest hour, multiplied by the 3× burst factor. The "5 s" column is today's behaviour (12 requests a minute per open app). The "30 s" column is the proposed one (2 a minute).
+Concurrent users are the average foreground sessions in the busiest hour, times the 3× burst factor. The "5 s" column is today's behaviour (12 requests a minute per open app). The "30 s" column is the proposed one (2 a minute).
 
 | Scenario | Peak concurrent users | Student requests/s at 5 s polling | At 30 s polling |
 | --- | --- | --- | --- |
-| Pilot | 5 | 1.0 | 0.2 |
-| Campus, base | 58 | 11.6 | 1.9 |
-| Campus, good | 93 | 18.5 | 3.1 |
-| Stress | 139 | 27.8 | 4.6 |
+| Pilot | 6 | 1.3 | 0.2 |
+| Campus, base | 70 | 14.1 | 2.4 |
+| Campus, good | 113 | 22.6 | 3.8 |
+| Stress | 169 | 33.9 | 5.7 |
 
-Orders themselves are tiny: 579 in the busiest hour is **0.16 orders per second**. Even if a whole hostel's pool closed at once, that is a burst of a few dozen writes.
+Orders themselves are tiny: 707 in the busiest hour is **0.2 orders per second**. Even if a whole hostel's pool closed at once, that is a burst of a few dozen writes.
 
-**Conclusion:** one small Postgres instance and a few serverless functions are enough. There is no sharding, queue or cache layer to build for a campus of this size.
+**Conclusion:** one small Postgres instance is enough. There is no sharding, queue or cache layer to build for a campus of this size.
 
 ### 3.2 Monthly request volume
 
 | Scenario | Student, 5 s | Student, 30 s | Vendor consoles, 5 s | Vendor consoles, 30 s |
 | --- | --- | --- | --- | --- |
-| Pilot | 0.19 M | 0.03 M | 1.2 M | 0.2 M |
-| Campus, base | 2.1 M | 0.35 M | 9.1 M | 1.5 M |
-| Campus, good | 3.4 M | 0.56 M | 9.1 M | 1.5 M |
-| Stress | 5.1 M | 0.84 M | 9.1 M | 1.5 M |
+| Pilot | 0.24 M | 0.04 M | 1.2 M | 0.2 M |
+| Campus, base | 2.6 M | 0.43 M | 10.3 M | 1.7 M |
+| Campus, good | 4.1 M | 0.69 M | 10.3 M | 1.7 M |
+| Stress | 6.2 M | 1.03 M | 10.3 M | 1.7 M |
 
-Vendor console assumption: 15 stores, 2 devices each, open 14 hours a day, polling continuously.
-
-**Finding:** vendors, not students, generate most of the traffic. At 5-second polling the campus-good case is about 12.5 M requests a month; at 30 seconds it is about 2.1 M. Vercel Pro includes roughly 1 M function invocations and charges about $0.60 per extra million (from memory), so the saving is only about $6 a month. The real benefit is less load, less battery use and fewer failure modes, not money.
+Vendor console assumption: 17 stores, 2 devices each, open 14 hours a day, polling continuously. Vendors, not students, generate most of the traffic. Slowing the vendor poll saves load and battery; the money saved is small.
 
 ### 3.3 Database growth
 
-| Scenario | Rows / month | Storage / month |
-| --- | --- | --- |
-| Campus, good | about 187,000 | about 47 MB |
-| Stress | about 281,000 | about 70 MB |
+Orders written per month, times 4 rows at about 250 bytes, doubled to allow for indexes:
 
-At the stress rate, a year of orders is under 1 GB. The 8 GB included with Supabase Pro lasts years. Old data needs archiving only after multiple campuses.
+| Scenario | Database growth / month | Months to fill the free 500 MB (using 400 MB) |
+| --- | --- | --- |
+| Pilot | about 7 MB | about 57 |
+| Campus, base | about 71 MB | about 5.6 |
+| Campus, good | about 114 MB | about 3.5 |
+| Stress | about 171 MB | about 2.3 |
+
+The paid plan includes 8 GB, which lasts years. Archiving old orders extends the free plan but adds work, so a paid plan is the simpler fix once the campus is live.
 
 ### 3.4 Realtime connections
 
-Peak concurrent users (139 in the stress case) fit inside the 200 concurrent Realtime connections of Supabase's free tier and 500 on Pro (from memory). Realtime is therefore **possible**, but **not required by load**. It is an experience upgrade, covered in section 7.
+Peak concurrent users (169 in the stress case) fit inside the free plan's 200 concurrent Realtime connections only if every student app held one. Realtime for **vendors only** (34 devices) is comfortably inside the limit. Realtime is therefore possible, but not required by load; it is a Phase 2 item.
 
-## 4. Monthly cost model (campus, good case)
+## 4. Monthly cost model
 
-Assumes ₹85 per US dollar. All prices from memory; confirm them.
+Assumes ₹85 per US dollar. All prices from memory; confirm them before budgeting.
 
-| Item | Setup A: keep Express on Vercel | Setup B: slimmed down (recommended) |
+### 4.1 Recommended free stack
+
+| Item | Plan | Cost |
 | --- | --- | --- |
-| Supabase Pro | $25 | $25 |
-| Vercel Pro (commercial use needs a paid plan) | $20 | $20 until Express is retired, then $0 if the frontends move to Cloudflare Pages |
-| Function overage (at 5 s polling) | about $6 | about $0 (30 s polling) |
-| Image bandwidth, resized photos | $0 (within 250 GB) | $0 |
-| Image bandwidth, unprocessed photos | **about $320** (about 3.8 TB at about $0.09/GB beyond the included 250 GB) | not applicable |
-| **Total, approx.** | about $51 (₹4,300) | about $45 (₹3,800), falling to $25 (₹2,100) once Express is gone |
-| SMS one-time (first-month logins) | ₹1,000–16,000 depending on provider | same |
+| Database, login, storage, Edge Functions, `pg_cron` | Supabase Free | $0 |
+| Three frontends | Cloudflare Pages (free; commercial use is allowed, unlike Vercel Hobby) | $0 |
+| Photo cache | Cloudflare free proxy cache in front of the Supabase bucket | $0 |
+| Nightly backup storage | Cloudflare R2, 10 GB free | $0 |
+| CI, scheduled jobs (keep-alive, backups, Android build) | GitHub Actions free minutes | $0 |
+| Error tracking, uptime check | Sentry free, UptimeRobot free | $0 |
+| Push notifications | Firebase Cloud Messaging | $0 |
+| Domain | Any registrar | about ₹800–1,000 a year |
+| Google Play developer account | One time | $25 (about ₹2,100) |
+| Apple Developer Program (later) | Yearly | $99 (about ₹8,400) |
+| SMS login codes | Per message; Indian SMS must use a registered sender | roughly ₹0.15–4 per code depending on provider; about 4,000–6,000 codes in the first campus month, so ₹600–24,000 once, then much less |
 
-**Infrastructure per order** (46,764 orders a month): about ₹0.08–0.09 per order for the platform itself. The business model in [BUSINESS_MODEL.md](BUSINESS_MODEL.md) estimates about ₹29 gross margin per order and about ₹15,000 a month of fixed costs, so hosting is a rounding error. **Do not trade reliability or safety for infrastructure savings at this scale.**
+Everything above is free except the domain, the Play account and SMS. The single largest real cost at launch is SMS, so choose the provider by price per code after DLT registration.
 
-Vercel's Hobby plan is for non-commercial use, so the live version needs Vercel Pro, or Cloudflare Pages (free and allowed commercially) for the static frontends.
+### 4.2 When to move to paid Supabase ($25 a month, about ₹2,100)
+
+Move when **any one** of these happens:
+
+- Monthly data transfer passes 3.5 GB (70% of the 5 GB free allowance)
+- Database size passes 350 MB (70% of 500 MB)
+- The project pauses and a customer notices
+- You need daily backups with point-in-time restore, or the pilot grows past three hostels
+
+Infrastructure on the paid plan costs about ₹2,100 a month. At 57,200 orders a month that is about ₹0.04 per order (the earlier estimate of ₹0.08–0.10 included Vercel Pro, which this plan no longer needs). The business model document estimates about ₹29 gross margin per order, so hosting is a rounding error once volume exists. **Do not trade safety for hosting savings.**
 
 ## 5. Product photos: do the numbers work?
 
@@ -141,19 +160,22 @@ Assumptions: a campus catalogue of 600 distinct products, one photo per product 
 
 A home screen of raw photos would take 96–240 MB on a student's mobile data. The app would be unusable on hostel Wi-Fi at 9 pm, whatever the server does.
 
-### 5.2 Monthly bandwidth (egress), campus-good case (3,600 active users)
+### 5.2 Monthly bandwidth (egress), campus-good case (4,400 active users)
 
-Steady month: about 10 new or changed images per user, plus 30% of sessions re-downloading about 20 images after the browser cache evicts them.
+Steady month: about 10 new or changed images per user, plus 30% of sessions re-downloading about 20 images after the browser cache evicts them. This is pessimistic for a native app, which keeps images on the device.
 
-| Image set | First month | Steady month | Against 250 GB included (Pro) |
-| --- | --- | --- | --- |
-| Raw 12 MP (4 MB) | 3,829 GB | 2,389 GB | **15× over** |
-| Raw 50 MP (10 MB) | 9,572 GB | 5,972 GB | **38× over** |
-| 1600 px WebP | 172 GB | 108 GB | 43% of included |
-| 800 px WebP | 43 GB | 27 GB | 11% |
-| 400 px thumbs plus 800 px detail | about 25 GB | about 15 GB | 6% |
+| Image set | First month | Steady month | Against free 5 GB | Against paid 250 GB |
+| --- | --- | --- | --- | --- |
+| Raw 12 MP (4 MB) | 4,680 GB | 2,920 GB | about 580× over | 12–19× over |
+| Raw 50 MP (10 MB) | 11,699 GB | 7,299 GB | about 1,460× over | 29–47× over |
+| 1600 px WebP | 211 GB | 131 GB | about 26× over | 52–84% |
+| 800 px WebP | 53 GB | 33 GB | about 7× over | 13–21% |
+| 400 px thumbs plus 800 px detail (about 20% of images) | about 28 GB | about 17.5 GB | about 3.5–5.6× over | 7–11% |
+| Same, **behind Cloudflare's cache** | under 1 GB from Supabase (only cache misses reach it) | under 1 GB | **inside the free allowance** | negligible |
 
-Under the pilot scenario (200 active users), 800 px images use 2.4 GB in the first month, which even the free tier's 5 GB covers.
+Under the pilot scenario (260 active users), 400 px thumbs plus 800 px detail use about 1–2 GB a month, inside the free allowance even without the cache.
+
+**Free-plan consequence:** resizing alone does not fit the free 5 GB at campus scale. Resizing **and** the free Cloudflare cache in front of the bucket does, because browsers and Cloudflare serve repeat views. That is why the cache is in week 3 of the plan and needs a domain.
 
 ### 5.3 Verdict on downsizing
 
@@ -197,7 +219,7 @@ Results:
 | **AWS S3 plus CloudFront** | About $0.023/GB-month | About $0.085/GB | About 4–5 days, plus IAM and policies | ▰▰▰▱▱ | ▰▰▱▱▱ |
 | **Image URL pasted by the vendor** (stop-gap) | $0 | Someone else's site | Hours | ▰▱▱▱▱ | ▰▰▰▰▰ |
 
-**Recommendation: Supabase Storage now.** Resized photos need about 6–11% of the included bandwidth even in the good case. Move to Cloudflare in front of the bucket (a cache, no code change) or to R2 **only if** monthly egress passes about 60% of the included amount (150 GB). The database stores only a file path, so the move is a configuration change later.
+**Recommendation: Supabase Storage as the origin, with Cloudflare's free cache in front from the start.** On the free plan the cache is required, not optional (section 5.2). On the paid plan resized photos need only 7–11% of the included bandwidth even in the good case. Move to Cloudflare R2 (zero egress fees) only if the cache hit rate is poor or storage outgrows the plan. The database stores only a file path, so the move is a configuration change later.
 
 Storage is not the limit: 600 products at both sizes is about 36 MB. The "storage fills up" concern disappears once photos are resized. It would only return with raw originals or per-store duplicate photos. One photo per product, shared across stores, keeps it small.
 
@@ -207,7 +229,7 @@ Decision 1 is the answer to "should we remove the Vercel backend?".
 
 | # | Decision | Verdict | Why (numbers) | Sustainable | Practical |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Remove Express completely | **Yes, within three weeks**, behind a `VITE_BACKEND` rollback switch. Load does not require it; the reasons are one fewer system, no cron limit, and payments built once as Edge Functions. | Write functions are granted to `service_role` only today, so the access checks must first move into the functions (`auth.uid()` plus `vendor_users`), and a cross-user test suite must prove them before cutover. The single frontend seam (`api.ts`) makes the switch a config change. | ▰▰▰▰▰ | ▰▰▰▱▱ |
+| 1 | Remove Express completely | **Yes, in weeks 1–3**, behind a `VITE_BACKEND` rollback switch. Load does not require it; the reasons are one fewer system, no cron limit, and payments built once as Edge Functions. | Write functions are granted to `service_role` only today, so the access checks must first move into the functions (`auth.uid()` plus `vendor_users`), and a cross-user test suite must prove them before cutover. The single frontend seam (`api.ts`) makes the switch a config change. | ▰▰▰▰▰ | ▰▰▰▱▱ |
 | 2 | Slim Express: move cron and public reads out | **Yes** | Removes the cron limit and the biggest request source | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | 3 | RLS read policies for public catalogue data | **Yes** | Hostels, stores, menu, current pool are not secret. Reads then skip Express. | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | 4 | Function checks and RLS for private data (orders, students) | **Yes, week 1, gated by tests** | A mistake leaks phone numbers and rooms, so the cross-user suite (student A vs B, vendor X vs Y, anonymous) must pass in CI before the apps are switched over. | ▰▰▰▰▰ | ▰▰▰▱▱ |
@@ -234,16 +256,16 @@ Decision 1 is the answer to "should we remove the Vercel backend?".
 
 ## 8. Plan
 
-The week-by-week plan, with developer-day estimates, confidence meters, gates and the cut order, lives in [PRODUCTION_PLAN.md](PRODUCTION_PLAN.md#three-week-plan-to-pilot-readiness) so there is one source of truth. In short: week 1 secures the database and proves it with tests; week 2 moves both apps off Express, finishes photos and builds payments as Edge Functions; week 3 cuts over, hardens, and finishes the legal and documentation drafts.
+The phase and week plan, with dates, developer-day estimates, gates and the cut order, lives in [PRODUCTION_PLAN.md](PRODUCTION_PLAN.md#plan-phases-weeks-and-dates) so there is one source of truth. In short: Phase 1A (weeks 1–3) secures the database, moves both apps off Express, adds photos and cash-on-delivery, and finishes the legal drafts; Phase 1B (weeks 4–5) adds the Android student app and the UI consistency work; Phase 2 adds UPI and the compliance sign-offs.
 
 ## 9. What to revisit as it grows
 
 | Trigger | Revisit |
 | --- | --- |
-| Image egress above 150 GB a month | Put Cloudflare in front of the bucket, or move to R2 |
+| Photo cache hit rate poor, or storage outgrows the plan | Move photos to Cloudflare R2 (no egress fees) |
 | Sustained above 100 requests/s or database CPU above 60% | Larger Supabase compute size, then query review. Not a rewrite. |
 | More than 3 campuses | Per-campus tenant column on every table, support tooling, archive old orders |
-| Payments go live | Edge Function webhook with signature checks and idempotency keys; retire Express once nothing depends on it |
+| UPI payments go live (Phase 2) | Edge Function webhook with signature checks and idempotency keys |
 | More than 200 simultaneous Realtime connections | Move to the Pro tier limit (500) or reduce to vendor-only Realtime |
 | Native app requested | Version the API (`/v1`) first |
 
@@ -254,3 +276,88 @@ The week-by-week plan, with developer-day estimates, confidence meters, gates an
 - **Image sizes are planning figures.** The ten-photo test is the guard.
 - **I have not load-tested the live system.** The week 3 replay test does that.
 - **Safari WebP behaviour** is from memory and must be checked on a real iPhone.
+
+## 11. Does the free plan hold? (campus-good case, 17 hostels)
+
+Free-plan limits are from memory; confirm them.
+
+| Limit | Free allowance | Campus-good need | Fits? | Mitigation |
+| --- | --- | --- | --- | --- |
+| Data transfer, API | 5 GB a month | about 4.2 GB (30-second polling, about 25 KB catalogue load plus small polls per session) | Barely; **no** at stress (about 6.3 GB) | Cache the catalogue on the device; trigger to move to paid |
+| Data transfer, photos | included in the same 5 GB | 17–28 GB uncached | **No** without the cache | Cloudflare cache in front of the bucket |
+| Database size | 500 MB | fills in about 3.5 months | Pilot yes, campus no | Archive old orders, or paid plan |
+| Storage | 1 GB | about 36 MB of photos | Yes | None needed |
+| Edge Function calls | 500,000 a month | push notifications and (later) payments: well under | Yes | None needed |
+| Auth users | 50,000 monthly active | 11,000 at most | Yes | None needed |
+| Realtime connections | 200 | 34 if vendor-only | Yes | Do not give every student a live connection |
+| **Inactivity pause** | Project pauses after about a week without activity | Happened on 2 Nov 2026; college breaks and exams will repeat it | **Risk** | Scheduled keep-alive request; paid plan removes it |
+| **Backups** | No point-in-time restore on free | Needed before real money and student data | **Gap** | Nightly encrypted dump to a private R2 bucket, tested restore |
+| Vercel Hobby | Non-commercial use only | A paid service is commercial | **Not allowed** | Cloudflare Pages |
+
+**Verdict:** the free stack is a legitimate way to run a pilot of one to three hostels, provided the three safeguards (keep-alive, nightly backup, Cloudflare cache) are in week 1–3 of the plan. It is not a sustainable base for 17 hostels. Budget the $25 plan for the point the pilot succeeds, and treat the triggers in section 4.2 as the signal.
+
+## 12. Native student app
+
+**Recommended approach: wrap the existing student web app with Capacitor.** Reasons:
+
+- **No redesign.** The owner asked to keep the current look. Rebuilding in React Native or Flutter would mean re-creating every screen.
+- **One codebase.** The same React code ships to the web, Android and (later) iPhone.
+- **Free tooling.** Capacitor and Firebase Cloud Messaging are free. Android builds run in GitHub Actions.
+- **Talks to Supabase directly,** so removing Express helps rather than complicates it.
+
+| Item | Android | iPhone |
+| --- | --- | --- |
+| Build in this plan | Yes, weeks 4–5 | Not yet |
+| Store account | Google Play, $25 once | Apple Developer Program, $99 a year |
+| Free interim | Direct APK download from the website; installable web app | Installable web app ("Add to Home Screen") |
+| Push notifications | Firebase Cloud Messaging, free | Needs the Apple account and its certificates |
+| Publishing time | Review of days. **Google may require a closed test with 12 testers for 14 days for a new personal account**; an organisation account may be exempt (verify the current rule). Start the clock in week 4. | Review of days, and Apple can reject apps that only wrap a website; the app needs real native features such as push and haptics |
+
+Native features worth including because they genuinely help students: push notifications when a pool closes or an order is dispatched, haptics on add-to-cart, correct back-button behaviour, and offline start. The vendor console stays a website and installable web app, as agreed.
+
+## 13. UI consistency audit (no redesign)
+
+Measured from the code on 4 Nov 2026.
+
+| Finding | Student app | Vendor console |
+| --- | --- | --- |
+| Distinct hard-coded font sizes | **26** (e.g. 11, 11.5, 12, 12.5, 13, 13.5, 14, 15 px) | 11, with a named type scale (good) |
+| Hard-coded colours in components outside the design tokens | 21 | 6 |
+| Button/control minimum heights in use | 7 different (36, 40, 44, 46, 48, 52, 56 px) | not measured |
+| Design tokens | Cream/lime/coral palette in `index.css` | Material-style palette in `index.css` |
+| Duplicated code across the two apps | Logo (identical), toast, connection gate, auth and clock hook (near copies of 2–130 differing lines) | same |
+| Fonts | Inter via system stack | Geist, JetBrains Mono and Material Symbols loaded from Google Fonts at run time |
+
+**What this means.** The two apps intentionally look different, and that stays. The inconsistencies are *inside* each app and in how the two are built. The plan:
+
+1. **Tokens, not rewrites.** Define one type scale, one control-height scale (all tappable controls at least 44 px) and one radius/spacing scale per app. Map every existing value to its nearest token. Where two values are visually indistinguishable (13 px and 13.5 px), pick one.
+2. **Shared pieces.** Move the duplicated toast, connection gate, auth and logo code into the shared package, and add standard loading, empty and error states so every screen behaves the same way.
+3. **Proof of no redesign.** Capture screenshots of every screen at three phone widths **before** starting; capture again after. Anything that changed must be an intended fix on the list; everything else must be pixel-identical or explained.
+4. **Consistent wording and formats.** One place for currency, date, time and "pool" wording, so the same thing is never written two ways.
+5. **Self-host fonts.** Faster first load on campus Wi-Fi, works offline in the native app, and no third-party request per visit (also helps the privacy notice).
+
+## 14. Vendor console deployment check
+
+What I could verify from the repository and GitHub, and what I could not.
+
+**Verified**
+
+- Three Vercel projects exist and deploy from GitHub: `student`, `vendor` and `backend`, under the owner's Vercel account. The latest merged pull request (2 Nov 2026) shows all three deployments as **successful**.
+- The vendor console builds cleanly here (`vite build`), all 15 unit tests pass and the type check shows no errors.
+- The earlier question about the project's Root Directory is answered: the deploy history shows a Root Directory fix followed by working deployments.
+- `frontend/apps/vendor/vercel.json` correctly rewrites all routes to the app shell while leaving `/assets`, `/icons`, the service worker and the manifest alone; it sets security headers, allows the camera for the barcode scanner, and caches built files for a year.
+- The service worker is network-first for the app shell and never caches API calls, so stock counts are never stale.
+
+**Could not verify**
+
+- The live address of the vendor site. The repository does not record it and I cannot open the Vercel dashboard from here, so I did not open the live site, check which environment variables are set, or confirm `ENFORCE_VENDOR_SCOPING` or `ALLOWED_ORIGINS`.
+
+**Issues found and where they are fixed in the plan**
+
+| Issue | Fix | When |
+| --- | --- | --- |
+| Hosted on Vercel Hobby-style projects; paid use needs a paid plan | Move to Cloudflare Pages | Week 3 |
+| No Content-Security-Policy header | Add one after fonts are self-hosted | Week 5 |
+| Fonts loaded from Google at run time | Self-host | Week 5 |
+| Single main script of 564 KB (157 KB compressed) because Analytics and charts load for everyone | Split Analytics out | Week 5 |
+| The app is built against `VITE_API_URL`; after Express is removed it must point at Supabase only | The `VITE_BACKEND` switch and environment clean-up | Weeks 2–3 |
