@@ -4,7 +4,7 @@ As of 4 Nov 2026 (architecture, scale and photo sections added; the rest as of 2
 
 ## Summary
 
-Poolit is a working prototype; it needs about 10–12 weeks of focused work (three phases below) before taking real money from real students. The blocking gaps are payments, student identity, per-store vendor access control, a version-controlled database schema, and Indian legal/compliance setup.
+Poolit is a working prototype; it now has a compressed three-week plan to pilot readiness (section "Three-week plan" below) with two developers; live payments additionally wait on gateway and registration approvals. The original 10–12 week phases remain below as the full roadmap. The blocking gaps are payments, student identity, per-store vendor access control, a version-controlled database schema, and Indian legal/compliance setup.
 
 Poolit is pooled quick-commerce for college hostels: students in one hostel order inside a shared time window, and the per-student delivery fee drops as the pool grows (₹20 → ₹10 → ₹5 → free). It has three parts: an Express + Supabase (Postgres) API on Vercel, a student web app, and a vendor console.
 
@@ -188,26 +188,132 @@ Full numbers and reasoning: [SCALE_AND_IMAGES_ANALYSIS.md](SCALE_AND_IMAGES_ANAL
 
 | Decision | Verdict | S | P |
 | --- | --- | --- | --- |
-| Remove Express entirely right now | Not now. Stage it after payments | ▰▰▰▰▱ | ▰▰▱▱▱ |
+| Remove Express entirely | Yes, in weeks 2–3 behind a rollback switch; payments are built as Edge Functions from the start | ▰▰▰▰▰ | ▰▰▰▱▱ |
 | `pg_cron` for pool rotation (replaces scheduler and sweep route) | Yes, first | ▰▰▰▰▰ | ▰▰▰▰▰ |
 | Poll every 30 s plus refetch on tab focus | Yes | ▰▰▰▰▰ | ▰▰▰▰▰ |
 | Public catalogue reads through RLS read policies | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
-| Orders and student data through RLS | Later, with cross-user tests | ▰▰▰▰▰ | ▰▰▰▱▱ |
+| Orders and student data protected by function checks and RLS | Yes, week 1, gated by a cross-user test suite in CI | ▰▰▰▰▰ | ▰▰▰▱▱ |
 | Product photos in Supabase Storage, resized to 400 px and 800 px on the phone | Yes | ▰▰▰▰▱ | ▰▰▰▰▱ |
 | Separate S3 and paid CDN | Not until egress passes about 150 GB a month | ▰▰▰▰▰ | ▰▰▱▱▱ |
 | `ALLOWED_ORIGINS` CORS allowlist | Yes, today | ▰▰▰▱▱ | ▰▰▰▰▰ |
 | One-order-per-student-per-pool rule inside `place_order` (instead of Redis rate limiting for now) | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
-| Realtime for vendor new-order alerts | Week 4, with polling as fallback | ▰▰▰▰▱ | ▰▰▰▱▱ |
+| Realtime for vendor new-order alerts | Week 2, first to be cut; polling is the fallback | ▰▰▰▰▱ | ▰▰▰▱▱ |
 | Queues, caches, multi-region, microservices | No | ▰▱▱▱▱ | ▰▱▱▱▱ |
 
-**Stop-gaps if time runs short:** vendors paste an image link (`image_url`) and the emoji tile covers the rest; keep vendor access checks in Express rather than RLS; keep short-interval polling rather than Realtime.
+**Stop-gaps if time runs short:** vendors paste an image link (`image_url`) and the emoji tile covers the rest; keep short-interval polling rather than Realtime; ship the pilot on cash/UPI-on-delivery while gateway KYC completes.
 
-**Four-week sequence**
+## Three-week plan to pilot readiness
 
-1. **Week 1:** switch on `ENFORCE_VENDOR_SCOPING` and `ALLOWED_ORIGINS`; 30 s polling; `pg_cron` pool rotation; Sentry and uptime check; ten-photo size test.
-2. **Week 2:** photos: `image_path` column, Storage bucket with vendor-scoped upload policy, resize and upload in Add/Edit item, thumbnails in the student app. Test on a real iPhone (Safari may not encode WebP; fall back to JPEG).
-3. **Week 3:** RLS read policies for catalogue data; one-order-per-pool rule; student-A-versus-student-B access tests; staging Supabase project; restore drill.
-4. **Week 4:** vendor Realtime; Playwright smoke tests; replay of 200 orders in 10 minutes against staging (pass: 95th percentile under 1 s); go/no-go for a one- or two-hostel pilot.
+Target: by the end of week 3 the Express backend is retired, access control lives in the database (RLS and Postgres functions), payments run on Edge Functions in test mode, product photos work end to end, and the legal and documentation set is drafted and in review. Reasoning and numbers: [SCALE_AND_IMAGES_ANALYSIS.md](SCALE_AND_IMAGES_ANALYSIS.md).
+
+**Honest feasibility.** Adding up the tables below gives about **36 developer-days** (week 1: 13, week 2: 14, week 3: 9). Two developers working full-time for three weeks have about 30. So the full list does **not** fit with no slack. Ways to make it fit, in order of preference:
+
+1. Cut items 1–3 of the cut order below (Realtime, the Playwright suite, Edge Function refunds): saves about 3.5 days, giving about 32.5. Still tight; it needs some overtime or a third person for the legal-document drafting.
+2. Or move the payment work (order states and Edge Functions, 5 days) to just after week 3 and run the pilot on cash or UPI-on-delivery recorded in the app. That gives about 27.5 days, which fits two developers with a little slack. This is the option I would choose, because the payment gateway's approval is the real gate for live payments anyway.
+3. One developer cannot finish this in three weeks; plan on about six.
+
+Three things outside our control can slip the *calendar* date regardless of code: company, GST, FSSAI and DLT registrations (weeks of government processing), the payment gateway's merchant KYC, and the college's MoU. Everything payment-related is built and tested in the gateway's test mode meanwhile. "Legal" here means drafted documents plus the in-app pieces, ready for a lawyer's review; it is not legal sign-off. The estimates are mine and have not been checked against how fast your team works, so re-estimate after the first two days.
+
+Meters: **Conf.** is my confidence the item lands inside its week (five blocks is best).
+
+### Day 0 and ongoing: non-code actions (owner, in parallel)
+
+These start on day 1 because they have the longest lead times.
+
+| Action | Why now | Lead time (estimate) |
+| --- | --- | --- |
+| Answer the open questions (marketplace vs resale, who delivers, payments mode, under-18 policy, launch campus) | Blocks payments design and legal text | Hours |
+| Start company incorporation, then GST, then payment-gateway merchant account | Gateway KYC needs the company and bank account | Weeks |
+| Start FSSAI applications (platform) and collect each store's FSSAI number | Required before launch | Weeks |
+| DLT registration (sender ID, OTP template) through the SMS provider | Phone login cannot send real SMS without it | Days to weeks |
+| Request the MoU meeting with the college/hostel administration | Required to deliver inside hostels | Weeks |
+| File the "Poolit" trademark | Cheap, early | One sitting |
+| Book a lawyer and a CA for week 3 review | Calendar availability | Days |
+
+### Week 1: secure the database and prepare the move
+
+Goal: the database can enforce every rule by itself, with automated proof.
+
+| Task | Dev-days | Conf. |
+| --- | --- | --- |
+| Interim safety: `ENFORCE_VENDOR_SCOPING=true`, `ALLOWED_ORIGINS` on Vercel (protects the live system during the migration) | 0.25 | ▰▰▰▰▰ |
+| Staging Supabase project; migrations applied by CI; seed script for staging | 1.5 | ▰▰▰▰▱ |
+| Helper `vendor_role(vendor_id)` using `auth.uid()` and `vendor_users`; student helper using `auth.uid()` | 0.5 | ▰▰▰▰▰ |
+| Convert the 35 Express routes into about 25 Postgres functions callable by signed-in users, each checking the caller inside (place order, restock, close/dispatch/deliver, menu items, barcodes, stock, staff, vendor settings, `vendor_overview`, `my_orders`) | 5 | ▰▰▰▱▱ |
+| RLS read policies for hostels, stores, menu items and the current pool; no direct table access to orders, students, staff | 1.5 | ▰▰▰▰▱ |
+| `pg_cron` pool rotation and closing (every minute); remove the in-process scheduler and `/internal/sweep-slots` from deployment | 0.5 | ▰▰▰▰▰ |
+| "One order per student per pool" rule and quantity limits inside `place_order` | 0.5 | ▰▰▰▰▱ |
+| **Security test suite in CI**: sign in as student A, student B, vendor X (store 1), vendor Y (store 2), anonymous; assert each can read and write only their own data. Fails the build on any leak | 2 | ▰▰▰▰▱ |
+| Photos part 1: `menu_items.image_path`, Storage bucket, vendor-scoped upload policy, ten-photo size test | 1 | ▰▰▰▰▱ |
+| Sentry on both apps; uptime check | 0.5 | ▰▰▰▰▰ |
+
+**Gate to enter week 2:** the security suite passes on staging, and the ten-photo test meets the size limits (800 px ≤ 80 KB, 400 px ≤ 30 KB).
+
+### Week 2: move the apps off Express, finish photos, build payments
+
+Goal: both apps run with no Express traffic on staging; payments work in test mode.
+
+| Task | Dev-days | Conf. |
+| --- | --- | --- |
+| Rewire `frontend/packages/domain/src/api.ts` (the single seam, 244 lines) to call Supabase functions and policies; keep a `VITE_BACKEND=express|supabase` switch so cutover and rollback are a config change | 3 | ▰▰▰▰▱ |
+| Student app: direct catalogue reads, order placement, my orders, profile | (in the line above) | |
+| Vendor console: overview, inventory, scan-to-restock, pools, staff, settings | (in the line above) | |
+| Polling 5 s → 30 s plus refetch on tab focus | 0.5 | ▰▰▰▰▰ |
+| Photos part 2: resize to 400 px and 800 px on the phone (WebP, JPEG fallback), upload in Add/Edit item, thumbnails in the student app, emoji tile fallback, real-iPhone test | 2 | ▰▰▰▰▱ |
+| Order states `pending_payment` → `placed` / `expired`; stock reservation; `pg_cron` releases unpaid reservations after about 10 minutes; fee ladder counts paid orders only | 2 | ▰▰▰▱▱ |
+| Edge Functions: `create-payment`, `payment-webhook` (raw-body signature check, unique `payment_id`, idempotent), `refund`; secrets in Supabase; region set near the database | 3 | ▰▰▰▱▱ |
+| Phone OTP provider configured in staging (test numbers until DLT clears) | 0.5 | ▰▰▰▱▱ |
+| Vendor Realtime for new-order alerts, with polling as fallback | 1 | ▰▰▰▱▱ |
+| Playwright smoke tests: place order, pay (test mode), close pool, dispatch, deliver, scan-to-restock | 2 | ▰▰▰▱▱ |
+
+**Gate to enter week 3:** on staging, a full order-to-delivery run passes with Express switched off, and the security suite still passes.
+
+### Week 3: cut over, harden, and finish the legal and documentation set
+
+Goal: production on the new backend, Express deleted after a stable window, legal drafts in review.
+
+| Task | Dev-days | Conf. |
+| --- | --- | --- |
+| Capacity replay: 200 orders in 10 minutes on staging (pass: 95th percentile under 1 s) | 0.5 | ▰▰▰▰▱ |
+| Production cutover: apply migrations, flip `VITE_BACKEND=supabase`, watch Sentry; retire Express after 48 stable hours, then remove the `backend/` deployment and its CI job | 1 | ▰▰▰▱▱ |
+| Security review (checklist in the analysis doc), leaked-password protection and MFA for vendor accounts, log retention of at least 180 days, secrets audit | 1 | ▰▰▰▰▱ |
+| Restore drill (Point-in-Time Recovery or backup restore) and runbooks: pool did not close, payments failing, API/database down | 1.5 | ▰▰▰▰▱ |
+| In-app legal pieces: consent screen at sign-up with privacy notice link, Terms, Refund/Cancellation/Delivery policy and Grievance pages, data-deletion request flow, seller name/address/FSSAI shown on store pages, MRP/net quantity/manufacturer/country fields on items | 3 | ▰▰▰▱▱ |
+| Documentation set (see below) written as drafts | 1.5 | ▰▰▰▰▱ |
+| Pilot go/no-go review against the gates | 0.5 | ▰▰▰▰▰ |
+
+**Legal and documentation drafts to finish in week 3** (each is a draft for a lawyer or CA to review, not a final legal instrument):
+
+1. Terms of Use for students
+2. Privacy Policy and consent notice (DPDP-aligned)
+3. Refund, Cancellation and Delivery policy
+4. Grievance Redressal page (officer name, contact, timelines)
+5. Vendor/Seller Agreement (commission, payout schedule, TCS, FSSAI and stock-accuracy duties)
+6. Rider Agreement (only if riders are used)
+7. Data processing terms with Supabase, Vercel, the SMS provider and the payment gateway; record where data is stored
+8. Information Security Policy and Incident Response Plan
+9. College/Hostel MoU template
+10. Engineering handoff: updated README, architecture diagram, runbooks, environment/secrets inventory
+
+### If time runs short, cut in this order
+
+1. Vendor Realtime (polling is fine)
+2. Playwright suite (keep the security suite and one manual end-to-end checklist)
+3. Edge Function refunds (refund by hand in the gateway dashboard for the pilot)
+4. Live payments: ship the pilot with cash or UPI-on-delivery recorded in-app, while gateway KYC completes
+5. Vendor staff roles beyond owner/staff
+
+**Never cut:** the security test suite, RLS and function checks, the restore drill, the consent screen and policy pages, and the rollback switch. These are what make the pilot safe to run with real students' phone numbers and rooms.
+
+### Pilot readiness gates (all must pass)
+
+- Security suite green in CI; no table readable by `anon` except the public catalogue
+- No Express traffic for 48 hours
+- Replay test passes; Sentry error rate below 1% of requests
+- Photos load at 400 px thumbnails under 30 KB on a mid-range phone
+- Restore drill done once
+- Consent, Terms, Privacy, Refund and Grievance pages live
+- MoU signed for the pilot hostel(s)
 
 ## India compliance and business documentation
 
@@ -253,6 +359,8 @@ From search results; the primary government pages could not be opened when this 
 - Legal Metrology, TRAI DLT and gig-worker items are from general knowledge — approximate, confirm with counsel.
 
 ## Roadmap to completion
+
+> Superseded for the near term by the [three-week plan](#three-week-plan-to-pilot-readiness). The table below is the original longer sequence; items it lists are now pulled into those three weeks where they appear in the plan.
 
 Phase 1 starts once the open questions below are answered; each phase ends at a gate that must pass before the next begins. Registrations in Phase 2 take weeks of government processing, so file them at the start of Phase 1.
 

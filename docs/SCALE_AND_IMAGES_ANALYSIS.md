@@ -207,13 +207,13 @@ Decision 1 is the answer to "should we remove the Vercel backend?".
 
 | # | Decision | Verdict | Why (numbers) | Sustainable | Practical |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Remove Express completely now | **Not now.** Do it in stages after payments | Load does not require it (≤28 req/s). All write functions are granted to `service_role` only, so browsers cannot call them yet. Payments need a server endpoint anyway. A rushed move risks the access rules. | ▰▰▰▰▱ end state | ▰▰▱▱▱ in a few weeks |
+| 1 | Remove Express completely | **Yes, within three weeks**, behind a `VITE_BACKEND` rollback switch. Load does not require it; the reasons are one fewer system, no cron limit, and payments built once as Edge Functions. | Write functions are granted to `service_role` only today, so the access checks must first move into the functions (`auth.uid()` plus `vendor_users`), and a cross-user test suite must prove them before cutover. The single frontend seam (`api.ts`) makes the switch a config change. | ▰▰▰▰▰ | ▰▰▰▱▱ |
 | 2 | Slim Express: move cron and public reads out | **Yes** | Removes the cron limit and the biggest request source | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | 3 | RLS read policies for public catalogue data | **Yes** | Hostels, stores, menu, current pool are not secret. Reads then skip Express. | ▰▰▰▰▰ | ▰▰▰▰▱ |
-| 4 | RLS or functions for private data (orders, students) | **Later, with tests** | A mistake leaks phone numbers and rooms. Keep behind Express until cross-user tests exist. | ▰▰▰▰▰ | ▰▰▰▱▱ |
+| 4 | Function checks and RLS for private data (orders, students) | **Yes, week 1, gated by tests** | A mistake leaks phone numbers and rooms, so the cross-user suite (student A vs B, vendor X vs Y, anonymous) must pass in CI before the apps are switched over. | ▰▰▰▰▰ | ▰▰▰▱▱ |
 | 5 | `pg_cron` closes and rotates pools | **Yes, first** | Replaces the in-process scheduler and the sweep route; no Vercel cron needed | ▰▰▰▰▰ | ▰▰▰▰▰ |
 | 6 | Polling 5 s → 30 s plus refresh on focus | **Yes** | 12× fewer requests; students see the pool timer locally, so 30 s is invisible | ▰▰▰▰▰ | ▰▰▰▰▰ |
-| 7 | Supabase Realtime | **Later, vendor orders only** | Not needed for load. Improves "new order" latency from up to 30 s to under 2 s. | ▰▰▰▰▱ | ▰▰▰▱▱ |
+| 7 | Supabase Realtime | **Week 2, vendor orders only; first to be cut if late** | Not needed for load. Improves "new order" latency from up to 30 s to under 2 s. | ▰▰▰▰▱ | ▰▰▰▱▱ |
 | 8 | Product photos in Supabase Storage, resized on the phone | **Yes** | See section 5 | ▰▰▰▰▱ | ▰▰▰▰▱ |
 | 9 | Separate S3 and a paid CDN | **No, not yet** | Only worth it above 150 GB a month of egress | ▰▰▰▰▰ | ▰▰▱▱▱ |
 | 10 | CORS allowlist (`ALLOWED_ORIGINS`) | **Yes, today** | A config change. Not a security control on its own, since RLS and keys are the real protection. | ▰▰▰▱▱ | ▰▰▰▰▰ |
@@ -232,36 +232,9 @@ Decision 1 is the answer to "should we remove the Vercel backend?".
 | Staging environment | Separate Supabase project with CI | Supabase branching, or a second free project with migrations applied by hand |
 | Analytics trend data | Daily revenue aggregate table | Compute from `orders` on demand; fine under 100,000 rows |
 
-## 8. Four-week plan
+## 8. Plan
 
-Weeks assume one or two developers. Each week ends in something that is safe to ship by itself.
-
-**Week 1 — quick wins, no new risk**
-- Set `ENFORCE_VENDOR_SCOPING=true` and `ALLOWED_ORIGINS` on Vercel (runbook step 4).
-- Student and vendor polling to 30 s, plus refetch on tab focus.
-- `pg_cron` pool rotation and closing, then remove the scheduler and sweep route from the deployment.
-- Sentry on both apps and the API; uptime check on `GET /`.
-- Run the ten-photo acceptance test to confirm the image numbers.
-
-**Week 2 — photos**
-- Migration: `menu_items.image_path`; Storage bucket with a policy that lets a vendor upload only for a store they are linked to.
-- Vendor Add/Edit item: pick or take a photo, resize to 400 px and 800 px (WebP with JPEG fallback), upload, store the path.
-- Student app: thumbnail in grids, 800 px on the product page, emoji tile when no photo.
-- Test on a real iPhone and a mid-range Android.
-
-**Week 3 — reads off Express, and safety rules**
-- RLS read policies for hostels, stores, menu, current pool; student catalogue reads go direct.
-- "One order per student per pool" rule inside `place_order`, with tests.
-- SQL tests that sign in as student A and try to read student B's data (these gate Week 4 work).
-- Staging Supabase project; restore drill.
-
-**Week 4 — hardening and pilot readiness**
-- Vendor Realtime for new orders, with the poll as fallback.
-- Playwright smoke tests: place order, close pool, dispatch, deliver, scan-to-restock.
-- Capacity check: replay 200 orders in 10 minutes against staging. Pass if the 95th-percentile order request stays under 1 s.
-- Go/no-go for a one- or two-hostel pilot.
-
-**Not in these four weeks:** payments, legal registrations, removing Express entirely. Those belong to Phase 2, and registrations take weeks of government processing, so file them in parallel.
+The week-by-week plan, with developer-day estimates, confidence meters, gates and the cut order, lives in [PRODUCTION_PLAN.md](PRODUCTION_PLAN.md#three-week-plan-to-pilot-readiness) so there is one source of truth. In short: week 1 secures the database and proves it with tests; week 2 moves both apps off Express, finishes photos and builds payments as Edge Functions; week 3 cuts over, hardens, and finishes the legal and documentation drafts.
 
 ## 9. What to revisit as it grows
 
@@ -279,5 +252,5 @@ Weeks assume one or two developers. Each week ends in something that is safe to 
 - **Campus size and adoption are assumptions.** The conclusions hold with a 3× error in either direction, because even the stress case uses a small fraction of one project's capacity. They do not hold with raw photos at any scale.
 - **Prices and limits are from memory.** A change in free-tier limits could shift the cost table, but not the ranking of options.
 - **Image sizes are planning figures.** The ten-photo test is the guard.
-- **I have not load-tested the live system.** The Week 4 replay test does that.
+- **I have not load-tested the live system.** The week 3 replay test does that.
 - **Safari WebP behaviour** is from memory and must be checked on a real iPhone.
