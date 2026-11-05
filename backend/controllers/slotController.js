@@ -1,3 +1,4 @@
+const { reportError } = require("../utils/reportError");
 const supabase = require("../config/supabaseClient");
 const { toSlotJSON, toOrderJSON } = require("../utils/serialize");
 const { closeSlot, ensureSlotClosedIfExpired } = require("../utils/slotCloser");
@@ -22,7 +23,7 @@ exports.getSlotById = async (req, res) => {
 
     res.json(toSlotJSON(slot));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to fetch slot" });
   }
 };
@@ -51,7 +52,7 @@ exports.getSlotOrders = async (req, res) => {
 
     res.json(orders.map(toOrderJSON));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to fetch orders" });
   }
 };
@@ -108,7 +109,7 @@ exports.getPickList = async (req, res) => {
 
     res.json(pickList);
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to build pick list" });
   }
 };
@@ -126,7 +127,7 @@ exports.closeSlotHandler = async (req, res) => {
       orderCount: result.orderCount,
     });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     const status = err.status || 500;
     res.status(status).json({ message: err.message || "Failed to close slot" });
   }
@@ -156,7 +157,7 @@ exports.dispatchSlot = async (req, res) => {
       slot: toSlotJSON(slot),
     });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to dispatch slot" });
   }
 };

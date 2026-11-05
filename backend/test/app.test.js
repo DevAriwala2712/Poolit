@@ -92,3 +92,10 @@ test("barcode generation and stock adjustment require a signed-in vendor", async
     assert.equal(res.status, 401, `${method} ${path}`);
   }
 });
+
+test("error responses carry a code and request id", async () => {
+  const res = await fetch(`${base}/nope`);
+  const body = await res.json();
+  assert.equal(body.code, "not_found");
+  assert.equal(body.requestId, res.headers.get("x-request-id"));
+});
