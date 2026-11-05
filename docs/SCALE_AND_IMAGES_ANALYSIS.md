@@ -101,6 +101,21 @@ The paid plan includes 8 GB, which lasts years. Archiving old orders extends the
 
 Peak concurrent users (169 in the stress case) fit inside the free plan's 200 concurrent Realtime connections only if every student app held one. Realtime for **vendors only** (34 devices) is comfortably inside the limit. Realtime is therefore possible, but not required by load; it is a Phase 2 item.
 
+### 3.5 Correction: what the old student app really called (5 Nov 2026)
+
+Sections 3.1 and 3.2 assumed one request per student per poll. Reading the app's code while switching it to the new backend showed it makes **2 + 2N + 1** requests on every poll (hostels, stores, then each hostel's pool and its size, then the student's orders), where N is the number of hostels with a store, although a student only ever uses their own hostel. The numbers above therefore understated the old app's load.
+
+| Scenario (burst concurrent users) | Old app: calls per poll | Old app: requests per second (poll every 5 s) | New app: requests per second (one call every 15 s) |
+| --- | --- | --- | --- |
+| Pilot, 2 hostels (6) | 7 | 8 | 0.4 |
+| Campus, base, 17 hostels (70) | 37 | 518 | 4.7 |
+| Campus, good (113) | 37 | 836 | 7.5 |
+| Stress (169) | 37 | 1,251 | 11.3 |
+
+Over a month in the good case, the old pattern is about 150 M student requests against about 1.4 M for the new one. The old pattern would have been the first thing to fail at campus scale, not the database or the images. The new single call (`api_student_view`) returns the catalogue and pool for the student's own hostel plus their own orders, and the app polls every 15 seconds. The vendor console still uses its single overview call and is unchanged for now.
+
+The vendor-side numbers in 3.1 and 3.2 are unaffected.
+
 ## 4. Monthly cost model
 
 Assumes ₹85 per US dollar. All prices from memory; confirm them before budgeting.

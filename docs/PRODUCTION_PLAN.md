@@ -290,7 +290,8 @@ Dates assume a start on **Monday 9 Nov 2026** and **two full-time developers** (
 | Resize on the phone and upload, as tested code (`productPhoto.ts`, `productPhotoBrowser.ts`): 17 automated tests plus a real-Chromium check (12 MP and 50 MP photos shrink to 800 px and 400 px WebP in 1.7 s or less on this machine, files 7–24 KB, small photos not enlarged, transparency turned white, JPEG fallback simulated) | Done |
 | Add/Edit item screens using it (a photo button, preview, progress, error messages) | Next |
 | Student app showing the picture in place of the emoji tile | Next |
-| Switch both apps from Express to the database functions | Not started |
+| Student app switched to the database functions behind `VITE_BACKEND` (default stays Express): one call per poll instead of 2+2N+1, own-hostel pool only, 15 s polling. 17 + 18 automated tests, plus a 13-check end-to-end run of the real app in Chromium against the real functions (`scripts/student-e2e/run.sh`) | Done locally; **`api_student_view` not yet applied to the live project, and the student build is still on Express** |
+| Vendor console switched to the database functions | Not started |
 | Idempotency keys for the new order, restock and stock-adjust functions | Not started |
 
 **Week 3 (23–27 Nov): cut over, harden, legal drafts** → *Milestone A*
