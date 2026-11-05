@@ -91,6 +91,7 @@ export function makeRpcApi(getRpc: () => RpcCaller | null): Api {
 
     // ---- vendor console: not switched yet ----
     getVendorOverview: notYet,
+    getRevenue: notYet,
     updateVendor: notYet,
     createMenuItem: notYet,
     getStaff: notYet,

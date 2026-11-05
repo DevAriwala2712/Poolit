@@ -1,7 +1,9 @@
 const express = require("express");
 const cors = require("cors");
-const morgan = require("morgan");
+const { requestContext } = require("./middleware/requestContext");
 require("./config/supabaseClient"); // validates env vars up front
+const { initSentry, captureServerError } = require("./utils/sentry");
+initSentry();
 
 // Routes
 const hostelsRouter = require("./routes/hostels");
@@ -45,7 +47,9 @@ app.use(
   )
 );
 app.use(express.json({ limit: "100kb" }));
-app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+// One JSON log line per request (quiet under tests); every response gets an
+// X-Request-Id and every error body a stable `code`.
+app.use(requestContext(process.env.NODE_ENV === "test" || process.env.NODE_TEST_CONTEXT ? { log: () => {} } : {}));
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
@@ -120,7 +124,7 @@ app.use((req, res) => {
 
 // Global error handler
 // eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
+app.use(async (err, req, res, next) => {
   // Client errors raised by middleware (bad JSON, body too large, CORS) keep
   // their 4xx status instead of being reported as a server crash.
   const status = err.status || err.statusCode;
@@ -129,7 +133,8 @@ app.use((err, req, res, next) => {
       message: err.type === "entity.parse.failed" ? "Request body is not valid JSON" : err.message,
     });
   }
-  console.error("❌ Error:", err.stack);
+  await captureServerError(err, req);
+  console.error(JSON.stringify({ level: "error", msg: "unhandled error", requestId: req.id, stack: err.stack }));
   res.status(500).json({
     message: "Internal server error",
     error: process.env.NODE_ENV === "development" ? err.message : undefined,

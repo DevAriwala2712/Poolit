@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -24,6 +25,37 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npm test
+
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: poolit_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/poolit_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      # Applies every supabase/migrations/*.sql to a clean database, then
+      # exercises the Postgres functions (orders, pools, stock, grants).
+      - run: ./scripts/db-test-setup.sh
+      - run: npm ci
+        working-directory: backend
+      - run: npm run test:db
+        working-directory: backend
 
   frontend:
     runs-on: ubuntu-latest
@@ -63,3 +95,22 @@ jobs:
         run: scripts/test-db.sh
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend/apps/vendor
+      # Vendor console smoke tests against a mocked API + Supabase Auth.
+      - run: npm run e2e
+        working-directory: frontend/apps/vendor

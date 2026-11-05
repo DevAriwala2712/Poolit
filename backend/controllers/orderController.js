@@ -1,3 +1,4 @@
+const { reportError } = require("../utils/reportError");
 const supabase = require("../config/supabaseClient");
 const { toOrderJSON } = require("../utils/serialize");
 const { ensureSlotClosedIfExpired } = require("../utils/slotCloser");
@@ -68,7 +69,7 @@ exports.placeOrder = async (req, res) => {
 
     res.status(201).json(toOrderJSON(order));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to place order" });
   }
 };
@@ -109,7 +110,7 @@ exports.markDelivered = async (req, res) => {
       order: toOrderJSON(updated),
     });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to mark order delivered" });
   }
 };
@@ -139,7 +140,7 @@ exports.getLiveFee = async (req, res) => {
     const fee = feeForOrderCount(count);
     res.json({ orderCount: count, fee });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to compute live fee" });
   }
 };

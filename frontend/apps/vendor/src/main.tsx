@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css";
+import { initMonitoring } from "./monitoring";
+
+initMonitoring();
 
 // Failed writes are already reported to the vendor via a toast (see
 // StoreProvider onMutationError); don't also spam the console as "uncaught".

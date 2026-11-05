@@ -6,12 +6,17 @@
   "scripts": {
     "dev": "vite --port 5174 --strictPort",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@poolit/domain": "*",
+    "@sentry/react": "^8.55.2",
     "@supabase/supabase-js": "^2.114.0",
     "barcode-detector": "^3.2.3",
     "zxing-wasm": "^3.1.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
   }
 }

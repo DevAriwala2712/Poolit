@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const crypto = require("crypto");
 const { sweepExpiredSlots } = require("../utils/poolScheduler");
 
 /**
@@ -17,7 +18,9 @@ router.post("/sweep-slots", async (req, res) => {
   if (!configuredSecret) {
     return res.status(503).json({ message: "CRON_SECRET is not configured" });
   }
-  if (req.headers["x-cron-secret"] !== configuredSecret) {
+  const given = Buffer.from(String(req.headers["x-cron-secret"] || ""));
+  const want = Buffer.from(configuredSecret);
+  if (given.length !== want.length || !crypto.timingSafeEqual(given, want)) {
     return res.status(401).json({ message: "Invalid cron secret" });
   }
 

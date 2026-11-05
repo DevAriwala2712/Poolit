@@ -42,20 +42,48 @@ export async function hasAuthToken(): Promise<boolean> {
   return Boolean(await getAuthToken());
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let res: Response;
-  try {
-    const token = await getAuthToken();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers.Authorization = `Bearer ${token}`;
+/** crypto.randomUUID only exists on HTTPS/localhost; fall back so LAN testing over http still works. */
+function newIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined") crypto.getRandomValues(bytes);
+  else for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
 
-    res = await fetch(`${API_URL}${path}`, {
-      ...init,
-      headers: { ...headers, ...init?.headers },
-    });
-  } catch {
-    throw new ApiError(0, `Can't reach the Poolit API at ${API_URL}. Is the backend running?`);
+/**
+ * `idempotent: true` sends one Idempotency-Key for the whole call and retries
+ * network failures (twice, with backoff) under that same key, so a flaky
+ * connection can't place an order or add stock twice: the server replays the
+ * first result instead of running it again.
+ */
+async function request<T>(
+  path: string,
+  init?: RequestInit & { idempotent?: boolean },
+): Promise<T> {
+  const { idempotent, ...fetchInit } = init ?? {};
+  const key = idempotent ? newIdempotencyKey() : undefined;
+  const attempts = idempotent ? 3 : 1;
+  let res: Response | undefined;
+  for (let attempt = 1; attempt <= attempts && !res; attempt++) {
+    try {
+      const token = await getAuthToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      if (key) headers["Idempotency-Key"] = key;
+
+      res = await fetch(`${API_URL}${path}`, {
+        ...fetchInit,
+        headers: { ...headers, ...fetchInit.headers },
+      });
+    } catch {
+      if (attempt === attempts) {
+        throw new ApiError(0, `Can't reach the Poolit API at ${API_URL}. Is the backend running?`);
+      }
+      await new Promise((r) => setTimeout(r, 400 * attempt));
+    }
   }
+  if (!res) throw new ApiError(0, "No response from the Poolit API");
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
@@ -142,6 +170,12 @@ const expressApi = {
     ),
 
   /** Only the caller's own orders (and the slots they belong to). */
+  getRevenue: (days: number) =>
+    request<{
+      days: number;
+      stores: { vendorId: string; days: { day: string; orders: number; revenue: number }[] }[];
+    }>(`/vendor/revenue?days=${days}`),
+
   getMyOrders: () => request<{ orders: Order[]; slots: Slot[] }>("/me/orders"),
 
   /**
@@ -240,6 +274,7 @@ const expressApi = {
   placeOrder: ({ slotId, ...body }: PlaceOrderInput) =>
     request<Order>(`/slots/${slotId}/orders`, {
       method: "POST",
+      idempotent: true,
       body: JSON.stringify(body),
     }),
 
@@ -263,7 +298,7 @@ const expressApi = {
   restockItem: (menuItemId: string, amount: number) =>
     request<{ item: MenuItem; restockLog: RestockLogEntry }>(
       `/menu-items/${menuItemId}/restock`,
-      { method: "POST", body: JSON.stringify({ amount }) },
+      { method: "POST", idempotent: true, body: JSON.stringify({ amount }) },
     ),
 
   updateItem: (
@@ -287,6 +322,7 @@ const expressApi = {
   adjustStock: (menuItemId: string, input: StockAdjustmentInput) =>
     request<{ item: MenuItem; adjustment: StockHistoryEntry }>(`/menu-items/${menuItemId}/adjust`, {
       method: "POST",
+      idempotent: true,
       body: JSON.stringify(input),
     }),
 
