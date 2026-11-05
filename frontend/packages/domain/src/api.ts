@@ -1,3 +1,5 @@
+import { ApiError } from "./errors.ts";
+import { type RpcCaller, makeRpcApi } from "./rpcApi.ts";
 import type { Hostel, MenuItem, Order, OrderLineItem, PickListLine, RestockLogEntry, Slot, StaffMember, Vendor } from "./types";
 
 /**
@@ -8,13 +10,21 @@ export const API_URL: string =
   (import.meta.env?.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ??
   "http://localhost:5057";
 
-export class ApiError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-  }
+export { ApiError };
+
+/**
+ * Which backend answers the app's data calls. "express" is the old API
+ * (VITE_API_URL); "supabase" calls the database's api_* functions directly
+ * (the app must register its client with setRpcCaller). Defaults to "express"
+ * so nothing changes until a build opts in with VITE_BACKEND=supabase.
+ */
+export type Backend = "express" | "supabase";
+export const BACKEND: Backend = import.meta.env?.VITE_BACKEND === "supabase" ? "supabase" : "express";
+
+let rpcCaller: RpcCaller | null = null;
+/** Called once at startup by an app running with VITE_BACKEND=supabase. */
+export function setRpcCaller(fn: RpcCaller) {
+  rpcCaller = fn;
 }
 
 /**
@@ -62,6 +72,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** What the student app shows: catalogue, the student's hostel pool and size, their own orders. */
+export interface StudentView {
+  hostels: Hostel[];
+  vendors: Vendor[];
+  slots: Slot[];
+  /** Only the signed-in student's own orders. */
+  orders: Order[];
+  /** Orders in each open pool, for everyone (a count, never names). */
+  poolCounts: Record<string, number>;
+  /** The hostel the view was built for (the Supabase backend; absent on Express). */
+  hostelId?: string;
+}
+
 export interface PlaceOrderInput {
   slotId: string;
   studentName: string;
@@ -105,7 +128,7 @@ export interface MeResponse {
   profile: StudentProfile | null;
 }
 
-export const api = {
+const expressApi = {
   /** Signed-in student (phone OTP). */
   getMe: () => request<MeResponse>("/me"),
 
@@ -120,6 +143,36 @@ export const api = {
 
   /** Only the caller's own orders (and the slots they belong to). */
   getMyOrders: () => request<{ orders: Order[]; slots: Slot[] }>("/me/orders"),
+
+  /**
+   * The old way: every hostel's pool and size, one request each, on every poll.
+   * Kept so the Express backend behaves exactly as before.
+   */
+  getStudentView: async (_hostelId?: string): Promise<StudentView> => {
+    const [hostels, vendors] = await Promise.all([expressApi.getHostels(), expressApi.getVendors()]);
+    const hostelIds = Array.from(new Set(vendors.map((v) => v.hostelId)));
+    const current = await Promise.all(
+      hostelIds.map((id) => expressApi.getCurrentSlot(id).then((r) => r.slot).catch(() => null)),
+    );
+    const openSlots = current.filter((sl): sl is Slot => sl !== null);
+    const counts = await Promise.all(
+      openSlots.map((sl) =>
+        expressApi.getLiveFee(sl.id).then((r) => [sl.id, r.orderCount] as const).catch(() => null),
+      ),
+    );
+    const poolCounts: Record<string, number> = {};
+    for (const entry of counts) if (entry) poolCounts[entry[0]] = entry[1];
+
+    let orders: Order[] = [];
+    let mySlots: Slot[] = [];
+    if (await hasAuthToken()) {
+      const mine = await expressApi.getMyOrders();
+      orders = mine.orders;
+      mySlots = mine.slots;
+    }
+    const bySlotId = new Map([...mySlots, ...openSlots].map((sl) => [sl.id, sl]));
+    return { hostels, vendors, slots: Array.from(bySlotId.values()), orders, poolCounts };
+  },
 
   getHostels: () => request<Hostel[]>("/hostels"),
 
@@ -242,3 +295,8 @@ export const api = {
   getRestockLog: (menuItemId: string) =>
     request<RestockLogEntry[]>(`/menu-items/${menuItemId}/restock-log`),
 };
+
+export type Api = typeof expressApi;
+
+/** The app's data calls, answered by whichever backend VITE_BACKEND selected. */
+export const api: Api = BACKEND === "supabase" ? makeRpcApi(() => rpcCaller) : expressApi;

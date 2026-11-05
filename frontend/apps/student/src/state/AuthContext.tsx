@@ -30,8 +30,13 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const { refresh, hostels } = useStore();
+  const { refresh, hostels, setHostelFocus } = useStore();
   const { profile, update } = useProfile();
+
+  // Load only the hostel the student is looking at (a no-op on the Express backend).
+  useEffect(() => {
+    setHostelFocus(profile.hostelId);
+  }, [profile.hostelId, setHostelFocus]);
 
   // Latest values for the sign-in effect without re-subscribing.
   const profileRef = useRef(profile);

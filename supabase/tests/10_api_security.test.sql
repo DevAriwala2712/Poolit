@@ -89,7 +89,7 @@ end $$;
 do $$
 declare
   r record;
-  v_public text[] := array['api_hostels','api_vendors','api_vendor','api_vendor_menu','api_current_slot','api_slot','api_live_fee'];
+  v_public text[] := array['api_hostels','api_vendors','api_vendor','api_vendor_menu','api_current_slot','api_slot','api_live_fee','api_student_view'];
   n_api integer := 0;
 begin
   for r in select p.proname, p.oid from pg_proc p join pg_namespace s on s.oid = p.pronamespace
