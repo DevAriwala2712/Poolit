@@ -1,0 +1,66 @@
+// Poolit: every gate a request passes, and what each one refuses
+// Diagram type: Flow chart (Eraser diagram-as-code)
+// Each gate below is covered by an automated test; breaking a gate on purpose makes the test fail.
+
+title Poolit security layers
+direction down
+colorMode bold
+styleMode shadow
+typeface clean
+
+Request [shape: oval, icon: arrow-right, color: blue, label: "Request from a browser or phone"]
+
+Role [shape: diamond, icon: key, color: blue, label: "Signed in? (login token)"]
+Visitor [icon: user, color: gray, label: "Runs as anon (visitor)"]
+Signed in [icon: user-check, color: green, label: "Runs as authenticated, caller id from the token"]
+
+Permission [shape: diamond, icon: lock, color: blue, label: "May this role run this function?"]
+Refuse 401 [shape: oval, icon: x-circle, color: red, label: "401 refused: only 8 functions are open to visitors"]
+
+Identity [shape: diamond, icon: shield, color: blue, label: "Vendor function: is the caller linked to this store, with the right role?"]
+Refuse 403 [shape: oval, icon: x-circle, color: red, label: "403 refused: other store, student, or staff doing owner work"]
+
+Validate [shape: diamond, icon: check-square, color: blue, label: "Valid input? (types, ranges, lengths, whole numbers)"]
+Refuse 400 [shape: oval, icon: x-circle, color: red, label: "400 refused: bad input, nothing changed"]
+
+Rules [shape: diamond, icon: sliders, color: blue, label: "Business rules (stock, pool open, 3 orders per student per pool, delivery state)"]
+Refuse 409 [shape: oval, icon: x-circle, color: red, label: "409 refused: whole change rolled back"]
+
+Server function [icon: key, color: green, label: "Server only function runs, row locked, all or nothing"]
+Tables [icon: database, color: green, label: "Closed tables: row security on, no grants, no policies"]
+Answer [shape: oval, icon: check-circle, color: green, label: "Answer shaped by private helpers: no emails or phone numbers of other people"]
+
+// ---------------- Storage gate ----------------
+
+Upload [shape: oval, icon: upload, color: blue, label: "Vendor uploads a picture"]
+Upload rule [shape: diamond, icon: image, color: blue, label: "Own store folder? Name matches the pattern? JPEG or WebP? 200 KB or less?"]
+Upload refused [shape: oval, icon: x-circle, color: red, label: "Refused: no overwrite and no delete through the API either"]
+Stored [shape: oval, icon: check-circle, color: green, label: "Stored, public to read, cached for a year"]
+
+// ---------------- Never exposed ----------------
+
+Never exposed [icon: eye-off, color: gray, label: "Never reachable from a browser: private schema, server only functions, service role key, backups"]
+
+// ---------------- Flow ----------------
+
+Request > Role
+Role > Visitor: no
+Role > Signed in: yes
+Visitor > Permission
+Signed in > Permission
+Permission > Refuse 401: no
+Permission > Identity: yes
+Identity > Refuse 403: no
+Identity > Validate: yes
+Validate > Refuse 400: no
+Validate > Rules: yes
+Rules > Refuse 409: no
+Rules > Server function: yes
+Server function > Tables
+Tables > Answer
+
+Upload > Upload rule
+Upload rule > Upload refused: no
+Upload rule > Stored: yes
+
+Server function > Never exposed: stays inside the database

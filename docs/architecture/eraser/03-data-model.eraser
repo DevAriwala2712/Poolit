@@ -1,0 +1,165 @@
+// Poolit data model (live schema, 5 Nov 2026)
+// Diagram type: Entity relationship diagram (Eraser diagram-as-code)
+// All tables are closed to the public: reads and writes go through the api functions.
+
+title Poolit data model
+colorMode pastel
+styleMode shadow
+typeface clean
+
+auth_users [icon: lock, color: gray, label: "auth.users (Supabase Auth)"] {
+  id uuid pk
+  phone text
+  email text
+}
+
+hostels [icon: home, color: blue] {
+  id uuid pk
+  name text
+  blocks text_array
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+vendors [icon: shopping-bag, color: green, label: "vendors (stores, one per hostel)"] {
+  id uuid pk
+  name text
+  hostel_id uuid
+  prep_minutes integer
+  accepting_orders boolean
+  pool_window_minutes integer
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+vendor_users [icon: key, color: green, label: "vendor_users (who may run which store)"] {
+  user_id uuid pk
+  vendor_id uuid pk
+  role text
+  created_at timestamptz
+}
+
+staff [icon: users, color: green] {
+  id uuid pk
+  vendor_id uuid
+  name text
+  role text
+  email text
+  status text
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+menu_items [icon: package, color: green] {
+  id uuid pk
+  vendor_id uuid
+  name text
+  category text
+  price numeric
+  mrp numeric
+  unit text
+  rating numeric
+  rating_count integer
+  is_veg boolean
+  art text
+  tint text
+  stock_qty integer
+  low_stock_threshold integer
+  barcode text
+  image_path text
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+slots [icon: clock, color: orange, label: "slots (a pool: one open at a time per hostel)"] {
+  id uuid pk
+  hostel_id uuid
+  vendor_id uuid
+  status text
+  opens_at timestamptz
+  closes_at timestamptz
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+orders [icon: file-text, color: orange, label: "orders (items are JSON lines with frozen name and price)"] {
+  id uuid pk
+  slot_id uuid
+  student_id uuid
+  student_name text
+  block text
+  room text
+  tip numeric
+  payment_method text
+  note text
+  items jsonb
+  subtotal_paise integer
+  delivery_fee_charged numeric
+  status text
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+students [icon: user, color: purple, label: "students (profile of a signed in student)"] {
+  user_id uuid pk
+  name text
+  phone text
+  hostel_id uuid
+  block text
+  room text
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+restock_logs [icon: plus-circle, color: yellow] {
+  id uuid pk
+  vendor_id uuid
+  menu_item_id uuid
+  amount integer
+  at timestamptz
+}
+
+stock_adjustments [icon: edit, color: yellow, label: "stock_adjustments (counts, damaged, expired)"] {
+  id uuid pk
+  vendor_id uuid
+  menu_item_id uuid
+  user_id uuid
+  reason text
+  previous_qty integer
+  new_qty integer
+  delta integer
+  note text
+  at timestamptz
+}
+
+idempotency_keys [icon: repeat, color: gray, label: "idempotency_keys (safe retries, used by Express only so far)"] {
+  scope text pk
+  key text pk
+  request_hash text
+  status text
+  response_status integer
+  response_body jsonb
+  created_at timestamptz
+}
+
+// Relationships: many to one, from the foreign key to the table it points at
+vendors.hostel_id > hostels.id
+vendor_users.user_id > auth_users.id
+vendor_users.vendor_id > vendors.id
+staff.vendor_id > vendors.id
+menu_items.vendor_id > vendors.id
+slots.hostel_id > hostels.id
+slots.vendor_id > vendors.id
+orders.slot_id > slots.id
+orders.student_id > auth_users.id
+students.user_id - auth_users.id
+students.hostel_id > hostels.id
+restock_logs.vendor_id > vendors.id
+restock_logs.menu_item_id > menu_items.id
+stock_adjustments.vendor_id > vendors.id
+stock_adjustments.menu_item_id > menu_items.id
+stock_adjustments.user_id > auth_users.id
+
+// Not a database relationship: menu_items.image_path names a file in the
+// product-images storage bucket, and each line inside orders.items names a
+// menu item by id (with the name and price frozen at the time of sale).

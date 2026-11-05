@@ -1,0 +1,74 @@
+// Poolit: how a change gets from code to the live system, and how to roll back
+// Diagram type: Flow chart (Eraser diagram-as-code)
+//
+// LEGEND  green = in place and used  |  blue = exists, run by hand  |  orange = planned
+
+title Poolit delivery pipeline
+direction down
+colorMode bold
+styleMode shadow
+typeface clean
+
+Developer [icon: code, color: green, label: "Developer or Claude session"]
+Branch [icon: git-branch, color: green, label: "Feature branch on GitHub"]
+
+// ---------------- Automatic checks (GitHub Actions on every pull request) ----------------
+
+GitHub Actions [icon: github, color: green, label: "GitHub Actions CI (every pull request)"] {
+  Backend job [icon: check-circle, color: green, label: "Express tests (18)"]
+  Frontend job [icon: check-circle, color: green, label: "Frontend: typecheck, lint, 53 unit tests, both apps build"]
+  Database job [icon: check-circle, color: green, label: "Database: apply all 17 migrations on a fresh Postgres, run 4 test files (access control, pool rotation, photos, student view)"]
+}
+
+// ---------------- Checks run by hand before risky switches ----------------
+
+Manual checks [icon: clipboard, color: blue, label: "Checks run by hand (not in CI)"] {
+  Student end to end [icon: play-circle, color: blue, label: "Student app on the new backend in Chromium, 13 checks"]
+  Rollback check [icon: rotate-ccw, color: blue, label: "Student app on Express (rollback path), 5 checks"]
+  Photo pipeline check [icon: image, color: blue, label: "Resize and upload in real Chromium, 11 checks"]
+}
+
+Review [icon: eye, color: green, label: "Pull request review and merge to main"]
+
+// ---------------- Frontends and old API ----------------
+
+Vercel [icon: vercel, color: green, label: "Vercel builds student, vendor and backend projects from GitHub"]
+Switch [icon: toggle-right, color: green, label: "Student build setting VITE_BACKEND: express (default) or supabase"]
+Live apps [icon: globe, color: green, label: "Live student app and vendor console"]
+
+// ---------------- Database changes ----------------
+
+Migration file [icon: file-text, color: green, label: "SQL migration in supabase/migrations"]
+Apply migration [icon: database, color: blue, label: "Applied to the live project by hand, after approval, then verified"]
+Live database [icon: supabase, color: green, label: "Live Supabase project"]
+Fingerprint check [icon: search, color: blue, label: "Compare live against repo: columns, indexes, functions, permissions, storage rules"]
+
+// ---------------- Planned ----------------
+
+Staging project [icon: copy, color: orange, label: "Staging Supabase project: migrations applied by CI, tests run here first"]
+Backup [icon: archive, color: orange, label: "Nightly encrypted backup to R2, restore drill"]
+Keep alive [icon: heart, color: blue, label: "Keep alive ping every 3 days (needs 2 repo secrets)"]
+Cloudflare Pages [icon: cloudflare, color: orange, label: "Move frontends to Cloudflare Pages (Vercel Hobby is non-commercial)"]
+
+// ---------------- Flow ----------------
+
+Developer > Branch: git push
+Branch > GitHub Actions: starts on pull request
+GitHub Actions > Review: all jobs green
+Developer > Manual checks: before switching a backend or shipping photos
+Manual checks > Review: results reported
+Review > Vercel: merge to main triggers builds
+Vercel > Live apps: deploy
+Switch > Live apps: choose the backend per app, change the setting and redeploy to roll back
+
+Developer > Migration file: write and test locally
+Migration file > Database job: tested in CI
+Migration file > Apply migration: after approval
+Apply migration > Live database: apply_migration
+Live database > Fingerprint check: verify
+Fingerprint check > Developer: differences reported
+
+Live database > Backup: planned
+Migration file > Staging project: planned, before live
+Keep alive > Live database: stops free plan pausing
+Vercel > Cloudflare Pages: planned move
