@@ -195,7 +195,7 @@ Full numbers and reasoning: [SCALE_AND_IMAGES_ANALYSIS.md](SCALE_AND_IMAGES_ANAL
 | Public catalogue reads through RLS read policies | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | Orders and student data protected by function checks and RLS | Yes, weeks 1–2, gated by a cross-user test suite in CI | ▰▰▰▰▰ | ▰▰▰▱▱ |
 | Product photos in Supabase Storage, resized to 400 px and 800 px on the phone | Yes | ▰▰▰▰▱ | ▰▰▰▰▱ |
-| Cloudflare free cache in front of the photo bucket (S3-style storage and a paid CDN are not needed) | Yes, week 3 | ▰▰▰▰▰ | ▰▰▰▰▱ |
+| Cloudflare free cache in front of the photo bucket (S3-style storage and a paid CDN are not needed) | Only when transfer passes 3.5 GB a month; long cache headers first | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | `ALLOWED_ORIGINS` CORS allowlist | Yes, today | ▰▰▰▱▱ | ▰▰▰▰▰ |
 | At-most-3-orders-per-student-per-pool rule inside the order function (instead of Redis rate limiting for now) | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | Realtime for vendor new-order alerts | Phase 2; polling every 30 s until then | ▰▰▰▰▱ | ▰▰▰▱▱ |
@@ -300,7 +300,7 @@ Dates assume a start on **Monday 9 Nov 2026** and **two full-time developers** (
 | Production cutover: apply migrations, flip `VITE_BACKEND=supabase`, watch errors; delete Express after 48 stable hours | 1 |
 | Security review, MFA for vendor accounts, leaked-password protection, secrets audit, log retention of at least 180 days | 1 |
 | Restore drill from the nightly backup into staging; runbooks: pool did not close, orders failing, database down | 1.5 |
-| Move the three frontends from Vercel Hobby (non-commercial use only) to Cloudflare Pages (free, commercial use allowed); put Cloudflare's cache in front of the photo bucket | 1 |
+| Move the three frontends from Vercel Hobby (non-commercial use only) to Cloudflare Pages (free, commercial use allowed). The free Cloudflare cache for photos is added only when Supabase transfer passes 3.5 GB a month (see the analysis document, section 15); photos use one-year cache headers from the start | 1 |
 | Sentry on both apps; uptime check | 0.5 |
 | In-app legal pieces: 18+ confirmation and consent screen at sign-up, Terms, Privacy, Refund/Cancellation/Delivery and Grievance pages, data-deletion request, store licence details on store pages, MRP/net quantity/manufacturer/origin fields on items | 3 |
 | Vendor console flow for store-staff delivery (mark out for delivery, delivered, cash collected) checked on a phone | 0.5 |
