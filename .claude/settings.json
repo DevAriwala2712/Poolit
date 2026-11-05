@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm root -g)",
+      "Bash(npm run typecheck)",
+      "Bash(npm test)",
+      "mcp__Supabase__list_migrations",
+      "mcp__github__pull_request_read"
+    ]
+  }
+}
