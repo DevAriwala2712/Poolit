@@ -1,5 +1,5 @@
-import { orderSubtotal, rupees, useStore } from "@poolit/domain";
-import { useMemo, useState } from "react";
+import { api, orderSubtotal, rupees, useStore } from "@poolit/domain";
+import { useEffect, useMemo, useState } from "react";
 import { AreaChart, HBarList, Heatmap } from "../components/charts";
 import { KpiCard } from "../components/KpiCard";
 import { MaterialIcon } from "../components/MaterialIcon";
@@ -21,24 +21,33 @@ export function Analytics() {
   const { orders, slots, hostels } = useStore();
   const m = useMetrics();
 
-  // Revenue trend across the selected window. Today is real; earlier days are
-  // derived from the seeded history plus a deterministic weekday curve so the
-  // chart has shape without inventing fake orders in the store.
-  const trend = useMemo(() => {
-    const todayRev = m.todayRevenue;
-    const baseline = Math.max(600, todayRev);
-    return Array.from({ length: range.days }, (_, i) => {
-      const daysAgo = range.days - 1 - i;
-      const date = new Date(Date.now() - daysAgo * 86_400_000);
-      const weekday = date.getDay();
-      const weekendLift = weekday === 0 || weekday === 6 ? 1.28 : 1;
-      const wobble = 0.78 + ((daysAgo * 37) % 45) / 100;
-      return {
-        label: date.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
-        value: daysAgo === 0 ? todayRev : Math.round(baseline * wobble * weekendLift),
-      };
-    });
-  }, [range.days, m.todayRevenue]);
+  // Revenue trend from the server's daily aggregate of frozen order totals.
+  const [daily, setDaily] = useState<{ day: string; revenue: number }[] | null>(null);
+  const [revenueError, setRevenueError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setRevenueError(false);
+    api
+      .getRevenue(range.days)
+      .then((r) => {
+        if (!cancelled) setDaily(r.stores.find((s) => s.vendorId === vendor.id)?.days ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setRevenueError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [range.days, vendor.id]);
+
+  const trend = useMemo(
+    () =>
+      (daily ?? []).map((d) => ({
+        label: new Date(`${d.day}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+        value: Math.round(d.revenue),
+      })),
+    [daily],
+  );
 
   const totalRevenue = trend.reduce((s, d) => s + d.value, 0);
 
@@ -51,8 +60,7 @@ export function Analytics() {
   const pooledOrders = m.myOrders.filter((o) => (poolSizeByOrder.get(o.id) ?? 1) > 1).length;
   const poolingEfficiency = m.myOrders.length > 0 ? Math.round((pooledOrders / m.myOrders.length) * 100) : 0;
 
-  // Peak-hours heatmap, seeded from the vendor's real order timestamps and
-  // spread over a weekly grid.
+  // Peak-hours heatmap from the vendor's real order timestamps.
   const heat = useMemo(() => {
     const grid = Array.from({ length: 7 }, () => Array(HOURS.length).fill(0));
     m.myOrders.forEach((o) => {
@@ -64,9 +72,7 @@ export function Analytics() {
       );
       grid[day][hourIdx] += 1;
     });
-    return grid.map((row, di) =>
-      row.map((v, hi) => v + ((di * 5 + hi * 3) % 4) + (HOURS[hi] >= 18 ? 2 : 0)),
-    );
+    return grid;
   }, [m.myOrders]);
 
   // Hostel-wise breakdown across every store.
@@ -151,7 +157,13 @@ export function Analytics() {
           title="Velocity Trends & Run-rate"
           subtitle={`Consolidated transactional volume over rolling ${range.days} days`}
         >
-          <AreaChart data={trend} />
+          {revenueError ? (
+            <p className="py-space-lg text-center text-body-sm text-secondary">Couldn't load revenue. Check your connection and reopen this page.</p>
+          ) : daily === null ? (
+            <p className="py-space-lg text-center text-body-sm text-secondary">Loading revenue…</p>
+          ) : (
+            <AreaChart data={trend} />
+          )}
         </Card>
 
         <Card className="lg:col-span-5" title="Hostel Cluster Distribution" action={<span className="rounded bg-surface-container px-space-xs py-space-2xs text-label-sm text-secondary">{byHostel.length} Nodes</span>}>

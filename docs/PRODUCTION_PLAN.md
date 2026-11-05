@@ -1,6 +1,6 @@
 # Poolit — Production Readiness Plan
 
-As of 4 Nov 2026 (architecture, scale and photo sections added; the rest as of 2 Nov 2026). Living version (with comments and the drawn roadmap): https://claude.ai/artifact/6VVhZgzxfnwiYuhkmitBr1
+As of 5 Nov 2026 (Phase 1 code work complete; remaining items are in `docs/PHASE1_CLOSEOUT.md`; architecture, scale and photo sections added 4 Nov). Living version (with comments and the drawn roadmap): https://claude.ai/artifact/6VVhZgzxfnwiYuhkmitBr1
 
 ## Summary
 
@@ -39,7 +39,7 @@ The core business logic is sound: stock decrements, pool closing and dispatch al
 | No payments; "payment method" is a text field | everywhere | Cannot go live | Open — Phase 2 |
 | Schema, indexes, RLS and RPC function bodies exist only in the live Supabase project | repo | No reproducible environments, no rollback | Fixed — `supabase/migrations/` |
 | No automated tests, no CI | repo | Regressions ship unnoticed | Fixed — 20 tests + GitHub Actions |
-| Auth check is a network call to Supabase per request | `requireAuth.js` | Adds latency to every vendor action | Open — Phase 1 |
+| Auth check is a network call to Supabase per request | `requireAuth.js` | Adds latency to every vendor action | Fixed in code — local JWKS verification (needs asymmetric signing keys enabled) |
 | Every student's browser downloads **all** orders (names, block, room) via public `GET /vendors/:id/orders` | domain `fetchAll`, backend | Privacy breach; a DPDP problem once live | Fixed in code — closes when `STUDENT_LOGIN_REQUIRED=true` after the new student app is deployed |
 | Stray files: `test.md`, empty `backend/test` | repo root | Clutter | Fixed |
 
@@ -81,7 +81,7 @@ The scanner is a dedicated full-screen page (`/scan`) built for a phone held in 
 - [ ] Add a `barcodes` table (one item, many codes) so multipacks and alternate packaging map to one product.
 - [ ] "Stock count" mode: scan everything on a shelf, then reconcile the counts in one go.
 - [ ] Look up unknown EANs in a product database (e.g. GS1 India DataKart or Open Food Facts) to pre-fill name and MRP when creating new items.
-- [ ] Make restock idempotent (client request ID) so a retry on bad Wi-Fi can't double-count.
+- [x] Make restock idempotent (client request ID) so a retry on bad Wi-Fi can't double-count. *(Needs the idempotency migration applied.)*
 
 ## Mobile-first, installable vendor console
 
@@ -118,22 +118,23 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 - [x] Add a `vendor_users` table (user ↔ store, role: owner / staff) and check it on every vendor route. This closes the "any vendor edits any store" hole. *(Migration applied, logins linked; switch on with `ENFORCE_VENDOR_SCOPING=true` on Vercel.)*
 - [x] Row Level Security on every table, and table/function grants revoked from the public `anon`/`authenticated` roles — the public key can't read or write anything directly. *(Add read policies later if Realtime is used from the browser.)*
 - [x] Database functions hardened: pinned `search_path`; `place_order` rejects quantities outside 1–100 and `restock_item` amounts outside 1–10,000 at the database level.
-- [ ] Turn on leaked-password protection and MFA in Supabase Auth settings (dashboard only).
+- [ ] Turn on leaked-password protection and MFA in Supabase Auth settings (dashboard only; flagged by the security advisor).
 - [x] Indexes: `orders(slot_id)`, `orders(status)`, `slots(hostel_id, status)`, `menu_items(vendor_id)` *(most already existed; the missing `slots(vendor_id)`, `restock_logs(menu_item_id, at)`, `staff(vendor_id)` applied)*; unique `menu_items(vendor_id, barcode)` already exists.
-- [ ] Money in integer paise, every order line storing the price at the time of sale (today the bill is recomputed from the current menu price, so editing a price changes old receipts).
+- [x] Every order line stores the price at the time of sale, and orders store `subtotal_paise`. *(Applied 2 Nov as `20261102074303_order_price_snapshot.sql`: freezes `name` + `unitPricePaise` on each order line, adds `orders.subtotal_paise`, backfilled the 53 existing orders from current prices, and makes daily revenue read the frozen subtotal. The API and both apps already understand the new fields and work with or without the migration. Menu prices, tips and fees are still rupees; converting those is a later step.)*
 - [ ] Enable Supabase Point-in-Time Recovery (Pro plan) and test a restore once.
 
 ### API
 
 - [x] Replace the frontend's `fetchAll` (N stores × orders × historical slots, every 5 s) with purpose-built endpoints. *(Vendor console: one `GET /vendor/overview` — 7 days + unfinished pools, scoped to the vendor's stores, fixed number of queries. Student app: public catalogue + `GET /me/orders` + live pool counts.)*
 - [x] Pools open and rotate automatically (`ensure_open_slot`): previously only the seed script created pools, so ordering stopped for good once a pool closed.
-- [ ] Analytics: the 14/30-day revenue trend is simulated ("wobble" numbers) except today — replace with a server-side daily revenue aggregate.
+- [x] Analytics: revenue trend now comes from `GET /vendor/revenue` (database aggregate of frozen order totals); the simulated numbers and the fake heatmap noise are gone.
 - [ ] Then switch live updates to Supabase Realtime (Postgres changes on `orders` and `slots`), keeping a 30–60 s poll as a fallback.
-- [ ] Verify Supabase JWTs locally (JWKS) instead of calling Supabase Auth on every request.
-- [ ] Input validation with a schema library (zod) on every route; consistent error shape `{ code, message }`.
-- [ ] Idempotency keys on order placement, restock and payment callbacks.
-- [ ] Rate limiting with a shared store (Upstash Redis): deferred; the database rule above covers the order-abuse case at pilot scale. *(Interim per-IP limiter on order placement shipped: 30/min, since a hostel often shares one IP.)*
-- [ ] Pool closing and rotation via Supabase `pg_cron` calling `ensure_open_slot` every minute; then remove the in-process scheduler and `/internal/sweep-slots`. (Chosen over Vercel Cron: no plan limit, no extra cost.)
+- [x] Verify Supabase JWTs locally (JWKS) instead of calling Supabase Auth on every request (`backend/utils/verifyToken.js`). Works once the project uses asymmetric JWT signing keys (Supabase dashboard → Authentication → JWT signing keys); legacy HS256 tokens and JWKS outages fall back to the old server check automatically. Trade-off: a signed-out or banned user's token stays valid until it expires (default 1 h); `LOCAL_JWT_VERIFY=false` restores the per-request check.
+- [x] Consistent error shape `{ code, message, requestId }` on every error.
+- [x] Input validation with zod on every body-carrying write route (`backend/schemas/`, `validate` middleware → `400 validation_failed` with an `issues` list).
+- [x] Idempotency keys on order placement, restock and stock adjustment (`Idempotency-Key` header; retries replay the first response; the web client retries network failures under one key). Migration `20261102062903_idempotency_keys.sql` applied to the live project on 2 Nov. Payment callbacks come with Phase 2. Run `purge_idempotency_keys()` daily.
+- [x] Rate limiting with a shared store (Upstash Redis when `UPSTASH_REDIS_REST_*` is set, else in-memory; per user for vendor writes at 60/min, per IP for students): per student once login exists, 60 writes/minute per vendor. *(Interim per-IP limiter on order placement shipped: 30/min, since a hostel often shares one IP.)*
+- [x] Pool closing runs every minute inside Postgres with `pg_cron` (`sweep_expired_slots()`, verified running); no Vercel Pro cron needed.
 - [ ] Student and vendor polling from 5 s to 30 s, plus an immediate refetch when the tab becomes visible.
 - [ ] Product photos: `menu_items.image_path`, Supabase Storage bucket with vendor-scoped upload policy, in-browser resize to 400 px and 800 px (WebP, JPEG fallback on Safari), one-year cache headers, emoji tile fallback.
 - [ ] RLS read policies for hostels, stores, menu items and the current pool; student catalogue reads go direct to Supabase.
@@ -146,12 +147,13 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 - [x] Stop exposing other students' orders: student app reads only its own orders (`GET /me/orders`); order lists become vendor-only with `STUDENT_LOGIN_REQUIRED=true`.
 - [x] Students sign in with phone OTP (Supabase Auth). *(Built and tested; needs the Phone provider + a DLT-registered SMS sender enabled in Supabase — docs/PHASE1_RUNBOOK.md.)*
 - [x] Orders tied to `student_id`, not a typed name; name, hostel, block and room saved per student (`students` table).
-- [ ] Vendor staff invited by the store owner; roles enforced server-side.
+- [x] Vendor staff invited by the store owner (`/vendors/:id/members`); roles enforced server-side (owners manage people, settings and prices; staff restock, count, scan, deliver).
 
 ### Observability and operations
 
-- [ ] Error tracking (Sentry) on both apps and the API, with release tags.
-- [ ] Structured JSON logs with a request ID; uptime check on `GET /` (Better Stack or UptimeRobot) paging a phone.
+- [x] Error tracking (Sentry) wired into both apps and the API, release-tagged, PII-scrubbed. Off until DSNs are set.
+- [x] Structured JSON logs with a request ID (one line per request, `X-Request-Id` echoed, error bodies carry `{ code, message, requestId }`).
+- [ ] Uptime check on `GET /` (Better Stack or UptimeRobot) paging a phone.
 - [ ] Product analytics on the funnel: app open → cart → order → delivered.
 - [ ] Runbooks: "payments failing", "pool didn't close", "API down", and a restore drill.
 
@@ -159,8 +161,8 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 
 - [x] GitHub Actions on every PR: typecheck, lint, build, unit tests.
 - [x] Unit tests for the fee ladder (frontend/backend parity), barcode validation, rate limiter, vendor access, API error handling.
-- [ ] Integration tests for the RPCs and order-state transitions against a local Supabase.
-- [ ] Playwright smoke tests for: place order, close pool, dispatch, deliver, scan-to-restock.
+- [x] Integration tests for the RPCs and order-state transitions (real migrations on Postgres, run in CI).
+- [x] Playwright smoke tests for the vendor console: sign in, restock (idempotent), failed restock surfaced, close pool → dispatch → deliver. *(Student place-order flow not yet covered.)*
 - [ ] Preview deployments per PR pointed at the staging Supabase project.
 
 ### Rough monthly cost at launch
