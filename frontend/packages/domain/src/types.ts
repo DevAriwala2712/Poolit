@@ -37,6 +37,8 @@ export interface MenuItem {
   tint: string;
   /** UPC/EAN etc, assigned by a vendor via the barcode scanner. Unique per vendor. */
   barcode?: string;
+  /** Storage path of the product picture (see productImageUrl); absent means show the emoji tile. */
+  imagePath?: string;
 }
 
 export interface Vendor {

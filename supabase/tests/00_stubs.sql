@@ -36,3 +36,19 @@ create or replace function cron.schedule(p_name text, p_schedule text, p_command
   $$ insert into cron.job (jobname, schedule, command) values (p_name, p_schedule, p_command) returning jobid $$;
 create or replace function cron.unschedule(p_jobid bigint) returns boolean language sql as
   $$ delete from cron.job where jobid = p_jobid returning true $$;
+
+-- Supabase Storage: just enough of its schema for bucket and policy tests.
+create schema if not exists storage;
+create table if not exists storage.buckets (
+  id text primary key, name text not null, public boolean default false,
+  file_size_limit bigint, allowed_mime_types text[]);
+create table if not exists storage.objects (
+  id uuid primary key default gen_random_uuid(),
+  bucket_id text references storage.buckets (id), name text, owner uuid, metadata jsonb);
+alter table storage.objects enable row level security;
+create or replace function storage.foldername(name text) returns text[] language sql immutable as
+  $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
+grant usage on schema storage to anon, authenticated, service_role;
+-- Supabase grants these and relies on row level security to gate them.
+grant select, insert, update, delete on storage.objects to anon, authenticated, service_role;
+grant select on storage.buckets to anon, authenticated, service_role;

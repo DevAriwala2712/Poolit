@@ -281,6 +281,17 @@ Dates assume a start on **Monday 9 Nov 2026** and **two full-time developers** (
 | Photos: `image_path` column, Storage bucket, vendor-scoped upload policy; resize to 400 px and 800 px on the phone (WebP, JPEG fallback), upload in Add/Edit item, thumbnails in the student app, emoji fallback; ten-photo size test | 3 |
 | **Total** | **10.5** |
 
+**Week 2 status (updated 5 Nov 2026)**
+
+| Item | Status |
+| --- | --- |
+| Photo bucket `product-images` (public read, 200 KB cap per file, WebP/JPEG only), `menu_items.image_path`, upload rule (a vendor can add files only to their own store's folder; nobody can overwrite or delete through the API), `api_set_item_image`, one picture shared by all stores for the same barcode | Written and tested locally (migration `20261105000000`); **not yet applied to the live project** |
+| Picture type and address helper in the shared app code (`productImageUrl`), with tests | Done |
+| Resize on the phone, upload, and the Add/Edit item screens | Next |
+| Student app showing the picture in place of the emoji tile | Next |
+| Switch both apps from Express to the database functions | Not started |
+| Idempotency keys for the new order, restock and stock-adjust functions | Not started |
+
 **Week 3 (23–27 Nov): cut over, harden, legal drafts** → *Milestone A*
 
 | Task | Dev-days |
