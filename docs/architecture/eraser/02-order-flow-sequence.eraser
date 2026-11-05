@@ -29,21 +29,21 @@ REST layer > api_place_order: run as authenticated, caller id comes from the tok
 api_place_order > api_place_order: check name, items and quantities (1 to 100, at most 50 lines)
 api_place_order > Database: lock the pool row so two orders cannot race
 
-alt [student already has 3 orders in this pool] {
-  api_place_order --> Student app: 409 order limit reached
+alt [label: student already has 3 orders in this pool] {
+  api_place_order > Student app: 409 order limit reached
 }
-else [fewer than 3] {
+else [label: fewer than 3] {
   api_place_order > place_order: hand over the checked order and the student id
   place_order > Database: pool must be open and not past its timer
   place_order > Database: take stock for each item, only if enough is left
   place_order > Database: freeze item name and price, store the subtotal in paise
   place_order > Database: insert the order tied to the student account
-  alt [not enough stock, wrong store, or pool closed] {
-    place_order --> Student app: 409 or 400, whole order rolled back, no stock lost
+  alt [label: not enough stock, wrong store, or pool closed] {
+    place_order > Student app: 409 or 400, whole order rolled back, no stock lost
   }
-  else [accepted] {
-    place_order --> api_place_order: the saved order
-    api_place_order --> Student app: 200 order as JSON
+  else [label: accepted] {
+    place_order > api_place_order: the saved order
+    api_place_order > Student app: 200 order as JSON
   }
 }
 
