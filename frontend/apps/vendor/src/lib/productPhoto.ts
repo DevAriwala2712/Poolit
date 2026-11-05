@@ -9,7 +9,7 @@
  * `.thumb` before the extension for the 400 px copy) and uploaded with a
  * one-year cache header: a file never changes under its name, so every phone
  * downloads each picture once. The rule matches
- * supabase/migrations/20261105000000_product_images.sql and
+ * supabase/migrations/20261105065756_product_images.sql and
  * packages/domain/src/images.ts (a test keeps them in step).
  *
  * This file has no imports on purpose, so it runs under plain Node in tests.
