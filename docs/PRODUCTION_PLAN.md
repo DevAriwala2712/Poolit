@@ -138,7 +138,7 @@ Keep the current stack — Vercel + Express + Supabase is enough for the first 5
 - [ ] Product photos: `menu_items.image_path`, Supabase Storage bucket with vendor-scoped upload policy, in-browser resize to 400 px and 800 px (WebP, JPEG fallback on Safari), one-year cache headers, emoji tile fallback.
 - [ ] RLS read policies for hostels, stores, menu items and the current pool; student catalogue reads go direct to Supabase.
 - [ ] Set `ALLOWED_ORIGINS` on Vercel to the two app URLs.
-- [ ] "One order per student per pool" enforced inside `place_order` (the in-memory rate limiter only works per serverless instance).
+- [x] At most 3 orders per student per pool enforced inside the database (the in-memory rate limiter only works per serverless instance). *(Written and tested; not yet applied to the live project.)*
 - [ ] Version the API (`/v1`) before a native app ever ships, so old app versions keep working.
 
 ### Identity
@@ -195,9 +195,9 @@ Full numbers and reasoning: [SCALE_AND_IMAGES_ANALYSIS.md](SCALE_AND_IMAGES_ANAL
 | Public catalogue reads through RLS read policies | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | Orders and student data protected by function checks and RLS | Yes, weeks 1–2, gated by a cross-user test suite in CI | ▰▰▰▰▰ | ▰▰▰▱▱ |
 | Product photos in Supabase Storage, resized to 400 px and 800 px on the phone | Yes | ▰▰▰▰▱ | ▰▰▰▰▱ |
-| Cloudflare free cache in front of the photo bucket (S3-style storage and a paid CDN are not needed) | Yes, week 3 | ▰▰▰▰▰ | ▰▰▰▰▱ |
+| Cloudflare free cache in front of the photo bucket (S3-style storage and a paid CDN are not needed) | Only when transfer passes 3.5 GB a month; long cache headers first | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | `ALLOWED_ORIGINS` CORS allowlist | Yes, today | ▰▰▰▱▱ | ▰▰▰▰▰ |
-| One-order-per-student-per-pool rule inside `place_order` (instead of Redis rate limiting for now) | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
+| At-most-3-orders-per-student-per-pool rule inside the order function (instead of Redis rate limiting for now) | Yes | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | Realtime for vendor new-order alerts | Phase 2; polling every 30 s until then | ▰▰▰▰▱ | ▰▰▰▱▱ |
 | Queues, caches, multi-region, microservices | No | ▰▱▱▱▱ | ▰▱▱▱▱ |
 
@@ -250,10 +250,24 @@ Dates assume a start on **Monday 9 Nov 2026** and **two full-time developers** (
 | Free-plan safeguards: a scheduled keep-alive request (free projects pause after about a week of inactivity, as happened on 2 Nov) and a nightly encrypted backup to a private Cloudflare R2 bucket (the free plan has no point-in-time restore) | 0.5 |
 | Helper functions: caller's role in a store (`auth.uid()` plus `vendor_users`); caller's student identity | 0.5 |
 | Convert the 35 Express routes into about 25 Postgres functions that check the caller inside | 5 |
-| RLS read policies for public data only (hostels, stores, menu, current pool) | 1.5 |
+| Public data (hostels, stores, menu, current pool) served by read-only functions; tables stay closed to the public roles with no policies, which leaves one door instead of two | 1.5 |
 | `pg_cron` pool rotation and closing every minute | 0.5 |
-| One order per student per pool and quantity limits inside `place_order` | 0.5 |
+| At most 3 orders per student per pool (a top-up is allowed, flooding is not) and quantity limits, inside the order function | 0.5 |
 | **Total** | **10.25** |
+
+**Week 1 status (updated 4 Nov 2026)**
+
+| Item | Status |
+| --- | --- |
+| 32 `api_*` functions covering every Express route, same JSON shape as before (checked row-by-row against the old serializers), plus the frozen price fields | **Applied to the live project** (migration `20261104122329`), checked there as anonymous, store owner and stranger |
+| Access-control test suite (anonymous, two students, a stranger, store owner, store staff, another store's owner) in CI | Done; deliberately breaking five rules in a scratch copy made it fail each time |
+| Pool rotation every minute | Already live: `poolit-sweep-slots` (from the `wonderful-fermi` branch). My duplicate was dropped; tests now cover that job |
+| Keep-alive workflow for the free plan | Written; needs two repository secrets |
+| Live migrations missing from this branch (`vendor_daily_revenue`, `idempotency_keys`, `order_price_snapshot`, `scheduled_jobs`) | Recorded in `supabase/migrations/` so the repo matches the live project |
+| Staging Supabase project | Not started (needs your Supabase account) |
+| Nightly encrypted backup to R2 | Not started (needs the R2 bucket and keys) |
+| Interim flags on Vercel (`ENFORCE_VENDOR_SCOPING`, `ALLOWED_ORIGINS`) | Not started (your Vercel account) |
+| Idempotency keys on order, restock and stock-adjust calls | Not ported: the live `idempotency_keys` table exists but the new functions do not use it yet. Week 2 |
 
 **Week 2 (16–20 Nov): prove it, switch the apps, photos, COD**
 
@@ -267,6 +281,19 @@ Dates assume a start on **Monday 9 Nov 2026** and **two full-time developers** (
 | Photos: `image_path` column, Storage bucket, vendor-scoped upload policy; resize to 400 px and 800 px on the phone (WebP, JPEG fallback), upload in Add/Edit item, thumbnails in the student app, emoji fallback; ten-photo size test | 3 |
 | **Total** | **10.5** |
 
+**Week 2 status (updated 5 Nov 2026)**
+
+| Item | Status |
+| --- | --- |
+| Photo bucket `product-images` (public read, 200 KB cap per file, WebP/JPEG only), `menu_items.image_path`, upload rule (a vendor can add files only to their own store's folder; nobody can overwrite or delete through the API), `api_set_item_image`, one picture shared by all stores for the same barcode | Written and tested locally (migration `20261105065756`); **applied to the live project**; the upload rules themselves have not been exercised on live yet |
+| Picture type and address helper in the shared app code (`productImageUrl`), with tests | Done |
+| Resize on the phone and upload, as tested code (`productPhoto.ts`, `productPhotoBrowser.ts`): 17 automated tests plus a real-Chromium check (12 MP and 50 MP photos shrink to 800 px and 400 px WebP in 1.7 s or less on this machine, files 7–24 KB, small photos not enlarged, transparency turned white, JPEG fallback simulated) | Done |
+| Add/Edit item screens using it (a photo button, preview, progress, error messages) | Next |
+| Student app showing the picture in place of the emoji tile | Next |
+| Student app switched to the database functions behind `VITE_BACKEND` (default stays Express): one call per poll instead of 2+2N+1, own-hostel pool only, 15 s polling. 17 + 18 automated tests, plus a 13-check end-to-end run of the real app in Chromium against the real functions (`scripts/student-e2e/run.sh`) | Done; **`api_student_view` applied to the live project** (migration `20261105083657`). The student build is still on Express until `VITE_BACKEND=supabase` is set in the student Vercel project |
+| Vendor console switched to the database functions | Not started |
+| Idempotency keys for the new order, restock and stock-adjust functions | Not started |
+
 **Week 3 (23–27 Nov): cut over, harden, legal drafts** → *Milestone A*
 
 | Task | Dev-days |
@@ -275,7 +302,7 @@ Dates assume a start on **Monday 9 Nov 2026** and **two full-time developers** (
 | Production cutover: apply migrations, flip `VITE_BACKEND=supabase`, watch errors; delete Express after 48 stable hours | 1 |
 | Security review, MFA for vendor accounts, leaked-password protection, secrets audit, log retention of at least 180 days | 1 |
 | Restore drill from the nightly backup into staging; runbooks: pool did not close, orders failing, database down | 1.5 |
-| Move the three frontends from Vercel Hobby (non-commercial use only) to Cloudflare Pages (free, commercial use allowed); put Cloudflare's cache in front of the photo bucket | 1 |
+| Move the three frontends from Vercel Hobby (non-commercial use only) to Cloudflare Pages (free, commercial use allowed). The free Cloudflare cache for photos is added only when Supabase transfer passes 3.5 GB a month (see the analysis document, section 15); photos use one-year cache headers from the start | 1 |
 | Sentry on both apps; uptime check | 0.5 |
 | In-app legal pieces: 18+ confirmation and consent screen at sign-up, Terms, Privacy, Refund/Cancellation/Delivery and Grievance pages, data-deletion request, store licence details on store pages, MRP/net quantity/manufacturer/origin fields on items | 3 |
 | Vendor console flow for store-staff delivery (mark out for delivery, delivered, cash collected) checked on a phone | 0.5 |

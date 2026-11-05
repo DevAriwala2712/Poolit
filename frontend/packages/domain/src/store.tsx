@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { api, ApiError, hasAuthToken } from "./api";
+import { api, ApiError, BACKEND } from "./api";
 import type { PlaceOrderInput, StockAdjustmentInput } from "./api";
 import type { Hostel, MenuItem, Order, PickListLine, Slot, Vendor } from "./types";
 
@@ -12,7 +12,10 @@ import type { Hostel, MenuItem, Order, PickListLine, Slot, Vendor } from "./type
  * vendor's live feed, without either side reloading.
  */
 
-const POLL_INTERVAL_MS = 5000;
+/** The Supabase backend answers in one cheap call, so it polls less often than the old API did. */
+const POLL_INTERVAL_MS = BACKEND === "supabase" ? 15_000 : 5000;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface StoreData {
   hostels: Hostel[];
@@ -42,6 +45,11 @@ interface StoreContextValue extends StoreData {
   /** Epoch ms of the last successful sync with the API (null before the first). */
   lastSyncedAt: number | null;
   refresh: () => Promise<void>;
+  /**
+   * Student mode: tell the store which hostel the student is looking at, so it
+   * loads just that hostel's pool. Ignored for anything that is not a hostel id.
+   */
+  setHostelFocus: (hostelId: string | undefined) => void;
   placeOrder: (input: PlaceOrderInput) => Promise<Order>;
   closeSlot: (slotId: string) => Promise<void>;
   dispatchSlot: (slotId: string) => Promise<void>;
@@ -76,36 +84,6 @@ interface StoreContextValue extends StoreData {
 
 const StoreContext = createContext<StoreContextValue | null>(null);
 
-/** Student view: catalogue, each hostel's current pool + its size, own orders. */
-async function fetchStudentView(): Promise<StoreData> {
-  const [hostels, vendors] = await Promise.all([api.getHostels(), api.getVendors()]);
-
-  const hostelIds = Array.from(new Set(vendors.map((v) => v.hostelId)));
-  const current = await Promise.all(
-    hostelIds.map((id) => api.getCurrentSlot(id).then((r) => r.slot).catch(() => null)),
-  );
-  const openSlots = current.filter((s): s is Slot => s !== null);
-
-  const counts = await Promise.all(
-    openSlots.map((slot) =>
-      api.getLiveFee(slot.id).then((r) => [slot.id, r.orderCount] as const).catch(() => null),
-    ),
-  );
-  const poolCounts: Record<string, number> = {};
-  for (const entry of counts) if (entry) poolCounts[entry[0]] = entry[1];
-
-  let orders: Order[] = [];
-  let mySlots: Slot[] = [];
-  if (await hasAuthToken()) {
-    const mine = await api.getMyOrders();
-    orders = mine.orders;
-    mySlots = mine.slots;
-  }
-
-  const bySlotId = new Map([...mySlots, ...openSlots].map((s) => [s.id, s]));
-  return { hostels, vendors, slots: Array.from(bySlotId.values()), orders, poolCounts };
-}
-
 /**
  * Vendor view: one request for the signed-in vendor's stores, their pools
  * from the last 7 days plus any unfinished ones, and those pools' orders.
@@ -135,6 +113,7 @@ export function StoreProvider({
   const [error, setError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const inFlight = useRef(false);
+  const hostelFocus = useRef<string | undefined>(undefined);
   const onErrorRef = useRef(onMutationError);
   useEffect(() => {
     onErrorRef.current = onMutationError;
@@ -144,7 +123,7 @@ export function StoreProvider({
     if (inFlight.current) return;
     inFlight.current = true;
     try {
-      const next = mode === "student" ? await fetchStudentView() : await fetchAll();
+      const next: StoreData = mode === "student" ? await api.getStudentView(hostelFocus.current) : await fetchAll();
       setData(next);
       setError(null);
       setLastSyncedAt(Date.now());
@@ -155,6 +134,16 @@ export function StoreProvider({
       setLoading(false);
     }
   }, [mode]);
+
+  const setHostelFocus = useCallback(
+    (hostelId: string | undefined) => {
+      const next = hostelId && UUID.test(hostelId) ? hostelId : undefined;
+      if (hostelFocus.current === next) return;
+      hostelFocus.current = next;
+      if (mode === "student") void refresh();
+    },
+    [mode, refresh],
+  );
 
   // Poll while the tab is visible; pause in the background (saves battery and
   // API quota on phones) and catch up immediately when the user returns.
@@ -202,6 +191,7 @@ export function StoreProvider({
       error,
       lastSyncedAt,
       refresh,
+      setHostelFocus,
       placeOrder: mutate(async (input) => {
         const order = await api.placeOrder(input);
         await refresh();
@@ -255,7 +245,7 @@ export function StoreProvider({
         return item;
       }),
     }),
-    [data, loading, error, lastSyncedAt, refresh, mutate],
+    [data, loading, error, lastSyncedAt, refresh, setHostelFocus, mutate],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

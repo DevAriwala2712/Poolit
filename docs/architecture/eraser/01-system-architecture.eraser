@@ -1,0 +1,106 @@
+// Poolit system architecture, as of 5 Nov 2026
+// Diagram type: Cloud architecture diagram (Eraser diagram-as-code)
+//
+// LEGEND
+//   green  = live and checked
+//   blue   = built and tested, not switched on yet
+//   orange = planned
+//   gray   = being retired (week 3 cutover)
+
+title Poolit system architecture
+direction right
+colorMode bold
+styleMode shadow
+typeface clean
+
+// ---------------- People ----------------
+
+Students [icon: users, color: green, label: "Students (hostel residents, 18+)"]
+Store staff [icon: user, color: green, label: "Store staff (run pools, stock, deliver)"]
+
+// ---------------- Apps ----------------
+
+Apps on Vercel [icon: vercel, color: green] {
+  Student app [icon: smartphone, color: green, label: "Student app (React, installable web app)"]
+  Vendor console [icon: monitor, color: green, label: "Vendor console (React, phone and desktop, barcode scanner)"]
+}
+
+Android app [icon: android, color: orange, label: "Student Android app (Capacitor wrapper, weeks 4 to 5)"]
+
+// ---------------- Old backend ----------------
+
+Express API [icon: server, color: gray, label: "Express API on Vercel (33 routes) retiring in week 3"]
+
+// ---------------- Supabase ----------------
+
+Supabase project [icon: supabase, color: green, label: "Supabase project (Singapore, Free plan)"] {
+
+  Auth [icon: lock, color: green, label: "Auth: phone OTP for students, email and password for vendors"]
+
+  PostgREST [icon: globe, color: green, label: "REST layer: only api functions are reachable, tables are not"]
+
+  Public functions [icon: code, color: green, label: "34 api functions, run as the caller. 8 open to visitors, 26 need sign in"]
+
+  Private helpers [icon: shield, color: green, label: "private schema: access checks and JSON shaping, never reachable from outside"]
+
+  Server only functions [icon: key, color: green, label: "Server only functions: place_order, close_slot, dispatch_slot, restock_item, adjust_stock, ensure_open_slot, barcode generation"]
+
+  Closed tables [icon: database, color: green, label: "11 closed tables: row security on, no grants, no policies"]
+
+  Scheduled jobs [icon: clock, color: green, label: "pg_cron: pool rotation every minute, key cleanup daily"]
+
+  Photo storage [icon: image, color: blue, label: "Bucket product-images: public read, 200 KB cap, WebP or JPEG, vendors may add to their own folder only, no overwrite or delete"]
+
+  Edge Functions [icon: zap, color: orange, label: "Edge Functions: payments, refunds, push notifications"]
+}
+
+// ---------------- External services ----------------
+
+External services [icon: cloud, color: orange] {
+  SMS provider [icon: message-square, color: orange, label: "SMS provider (DLT registered sender)"]
+  Payment gateway [icon: credit-card, color: orange, label: "UPI payment gateway (Phase 2)"]
+  Firebase push [icon: bell, color: orange, label: "Firebase Cloud Messaging (free)"]
+  Cloudflare [icon: cloudflare, color: orange, label: "Cloudflare: Pages hosting, free picture cache, R2 nightly backup"]
+  Monitoring [icon: activity, color: orange, label: "Sentry and uptime check (free tiers)"]
+}
+
+// ---------------- Flows: students ----------------
+
+Students > Student app: browse, join pools, order
+Students > Android app: later
+Student app > Auth: phone OTP sign in
+Student app > PostgREST: NEW backend, one call every 15 s (switch VITE_BACKEND, off by default)
+Student app > Express API: DEFAULT backend today, also the rollback path
+Android app > PostgREST: same calls as the web app
+Student app > Photo storage: show pictures (screens not built yet)
+
+// ---------------- Flows: vendors ----------------
+
+Store staff > Vendor console: run pools, restock, deliver, scan barcodes
+Vendor console > Auth: email sign in
+Vendor console > Express API: orders, stock, pools (not switched yet)
+Vendor console > Photo storage: upload one resized picture per product (upload code ready, screens not built)
+
+// ---------------- Inside Supabase ----------------
+
+PostgREST > Public functions: each call runs as visitor or signed in user
+Public functions > Private helpers: who is calling, which store, shape the answer
+Public functions > Server only functions: only after the caller is checked
+Server only functions > Closed tables: atomic changes (stock, orders, pools)
+Private helpers > Closed tables: read only lookups
+Scheduled jobs > Server only functions: close expired pools, open the next
+Express API > Server only functions: service role key, server side only
+Express API > Closed tables: service role key, server side only
+
+// ---------------- Planned ----------------
+
+Auth > SMS provider: OTP codes
+Student app > Payment gateway: UPI checkout
+Payment gateway > Edge Functions: payment confirmation webhook
+Edge Functions > Closed tables: mark orders paid, refunds
+Edge Functions > Firebase push: order status notifications
+Firebase push > Android app: push
+Photo storage > Cloudflare: cache pictures once transfer passes 3.5 GB a month
+Closed tables > Cloudflare: encrypted nightly backup to R2
+Student app > Monitoring: errors
+Vendor console > Monitoring: errors

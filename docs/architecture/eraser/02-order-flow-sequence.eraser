@@ -1,0 +1,58 @@
+// Poolit: placing an order on the new backend, and how the pool fee drops
+// Diagram type: Sequence diagram (Eraser diagram-as-code)
+
+title Placing an order (new backend)
+autoNumber
+colorMode bold
+styleMode shadow
+typeface clean
+
+Student [icon: user, color: green]
+Student app [icon: smartphone, color: green]
+REST layer [icon: globe, color: green]
+api_place_order [icon: code, color: green]
+place_order [icon: key, color: green]
+Database [icon: database, color: green]
+
+// 1. Opening the app: one call
+Student > Student app: open the app
+Student app > REST layer: api_student_view for my hostel
+REST layer > Database: run as visitor or signed in student
+Database > Student app: hostels, my store with menu, current pool, pool size, my own orders only
+Student app > Student: pool card shows 5 students, fee 10 rupees
+
+// 2. Ordering
+Student > Student app: add Coca-Cola and Maggi, tap Place order
+Student app > REST layer: api_place_order with the login token
+REST layer > api_place_order: run as authenticated, caller id comes from the token
+
+api_place_order > api_place_order: check name, items and quantities (1 to 100, at most 50 lines)
+api_place_order > Database: lock the pool row so two orders cannot race
+
+alt [student already has 3 orders in this pool] {
+  api_place_order --> Student app: 409 order limit reached
+}
+else [fewer than 3] {
+  api_place_order > place_order: hand over the checked order and the student id
+  place_order > Database: pool must be open and not past its timer
+  place_order > Database: take stock for each item, only if enough is left
+  place_order > Database: freeze item name and price, store the subtotal in paise
+  place_order > Database: insert the order tied to the student account
+  alt [not enough stock, wrong store, or pool closed] {
+    place_order --> Student app: 409 or 400, whole order rolled back, no stock lost
+  }
+  else [accepted] {
+    place_order --> api_place_order: the saved order
+    api_place_order --> Student app: 200 order as JSON
+  }
+}
+
+// 3. Refresh
+Student app > REST layer: api_student_view (refresh right after ordering)
+Database > Student app: pool now 6 students, fee 5 rupees
+Student app > Student: Track order screen, fee dropped for everyone in the pool
+
+// 4. Later: the pool closes by itself
+Database > Database: pg_cron runs every minute, closes expired pools, locks each order's fee, opens the next pool
+Student app > REST layer: next refresh (every 15 s)
+Database > Student app: pool dispatched, order status changes

@@ -101,6 +101,21 @@ The paid plan includes 8 GB, which lasts years. Archiving old orders extends the
 
 Peak concurrent users (169 in the stress case) fit inside the free plan's 200 concurrent Realtime connections only if every student app held one. Realtime for **vendors only** (34 devices) is comfortably inside the limit. Realtime is therefore possible, but not required by load; it is a Phase 2 item.
 
+### 3.5 Correction: what the old student app really called (5 Nov 2026)
+
+Sections 3.1 and 3.2 assumed one request per student per poll. Reading the app's code while switching it to the new backend showed it makes **2 + 2N + 1** requests on every poll (hostels, stores, then each hostel's pool and its size, then the student's orders), where N is the number of hostels with a store, although a student only ever uses their own hostel. The numbers above therefore understated the old app's load.
+
+| Scenario (burst concurrent users) | Old app: calls per poll | Old app: requests per second (poll every 5 s) | New app: requests per second (one call every 15 s) |
+| --- | --- | --- | --- |
+| Pilot, 2 hostels (6) | 7 | 8 | 0.4 |
+| Campus, base, 17 hostels (70) | 37 | 518 | 4.7 |
+| Campus, good (113) | 37 | 836 | 7.5 |
+| Stress (169) | 37 | 1,251 | 11.3 |
+
+Over a month in the good case, the old pattern is about 150 M student requests against about 1.4 M for the new one. The old pattern would have been the first thing to fail at campus scale, not the database or the images. The new single call (`api_student_view`) returns the catalogue and pool for the student's own hostel plus their own orders, and the app polls every 15 seconds. The vendor console still uses its single overview call and is unchanged for now.
+
+The vendor-side numbers in 3.1 and 3.2 are unaffected.
+
 ## 4. Monthly cost model
 
 Assumes ₹85 per US dollar. All prices from memory; confirm them before budgeting.
@@ -175,7 +190,7 @@ Steady month: about 10 new or changed images per user, plus 30% of sessions re-d
 
 Under the pilot scenario (260 active users), 400 px thumbs plus 800 px detail use about 1–2 GB a month, inside the free allowance even without the cache.
 
-**Free-plan consequence:** resizing alone does not fit the free 5 GB at campus scale. Resizing **and** the free Cloudflare cache in front of the bucket does, because browsers and Cloudflare serve repeat views. That is why the cache is in week 3 of the plan and needs a domain.
+**Free-plan consequence:** resizing alone does not fit the free 5 GB at campus scale in the first months. Section 15 shows the cheapest ordering of fixes: long cache headers on immutable file names first (no new system), a free Cloudflare cache only when a measured trigger is hit, and R2 or S3 only beyond that.
 
 ### 5.3 Verdict on downsizing
 
@@ -239,7 +254,7 @@ Decision 1 is the answer to "should we remove the Vercel backend?".
 | 8 | Product photos in Supabase Storage, resized on the phone | **Yes** | See section 5 | ▰▰▰▰▱ | ▰▰▰▰▱ |
 | 9 | Separate S3 and a paid CDN | **No, not yet** | Only worth it above 150 GB a month of egress | ▰▰▰▰▰ | ▰▰▱▱▱ |
 | 10 | CORS allowlist (`ALLOWED_ORIGINS`) | **Yes, today** | A config change. Not a security control on its own, since RLS and keys are the real protection. | ▰▰▰▱▱ | ▰▰▰▰▰ |
-| 11 | Shared rate limiting (Upstash Redis) | **Defer. Use a database rule instead.** | The in-memory limiter is per serverless instance, so it is only a speed bump. A database rule ("one order per student per pool", checked inside `place_order`) is exact, free and needs no new service. | ▰▰▰▰▰ | ▰▰▰▰▱ |
+| 11 | Shared rate limiting (Upstash Redis) | **Defer. Use a database rule instead.** | The in-memory limiter is per serverless instance, so it is only a speed bump. A database rule (a per-student cap on orders in one pool, checked inside the order function) is exact, free and needs no new service. | ▰▰▰▰▰ | ▰▰▰▰▱ |
 | 12 | Sentry plus uptime check | **Yes** | Free tiers cover this volume | ▰▰▰▰▰ | ▰▰▰▰▰ |
 | 13 | Multi-region, queues, Redis cache, microservices | **No** | 0.16 orders/s. No problem exists to solve. | ▰▱▱▱▱ | ▰▱▱▱▱ |
 
@@ -361,3 +376,60 @@ What I could verify from the repository and GitHub, and what I could not.
 | Fonts loaded from Google at run time | Self-host | Week 5 |
 | Single main script of 564 KB (157 KB compressed) because Analytics and charts load for everyone | Split Analytics out | Week 5 |
 | The app is built against `VITE_API_URL`; after Express is removed it must point at Supabase only | The `VITE_BACKEND` switch and environment clean-up | Weeks 2–3 |
+
+## 15. Photo hosting: options and decision
+
+Checked 5 Nov 2026. Prices and limits are from the vendors' public pages as found by search, and several sources disagreed on details (noted below); confirm on each pricing page before relying on a number.
+
+### Requirements that drive the choice
+
+- About 600 products across 17 stores; at two sizes (about 15 KB and 45 KB) that is 36 MB, or about 100 MB if every store keeps its own copy. Storage is never the problem.
+- Reads are the cost: 10–28 GB in the first month for the whole campus, from many students on phones, mostly repeat views of the same files.
+- Writes are rare: a few hundred uploads a month, from vendors' phones, only into their own store's folder.
+- Free as long as possible, one or two people to run it, and a failure must not stop ordering.
+- Files are named after their content and never change, so they can be cached for a year safely.
+
+### Options
+
+| Option | Free allowance (as found) | What it needs | Fits? |
+| --- | --- | --- | --- |
+| **0. Supabase Storage, long cache headers** (what is built) | 1 GB stored; 5 GB egress plus 5 GB cached egress on the free plan (sources disagree whether storage reads count against one or both; check the dashboard) | Nothing new; upload with a one-year `Cache-Control` | **Yes for the pilot, and for the campus until traffic passes about 3.5 GB a month** |
+| **1. Supabase Storage plus a free Cloudflare cache** | Workers free plan: 100,000 requests a day (from memory; confirm), caching free | A tiny Worker on a `workers.dev` address (a domain is optional); the app falls back to the Supabase address if the Worker is unavailable | Yes. Use when a trigger below is hit. About 1 day. |
+| **2. Cloudflare R2 (S3-compatible)** | [10 GB stored, 1 M writes, 10 M reads a month, egress always free](https://developers.cloudflare.com/r2/pricing); then $0.015 per GB-month | An upload Worker that checks the vendor's login and the size/type, plus a public address (custom domain preferred; `r2.dev` is rate-limited and for testing) | Yes, and the best long-term price. About 3–4 days, more moving parts. |
+| **3. AWS S3 plus CloudFront** | [CloudFront: 1 TB a month and 10 M requests always free](https://aws.amazon.com/cloudfront/pricing/pay-as-you-go); S3 storage about $0.023 per GB-month (the 5 GB S3 free tier is for 12 months only, from memory) | AWS account with a card, IAM, a distribution with a private bucket, a signing function; the default `*.cloudfront.net` address needs no domain; Mumbai region is close to students | Yes if you prefer AWS. Real cost is cents. Needs billing alerts. About 4–5 days. |
+| **4. Backblaze B2 plus Cloudflare** | [10 GB stored free; egress to Cloudflare free through the Bandwidth Alliance](https://www.backblaze.com/pricing.md) (read-request fees vary by source) | A second provider and a Cloudflare zone on a domain | Works, but adds two providers for no gain over R2. |
+| **5. Image service (Cloudinary, ImageKit)** | Free tiers exist but cap bandwidth in the same range as Supabase's | An account, upload widget | They resize for you, which removes the client-side resize, but the free bandwidth runs out at about the same point. Not recommended. |
+| **6. Curated catalogue shipped with the app** (pictures committed to the repo and served by Cloudflare Pages) | Pages: free, commercial use allowed, no bandwidth charge | A deploy for every new picture; someone to curate | Cheapest and most reliable for the common packaged products (only 36 distinct names today), but vendors cannot add a new product's photo themselves. Possible later as an extra, not a replacement. |
+
+### The first lever is cache headers, not a CDN
+
+Because files are named by content, upload them with `Cache-Control: max-age=31536000, immutable`. A phone or the native app then downloads each picture **once** and never asks again. Rough numbers (4,400 active users, 400 px thumbnails in grids and 800 px images on about a fifth of views):
+
+| Month | Egress without proper caching | With one-year caching |
+| --- | --- | --- |
+| First month of a user | about 10.6 GB (100 distinct pictures each) | about 10.6 GB (nothing to save yet) |
+| Later months | about 17.5 GB (my earlier pessimistic assumption) | about 1–2 GB (new products, new users, cleared caches) |
+
+First-month traffic is spread over the weeks users join, so it arrives gradually rather than all at once. For the pilot (260 users) the first month is about 0.6 GB. The earlier estimate that the free plan needed a cache in front for the campus assumed browsers re-downloaded pictures often; with the cache headers set, that is no longer the case.
+
+### Decision
+
+1. **Now:** keep the photo bucket as built (Supabase Storage). Upload with a one-year `Cache-Control`, show 400 px thumbnails in grids, load pictures lazily, and let the native app keep them on the device. **No new system.**
+2. **Move to option 1** (free Cloudflare cache) when Supabase shows monthly transfer above 3.5 GB, or the project has paused once. It also keeps pictures visible while a free project is paused.
+3. **Move to option 2** (R2) only if the free cache's daily limit is hit, storage outgrows 1 GB, or you want pictures independent of the database project. Because the database stores only a path, the move is a change of address and of the upload step, not a data migration.
+4. **Option 3** (S3 plus CloudFront) is the equal alternative to option 2 if you would rather be on AWS; choose it for the 1 TB free allowance and no domain, and accept the extra setup.
+
+### Failure modes
+
+| What fails | Effect | Handling |
+| --- | --- | --- |
+| Supabase project paused | Pictures and the app both stop | Keep-alive workflow; option 1 keeps cached pictures visible |
+| Free Worker over its daily limit (option 1) | Cache address errors | The app falls back to the Supabase address, which still works |
+| A picture file missing | Broken image | The app shows the emoji tile when a picture fails to load |
+| Storage lost | Pictures vanish | They are re-shootable; include the bucket in the nightly backup (about 100 MB) |
+| A vendor uploads something odd | Public junk under a store's folder | Size cap, type allow-list, folder rule, and no overwrite; cleaning is an admin task |
+
+### What I would not do
+
+- Build R2 or S3 uploads now. It adds a second system, a signing function and a weaker link between a database row and its file, to solve a bandwidth problem that cache headers likely remove.
+- Serve originals and resize on request. The free plan does not include Supabase's image transformations, and the vendor's phone can do the resize once.

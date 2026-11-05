@@ -2,8 +2,10 @@ export * from "./types";
 export * from "./constants";
 export * from "./feeLadder";
 export * from "./format";
+export * from "./images";
 export * from "./store";
-export { api, API_URL, ApiError, hasAuthToken, setAuthTokenProvider } from "./api";
+export { api, API_URL, ApiError, BACKEND, hasAuthToken, setAuthTokenProvider, setRpcCaller } from "./api";
+export type { RpcCaller, RpcError } from "./rpcApi";
 export type {
   MeResponse,
   PlaceOrderInput,
@@ -11,4 +13,5 @@ export type {
   StockAdjustmentReason,
   StockHistoryEntry,
   StudentProfile,
+  StudentView,
 } from "./api";
