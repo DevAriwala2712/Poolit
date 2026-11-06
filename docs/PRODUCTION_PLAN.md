@@ -18,7 +18,7 @@ All of it was verified end-to-end in a real Chromium browser at phone size with 
 
 ## Build status as of 6 Nov 2026 (read this first)
 
-Verified by running it, not by reading it. "Live" means applied to the Supabase project; "repo only" means written and tested locally but not yet applied.
+Verified by running it, not by reading it. "Live" means applied to the Supabase project and checked there.
 
 | Item | State | Evidence |
 | --- | --- | --- |
@@ -29,15 +29,15 @@ Verified by running it, not by reading it. "Live" means applied to the Supabase 
 | Retry-safe orders and stock changes (idempotency keys) | **Live** | `50_idempotency.sql` |
 | Student app and vendor console on the database functions (`VITE_BACKEND=supabase`), Express path kept as rollback | Code done | Student e2e, vendor e2e 19/19, Express-path regression |
 | Product photos in both apps (vendor Add/Edit photo, student pictures with emoji fallback) | Code done | `photo-e2e` |
-| Cash on delivery tracking, per-store commission or fixed fee, per-order fee ledger, store statements | **Repo only** (`20261106100000_cod_and_fees.sql`) | `60_cod_and_fees.sql`, vendor e2e cash chip |
-| Student data export and account deletion functions | **Repo only** (`20261106120000_privacy.sql`) | `70_privacy.sql`; app buttons not built |
+| Cash on delivery tracking, per-store commission or fixed fee, per-order fee ledger, store statements | **Live** (applied 6 Nov, `20261106064424_cod_and_fees.sql`) | `60_cod_and_fees.sql`, vendor e2e cash chip |
+| Student data export and account deletion functions | **Live** (applied 6 Nov, `20261106064449_privacy.sql`) | `70_privacy.sql`; app buttons not built |
 | Nightly encrypted backup, restore drill | Scripts tested locally; workflow untried on GitHub | `docs/BACKUP_AND_RESTORE.md` |
 | Database capacity test | Done locally | Section 16 of `SCALE_AND_IMAGES_ANALYSIS.md`: 1,312 calls/s flat out, p95 25 ms, no oversell |
 | Legal and policy drafts, runbooks | Drafted, **not reviewed by a lawyer** | `docs/legal/`, `docs/RUNBOOKS.md` |
 | Android app (Capacitor), UI consistency pass, sign-up consent and 18+ screen, privacy buttons, cancel button | **Not started** | |
 | UPI payments | Phase 2, not started | |
 
-**Waiting on the owner:** approve the live apply of the two repo-only migrations (the first attempt on 6 Nov timed out on an unanswered confirmation; nothing was applied and the live database is unchanged); a staging Supabase project; Cloudflare R2 bucket and GitHub secrets for backups; Vercel settings (`ENFORCE_VENDOR_SCOPING`, `ALLOWED_ORIGINS`, `VITE_BACKEND`); Supabase auth settings (leaked-password protection, MFA); the commission decision; SMS/DLT setup; a Poolit admin account in `platform_admins`; allow `*.supabase.co` from the build environment so the live project can be tested end to end.
+**Waiting on the owner:** a staging Supabase project; Cloudflare R2 bucket and GitHub secrets for backups; Vercel settings (`ENFORCE_VENDOR_SCOPING`, `ALLOWED_ORIGINS`, `VITE_BACKEND`); Supabase auth settings (leaked-password protection, MFA); the commission decision; SMS/DLT setup; a Poolit admin account in `platform_admins`; allow `*.supabase.co` from the build environment so the live project can be tested end to end.
 
 ## Current state audit
 

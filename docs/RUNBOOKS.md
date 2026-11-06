@@ -20,7 +20,7 @@ Pools close by a minute-by-minute job (`poolit-sweep-slots`, `public.sweep_expir
 4. A student saying "I was charged twice": check `idempotency_keys` for the same user, then the order list. A retry with the same key returns the original order instead of a second one.
 
 ## 4. Set or change a store's commission (admin)
-Signed in as a Poolit admin (a row in `platform_admins`): call `api_set_fee_terms` with the store, `percent` or `fixed_per_order`, and the value. `api_fee_statement` shows a store's delivered goods, fee and net for a date range (the store itself can read its own). **Untried on the live project** until the cod_and_fees migration is applied.
+Signed in as a Poolit admin (a row in `platform_admins`): call `api_set_fee_terms` with the store, `percent` or `fixed_per_order`, and the value. `api_fee_statement` shows a store's delivered goods, fee and net for a date range (the store itself can read its own). Applied live on 6 Nov; grants and RLS checked there, but not yet exercised with a real admin login (no `platform_admins` row yet).
 
 ## 5. A student asks for their data or to be deleted
 1. They use the Profile buttons (**still to build**); until then an engineer runs, as that user's session, `select api_export_my_data();` and sends the JSON, or `select api_delete_my_account('DELETE');`.

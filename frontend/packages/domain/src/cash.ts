@@ -1,6 +1,6 @@
 /**
  * Cash on delivery helpers. The database decides what counts as cash on delivery
- * (private.is_cod in supabase/migrations/20261106100000_cod_and_fees.sql): keep these
+ * (private.is_cod in supabase/migrations/20261106064424_cod_and_fees.sql): keep these
  * two in step.
  */
 
