@@ -119,6 +119,75 @@ const check = (name, ok, detail = "") => {
   const polls = calls.filter((c) => c[1] === "api_vendor_overview").length - before;
   check("while open it refreshes with a single overview call about every 15 s", polls >= 1 && polls <= 2, `${polls} in 16 s`);
   check("no failed data calls during the owner's whole session", calls.every((c) => c[2] < 400), JSON.stringify(calls.filter((c) => c[2] >= 400)));
+
+  // ---------- stock corrections, undo, and speed on a slow connection ----------
+  rest.delayMs = 1500; // every call is answered 1.5 s late
+  const row = page.locator("tbody tr").first();
+  const sku = ((await row.getByText(/^SKU: /).textContent()) || "").replace("SKU: ", "").toLowerCase();
+  const itemId = sql(`select id from menu_items where id::text like '${sku}%'`);
+  const shown = async () => Number(((await row.locator("td").nth(3).locator("span.font-semibold").first().textContent()) || "").trim());
+  const dbStock = () => Number(sql(`select stock_qty from menu_items where id='${itemId}'`));
+  const start0 = dbStock();
+  check("the first row on screen matches the database before we start", (await shown()) === start0, `screen ${await shown()} db ${start0}`);
+
+  // 1. speed: the new count is on screen before the server has answered
+  await row.getByRole("button", { name: /^\+10$/ }).click();
+  await page.waitForTimeout(250);
+  check("pressing +10 updates the screen at once, before the server has answered", (await shown()) === start0 + 10 && dbStock() === start0, `screen ${await shown()} db ${dbStock()} start0 ${start0}`);
+  await page.waitForTimeout(3500);
+  check("and the server then confirms it", dbStock() === start0 + 10 && (await shown()) === start0 + 10, `screen ${await shown()} db ${dbStock()}`);
+  check("an Undo button is offered", await page.getByRole("button", { name: "Undo" }).isVisible());
+
+  // 2. undo an accidental restock
+  await page.getByRole("button", { name: "Undo" }).click();
+  await page.waitForTimeout(250);
+  check("Undo takes the 10 off the screen at once", (await shown()) === start0, `screen ${await shown()}`);
+  await page.waitForTimeout(3500);
+  check("and in the database, recorded as a correction", dbStock() === start0 && sql(`select count(*) from stock_adjustments where menu_item_id='${itemId}' and reason='correction' and delta=-10`) === "1", `db ${dbStock()}`);
+
+  // 3. Fix stock: take away
+  await row.getByRole("button", { name: "Fix stock" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "−5" }).click();
+  check("the panel shows what the stock will be", ((await dialog.textContent()) || "").includes(`Stock will be ${start0 - 5}`), (await dialog.textContent()) || "");
+  await dialog.getByRole("button", { name: "Remove", exact: true }).click();
+  await page.waitForTimeout(250);
+  check("the screen shows the lower count at once", (await shown()) === start0 - 5, `screen ${await shown()}`);
+  await page.waitForTimeout(3500);
+  check("the database has the lower count and the panel closed", dbStock() === start0 - 5 && (await dialog.count()) === 0, `db ${dbStock()}`);
+  check("the removal is in the stock history", sql(`select count(*) from stock_adjustments where menu_item_id='${itemId}' and delta=-5`) === "1");
+  await page.getByRole("button", { name: "Undo" }).click();
+  await page.waitForTimeout(3500);
+  check("Undo after a removal puts the 5 back", dbStock() === start0, `db ${dbStock()}`);
+
+  // 4. Fix stock: set an exact count
+  await row.getByRole("button", { name: "Fix stock" }).click();
+  await dialog.getByRole("button", { name: "Set exact count" }).click();
+  await dialog.getByRole("textbox").fill("7");
+  await dialog.getByRole("button", { name: "Set count" }).click();
+  await page.waitForTimeout(3500);
+  check("setting an exact count of 7 works", dbStock() === 7 && sql(`select count(*) from stock_adjustments where menu_item_id='${itemId}' and reason='count'`) === "1", `db ${dbStock()}`);
+  await page.getByRole("button", { name: "Undo" }).click();
+  await page.waitForTimeout(3500);
+  check("and Undo restores the earlier count", dbStock() === start0, `db ${dbStock()}`);
+
+  // 5. cannot take away more than there is
+  await row.getByRole("button", { name: "Fix stock" }).click();
+  await dialog.getByRole("textbox").fill(String(start0 + 500));
+  check("taking away more than is in stock is refused before sending", /Only \d+ in stock/.test((await dialog.textContent()) || "") && (await dialog.getByRole("button", { name: "Remove", exact: true }).isDisabled()));
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+
+  // 6. a change the server rejects is rolled back on screen, with the reason
+  sql(`update menu_items set stock_qty=3 where id='${itemId}'`); // the screen still says ${start0}
+  await row.getByRole("button", { name: "Fix stock" }).click();
+  await dialog.getByRole("button", { name: "−5" }).click();
+  await dialog.getByRole("button", { name: "Remove", exact: true }).click();
+  await page.waitForTimeout(3800);
+  const toastText = (await page.textContent("body")) || "";
+  check("a rejected removal shows the reason", /Only 3 in stock/.test(toastText), toastText.slice(0, 200));
+  check("and the screen goes back to the true count (3)", (await shown()) === 3, `screen ${await shown()}`);
+  sql(`update menu_items set stock_qty=${start0} where id='${itemId}'`);
+  rest.delayMs = 0;
   await ctx.close();
 
   // ---------- 2. a student (not a vendor) cannot use the console ----------

@@ -117,7 +117,9 @@ function start({ port, db, psqlArgs = [] }) {
     }
     const chunks = [];
     req.on("data", (c) => chunks.push(c));
-    req.on("end", () => {
+    // `server.delayMs` simulates a slow network: each call is answered that much later.
+    req.on("end", () => (server.delayMs ? setTimeout(handle, server.delayMs) : handle()));
+    const handle = () => {
       if (req.url.startsWith("/storage/v1/")) return storage(req, res, cors, chunks);
 
       const m = /^\/rest\/v1\/rpc\/(\w+)/.exec(req.url);
@@ -152,7 +154,7 @@ function start({ port, db, psqlArgs = [] }) {
       const status = /^PT(\d{3})$/.test(code) ? Number(code.slice(2)) : code === "42501" ? (role === "anon" ? 401 : 403) : 400;
       res.writeHead(status, { ...cors, "content-type": "application/json" });
       res.end(JSON.stringify({ code, message, details: null, hint: null }));
-    });
+    };
   });
   return new Promise((resolve) => server.listen(port, () => resolve(server)));
 }

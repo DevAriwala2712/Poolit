@@ -6,9 +6,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { AddItemModal } from "../components/AddItemModal";
 import { BarcodeLabelDrawer, printLabels } from "../components/BarcodeLabels";
 import { KpiCard } from "../components/KpiCard";
+import { StockFixModal } from "../components/StockFixModal";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card, EmptyState, Td, Th } from "../components/ui";
 import { downloadCSV } from "../lib/csv";
+import { useToast } from "../state/ToastContext";
 import { useUIMode } from "../state/UIModeContext";
 import { useVendor } from "../state/VendorContext";
 
@@ -17,7 +19,8 @@ const QUICK = [10, 25];
 export function Inventory() {
   const [params, setParams] = useSearchParams();
   const { vendor, allVendors } = useVendor();
-  const { restockItem, setItemPrice, generateBarcode, generateMissingBarcodes } = useStore();
+  const { restockItem, adjustStock, setItemPrice, generateBarcode, generateMissingBarcodes } = useStore();
+  const { notify } = useToast();
   const { advancedMode } = useUIMode();
 
   const [query, setQuery] = useState("");
@@ -30,6 +33,7 @@ export function Inventory() {
   const navigate = useNavigate();
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [labelItemId, setLabelItemId] = useState<string | null>(null);
+  const [fixItemId, setFixItemId] = useState<string | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
 
   const pool = useMemo(
@@ -71,11 +75,29 @@ export function Inventory() {
     const raw = customAmounts[item.id];
     const amount = Number(raw);
     if (!raw || !Number.isFinite(amount) || !Number.isInteger(amount) || amount <= 0) return;
-    void restockItem(vendorId, item.id, amount);
+    void restock(vendorId, item, amount);
     setCustomAmounts((prev) => ({ ...prev, [item.id]: "" }));
   }
 
+  /** Add stock, then offer Undo for a few seconds in case it was an accidental press. */
+  async function restock(vendorId: string, item: MenuItem, amount: number) {
+    try {
+      await restockItem(vendorId, item.id, amount);
+    } catch {
+      return; // the store already showed why it failed
+    }
+    notify(`Added ${amount} to ${item.name}`, "success", {
+      label: "Undo",
+      onClick: () => {
+        adjustStock(item.id, { mode: "remove", qty: amount, reason: "correction" })
+          .then(() => notify(`Undone: took ${amount} off ${item.name}`, "success"))
+          .catch(() => undefined); // the store already showed why it failed
+      },
+    });
+  }
+
   const missingBarcodes = vendor.menu.filter((m) => !m.barcode).length;
+  const fixItem = fixItemId ? pool.find(({ item }) => item.id === fixItemId)?.item ?? null : null;
   const labelItem = labelItemId ? pool.find(({ item }) => item.id === labelItemId)?.item ?? null : null;
 
   async function generateFor(item: MenuItem) {
@@ -271,13 +293,19 @@ export function Inventory() {
                       <Badge tone={state === "out" ? "error" : state === "low" ? "primary" : "ready"}>
                         {state === "out" ? "Out" : state === "low" ? "Low" : "OK"}
                       </Badge>
+                      <button
+                        onClick={() => setFixItemId(item.id)}
+                        className="mt-1 block w-full rounded text-right text-label-sm text-primary underline underline-offset-2"
+                      >
+                        Fix stock
+                      </button>
                     </div>
                   </div>
                   <div className="flex items-center gap-space-xs">
                     {QUICK.map((amount) => (
                       <button
                         key={amount}
-                        onClick={() => void restockItem(vendorId, item.id, amount)}
+                        onClick={() => void restock(vendorId, item, amount)}
                         className="h-10 flex-1 rounded bg-surface-container text-body-md text-on-surface active:bg-surface-container-high"
                       >
                         +{amount}
@@ -391,7 +419,7 @@ export function Inventory() {
                           {QUICK.map((amount) => (
                             <button
                               key={amount}
-                              onClick={() => restockItem(vendorId, item.id, amount)}
+                              onClick={() => void restock(vendorId, item, amount)}
                               className="rounded bg-surface-container px-2 py-1 text-label-sm text-secondary transition hover:bg-surface-container-high hover:text-on-surface"
                             >
                               +{amount}
@@ -420,6 +448,12 @@ export function Inventory() {
                             className="rounded bg-surface-container px-2 py-1 text-label-sm text-secondary transition hover:bg-surface-container-high hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             Add
+                          </button>
+                          <button
+                            onClick={() => setFixItemId(item.id)}
+                            className="rounded px-2 py-1 text-label-sm text-primary underline underline-offset-2 hover:bg-surface-container"
+                          >
+                            Fix stock
                           </button>
                         </div>
                       </Td>
@@ -476,6 +510,7 @@ export function Inventory() {
           setLabelItemId(id);
         }}
       />
+      <StockFixModal item={fixItem} onClose={() => setFixItemId(null)} />
       <BarcodeLabelDrawer item={labelItem} storeName={vendor.name} onClose={() => setLabelItemId(null)} />
     </div>
   );

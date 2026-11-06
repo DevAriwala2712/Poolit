@@ -115,28 +115,83 @@ export function StoreProvider({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
-  const inFlight = useRef(false);
+  const running = useRef<Promise<void> | null>(null);
+  const again = useRef(false);
+  /** Writes whose result is already on screen but not yet confirmed by the server. */
+  const pendingWrites = useRef(0);
   const hostelFocus = useRef<string | undefined>(undefined);
   const onErrorRef = useRef(onMutationError);
   useEffect(() => {
     onErrorRef.current = onMutationError;
   }, [onMutationError]);
 
-  const refresh = useCallback(async () => {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    try {
-      const next: StoreData = mode === "student" ? await api.getStudentView(hostelFocus.current) : await fetchAll();
-      setData(next);
-      setError(null);
-      setLastSyncedAt(Date.now());
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong loading Poolit.");
-    } finally {
-      inFlight.current = false;
-      setLoading(false);
-    }
+  const load = useCallback(async () => {
+    do {
+      again.current = false;
+      try {
+        const next: StoreData = mode === "student" ? await api.getStudentView(hostelFocus.current) : await fetchAll();
+        // While a change is still being saved, the screen already shows it; an older answer
+        // would flash the old value back. The write refreshes again when it finishes.
+        if (pendingWrites.current === 0) setData(next);
+        setError(null);
+        setLastSyncedAt(Date.now());
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : "Something went wrong loading Poolit.");
+      } finally {
+        setLoading(false);
+      }
+    } while (again.current);
   }, [mode]);
+
+  /**
+   * Fetch fresh data. If a fetch is already running, run one more right after it, so a
+   * caller that has just written never gets an answer that was requested before the write.
+   */
+  const refresh = useCallback((): Promise<void> => {
+    if (running.current) {
+      again.current = true;
+      return running.current;
+    }
+    const p = load().finally(() => {
+      running.current = null;
+    });
+    running.current = p;
+    return p;
+  }, [load]);
+
+  /** Background poll: skip if something is already loading. */
+  const poll = useCallback(() => {
+    if (!running.current) void refresh();
+  }, [refresh]);
+
+  const patchItem = useCallback((menuItemId: string, fn: (m: MenuItem) => MenuItem) => {
+    setData((prev) => ({
+      ...prev,
+      vendors: prev.vendors.map((v) =>
+        v.menu.some((m) => m.id === menuItemId) ? { ...v, menu: v.menu.map((m) => (m.id === menuItemId ? fn(m) : m)) } : v,
+      ),
+    }));
+  }, []);
+
+  /**
+   * Show the result of a write on screen at once, then confirm it with the server. If the
+   * write fails, the refresh in `finally` puts the true values back and the error is shown.
+   * The server's answer is fetched in the background, so the caller is released as soon as
+   * the write itself is done.
+   */
+  const optimistic = useCallback(
+    async (apply: () => void, call: () => Promise<unknown>) => {
+      pendingWrites.current += 1;
+      apply();
+      try {
+        await call();
+      } finally {
+        pendingWrites.current -= 1;
+        void refresh();
+      }
+    },
+    [refresh],
+  );
 
   const setHostelFocus = useCallback(
     (hostelId: string | undefined) => {
@@ -151,12 +206,12 @@ export function StoreProvider({
   // Poll while the tab is visible; pause in the background (saves battery and
   // API quota on phones) and catch up immediately when the user returns.
   useEffect(() => {
-    void refresh();
+    poll(); // the first load: skip if one is already running (the sign-in code may have started it)
     const id = setInterval(() => {
-      if (typeof document === "undefined" || !document.hidden) void refresh();
+      if (typeof document === "undefined" || !document.hidden) poll();
     }, POLL_INTERVAL_MS);
     const onVisible = () => {
-      if (!document.hidden) void refresh();
+      if (!document.hidden) poll();
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("online", onVisible);
@@ -165,7 +220,7 @@ export function StoreProvider({
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("online", onVisible);
     };
-  }, [refresh]);
+  }, [refresh, poll]);
 
   /** Wrap a write so failures are always surfaced, then re-thrown. */
   const mutate = useCallback(
@@ -209,16 +264,22 @@ export function StoreProvider({
         await refresh();
       }),
       markDelivered: mutate(async (orderId, cashCollectedPaise) => {
+        // Not shown early: the "Cash today" figure reloads when the delivered count changes,
+        // and must not do so before the server has recorded the cash.
         await api.markDelivered(orderId, cashCollectedPaise);
         await refresh();
       }),
       restockItem: mutate(async (_vendorId, menuItemId, amount) => {
-        await api.restockItem(menuItemId, amount);
-        await refresh();
+        await optimistic(
+          () => patchItem(menuItemId, (m) => ({ ...m, stockQty: m.stockQty + amount })),
+          () => api.restockItem(menuItemId, amount),
+        );
       }),
       setItemPrice: mutate(async (_vendorId, menuItemId, price) => {
-        await api.updateItem(menuItemId, { price });
-        await refresh();
+        await optimistic(
+          () => patchItem(menuItemId, (m) => ({ ...m, price })),
+          () => api.updateItem(menuItemId, { price }),
+        );
       }),
       setItemBarcode: mutate(async (_vendorId, menuItemId, barcode) => {
         await api.updateItem(menuItemId, { barcode });
@@ -235,8 +296,14 @@ export function StoreProvider({
         return result.generated;
       }),
       adjustStock: mutate(async (menuItemId, input) => {
-        await api.adjustStock(menuItemId, input);
-        await refresh();
+        await optimistic(
+          () =>
+            patchItem(menuItemId, (m) => ({
+              ...m,
+              stockQty: input.mode === "set" ? input.qty : Math.max(0, m.stockQty - input.qty),
+            })),
+          () => api.adjustStock(menuItemId, input),
+        );
       }),
       setItemImage: mutate(async (menuItemId, path) => {
         await api.setItemImage(menuItemId, path);
@@ -252,7 +319,7 @@ export function StoreProvider({
         return item;
       }),
     }),
-    [data, loading, error, lastSyncedAt, refresh, setHostelFocus, mutate],
+    [data, loading, error, lastSyncedAt, refresh, setHostelFocus, mutate, optimistic, patchItem],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
