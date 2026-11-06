@@ -81,6 +81,7 @@ export function makeRpcApi(getRpc: () => RpcCaller | null): Api {
         p_tip: o.tip ?? 0,
         p_payment_method: o.paymentMethod ?? null,
         p_note: o.note ?? null,
+        p_idempotency_key: o.idempotencyKey ?? null,
       }),
     getStudentView: (hostelId?: string) => call("api_student_view", { p_hostel_id: hostelId ?? null }),
 
@@ -100,7 +101,8 @@ export function makeRpcApi(getRpc: () => RpcCaller | null): Api {
     dispatchSlot: (slotId) => call("api_dispatch_slot", { p_slot_id: slotId }),
     markDelivered: (orderId) => call("api_mark_delivered", { p_order_id: orderId }),
     getInventory: (params = {}) => call("api_inventory", { p_vendor_id: params.vendorId ?? null, p_status: params.status ?? null }),
-    restockItem: (itemId, amount) => call("api_restock_item", { p_item_id: itemId, p_amount: amount }),
+    restockItem: (itemId, amount, idempotencyKey) =>
+      call("api_restock_item", { p_item_id: itemId, p_amount: amount, p_idempotency_key: idempotencyKey ?? null }),
     updateItem: (itemId, patch) => call("api_update_menu_item", { p_item_id: itemId, p_patch: patch }),
     generateBarcode: (itemId) => call("api_generate_barcode", { p_item_id: itemId }),
     generateMissingBarcodes: (vendorId) => call("api_generate_missing_barcodes", { p_vendor_id: vendorId }),
@@ -111,6 +113,7 @@ export function makeRpcApi(getRpc: () => RpcCaller | null): Api {
         p_qty: input.qty,
         p_reason: input.reason ?? null,
         p_note: input.note ?? null,
+        p_idempotency_key: input.idempotencyKey ?? null,
       }),
     getStockHistory: (itemId) => call("api_stock_history", { p_item_id: itemId }),
     getRestockLog: (itemId) => call("api_restock_log", { p_item_id: itemId }),

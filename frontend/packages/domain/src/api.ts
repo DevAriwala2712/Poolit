@@ -94,6 +94,8 @@ export interface PlaceOrderInput {
   tip?: number;
   paymentMethod?: string;
   note?: string;
+  /** One random key per intended order, reused on retries (see idempotency.ts). */
+  idempotencyKey?: string;
 }
 
 export type StockAdjustmentReason = "count" | "damaged" | "expired" | "correction" | "other";
@@ -103,6 +105,8 @@ export interface StockAdjustmentInput {
   qty: number;
   reason?: StockAdjustmentReason;
   note?: string;
+  /** Optional key that makes a repeat of this adjustment harmless. */
+  idempotencyKey?: string;
 }
 
 export interface StockHistoryEntry {
@@ -260,7 +264,7 @@ const expressApi = {
     return request<MenuItem[]>(`/inventory${qs ? `?${qs}` : ""}`);
   },
 
-  restockItem: (menuItemId: string, amount: number) =>
+  restockItem: (menuItemId: string, amount: number, _idempotencyKey?: string) =>
     request<{ item: MenuItem; restockLog: RestockLogEntry }>(
       `/menu-items/${menuItemId}/restock`,
       { method: "POST", body: JSON.stringify({ amount }) },

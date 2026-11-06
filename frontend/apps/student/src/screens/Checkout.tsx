@@ -1,5 +1,5 @@
-import { TIP_PRESETS, rupees, useStore } from "@poolit/domain";
-import { useState } from "react";
+import { TIP_PRESETS, rupees, useSameKeyWhile, useStore } from "@poolit/domain";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import type { IconName } from "../components/Icon";
@@ -30,6 +30,9 @@ export function Checkout() {
   const [payment, setPayment] = useState("upi");
   const [note, setNote] = useState("");
   const [placing, setPlacing] = useState(false);
+  // One key per intended order: if the reply is lost and the student taps again, the
+  // same order is not placed twice. A changed cart or a finished order gets a new key.
+  const orderKey = useRef(useSameKeyWhile()).current;
   const bill = useBill({ tip });
 
   if (bill.isEmpty) {
@@ -57,7 +60,11 @@ export function Checkout() {
         tip,
         paymentMethod: PAYMENTS.find((p) => p.id === payment)?.label,
         note: note.trim() || undefined,
+        idempotencyKey: orderKey.keyFor(
+          JSON.stringify([slot.id, bill.lines.map((l) => [l.item.id, l.qty]), tip, payment, note.trim()]),
+        ),
       });
+      orderKey.reset();
       cart.clear();
       toast("Order placed — you're in the pool!");
       navigate(`/track/${order.id}`, { replace: true });

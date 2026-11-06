@@ -52,6 +52,7 @@ test("placing an order sends every field under the function's parameter names", 
     tip: 10,
     paymentMethod: "UPI",
     note: "ring twice",
+    idempotencyKey: "order-key-0001",
   });
   assert.deepEqual(calls, [
     {
@@ -65,6 +66,7 @@ test("placing an order sends every field under the function's parameter names", 
         p_tip: 10,
         p_payment_method: "UPI",
         p_note: "ring twice",
+        p_idempotency_key: "order-key-0001",
       },
     },
   ]);
@@ -74,7 +76,7 @@ test("optional order fields that were not given are sent as null, not undefined"
   const { rpc, calls } = fakeRpc({ data: {} });
   await makeRpcApi(() => rpc).placeOrder({ slotId: "S-1", studentName: "Anaya", items: [{ menuItemId: "m1", qty: 1 }] });
   const args = calls[0].args as Record<string, unknown>;
-  for (const k of ["p_block", "p_room", "p_payment_method", "p_note"]) assert.equal(args[k], null, k);
+  for (const k of ["p_block", "p_room", "p_payment_method", "p_note", "p_idempotency_key"]) assert.equal(args[k], null, k);
   assert.equal(args.p_tip, 0);
 });
 
@@ -185,12 +187,13 @@ test("every vendor call uses its own function with the right argument names", as
     [() => api.markDelivered("O"), "api_mark_delivered", { p_order_id: "O" }],
     [() => api.getInventory({ vendorId: "V", status: "low" }), "api_inventory", { p_vendor_id: "V", p_status: "low" }],
     [() => api.getInventory(), "api_inventory", { p_vendor_id: null, p_status: null }],
-    [() => api.restockItem("M", 25), "api_restock_item", { p_item_id: "M", p_amount: 25 }],
+    [() => api.restockItem("M", 25), "api_restock_item", { p_item_id: "M", p_amount: 25, p_idempotency_key: null }],
+    [() => api.restockItem("M", 25, "restock-key-01"), "api_restock_item", { p_item_id: "M", p_amount: 25, p_idempotency_key: "restock-key-01" }],
     [() => api.updateItem("M", { price: 60, lowStockThreshold: 3, barcode: null }), "api_update_menu_item", { p_item_id: "M", p_patch: { price: 60, lowStockThreshold: 3, barcode: null } }],
     [() => api.generateBarcode("M"), "api_generate_barcode", { p_item_id: "M" }],
     [() => api.generateMissingBarcodes("V"), "api_generate_missing_barcodes", { p_vendor_id: "V" }],
-    [() => api.adjustStock("M", { mode: "remove", qty: 2, reason: "damaged", note: "dropped" }), "api_adjust_stock", { p_item_id: "M", p_mode: "remove", p_qty: 2, p_reason: "damaged", p_note: "dropped" }],
-    [() => api.adjustStock("M", { mode: "set", qty: 40 }), "api_adjust_stock", { p_item_id: "M", p_mode: "set", p_qty: 40, p_reason: null, p_note: null }],
+    [() => api.adjustStock("M", { mode: "remove", qty: 2, reason: "damaged", note: "dropped", idempotencyKey: "adjust-key-01" }), "api_adjust_stock", { p_item_id: "M", p_mode: "remove", p_qty: 2, p_reason: "damaged", p_note: "dropped", p_idempotency_key: "adjust-key-01" }],
+    [() => api.adjustStock("M", { mode: "set", qty: 40 }), "api_adjust_stock", { p_item_id: "M", p_mode: "set", p_qty: 40, p_reason: null, p_note: null, p_idempotency_key: null }],
     [() => api.getStockHistory("M"), "api_stock_history", { p_item_id: "M" }],
     [() => api.getRestockLog("M"), "api_restock_log", { p_item_id: "M" }],
   ];
