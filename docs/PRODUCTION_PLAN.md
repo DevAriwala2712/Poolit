@@ -39,7 +39,9 @@ Verified by running it, not by reading it. "Live" means applied to the Supabase 
 | Android app (Capacitor), UI consistency pass, sign-up consent and 18+ screen, privacy buttons, cancel button | **Not started** | |
 | UPI payments | Phase 2, not started | |
 
-**Waiting on the owner:** a staging Supabase project; Cloudflare R2 bucket and GitHub secrets for backups; Vercel settings (`ENFORCE_VENDOR_SCOPING`, `ALLOWED_ORIGINS`, `VITE_BACKEND`); Supabase auth settings (leaked-password protection, MFA); the commission decision; SMS/DLT setup; a Poolit admin account in `platform_admins`; allow `*.supabase.co` from the build environment so the live project can be tested end to end.
+**Done on 6 Nov:** the owner's account is in `platform_admins`.
+
+**Waiting on the owner:** a staging Supabase project; Cloudflare R2 bucket and GitHub secrets for backups; Vercel settings (`ENFORCE_VENDOR_SCOPING`, `ALLOWED_ORIGINS`, `VITE_BACKEND`); Supabase auth settings (leaked-password protection, MFA); the commission decision; SMS/DLT setup; allow `*.supabase.co` from the build environment so the live project can be tested end to end.
 
 ## Current state audit
 
