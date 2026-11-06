@@ -1,0 +1,60 @@
+name: Nightly backup
+
+# Dumps the live database, encrypts it with a PUBLIC age key (this job cannot read its own
+# backups), and uploads it to a private Cloudflare R2 bucket. The free Supabase plan has no
+# point-in-time restore, so this is the only recovery path that does not depend on the
+# Supabase project. See scripts/backup/backup.sh and docs/BACKUP_AND_RESTORE.md.
+#
+# Repository secrets needed (the job skips itself, with a notice, until the first five exist):
+#   BACKUP_DB_URL          Session pooler connection string of the project (not the direct
+#                          host: that is IPv6-only and GitHub runners have no IPv6)
+#   BACKUP_AGE_RECIPIENT   the age PUBLIC key (age1...). Keep the private key offline.
+#   R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+#
+# NOT YET RUN ON GITHUB: the scripts are tested against a local Postgres; this workflow's
+# package installation and secrets have not been exercised. Run it once by hand
+# (Actions tab, Run workflow) and check the log before relying on it.
+
+on:
+  schedule:
+    - cron: "37 21 * * *" # 03:07 India time, when nobody is ordering
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check secrets
+        id: gate
+        env:
+          BACKUP_DB_URL: ${{ secrets.BACKUP_DB_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        run: |
+          if [ -z "$BACKUP_DB_URL" ] || [ -z "$BACKUP_AGE_RECIPIENT" ] || [ -z "$R2_ENDPOINT" ] || [ -z "$R2_BUCKET" ] || [ -z "$R2_ACCESS_KEY_ID" ]; then
+            echo "::notice::Backup secrets are not set; skipping"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install tools (pg_dump 17 to match Supabase, and age)
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common age
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+      - name: Back up
+        if: steps.gate.outputs.run == 'true'
+        env:
+          BACKUP_DB_URL: ${{ secrets.BACKUP_DB_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: scripts/backup/backup.sh

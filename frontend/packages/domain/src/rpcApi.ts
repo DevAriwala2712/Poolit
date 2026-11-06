@@ -99,7 +99,10 @@ export function makeRpcApi(getRpc: () => RpcCaller | null): Api {
     getPickList: (slotId) => call("api_pick_list", { p_slot_id: slotId }),
     closeSlot: (slotId) => call("api_close_slot", { p_slot_id: slotId }),
     dispatchSlot: (slotId) => call("api_dispatch_slot", { p_slot_id: slotId }),
-    markDelivered: (orderId) => call("api_mark_delivered", { p_order_id: orderId }),
+    markDelivered: (orderId, cashCollectedPaise) =>
+      call("api_mark_delivered", { p_order_id: orderId, p_cash_collected_paise: cashCollectedPaise ?? null }),
+    getCashSummary: (vendorId, day) => call("api_cash_summary", { p_vendor_id: vendorId, p_day: day ?? null }),
+    getFeeStatement: (vendorId, from, to) => call("api_fee_statement", { p_vendor_id: vendorId, p_from: from, p_to: to }),
     getInventory: (params = {}) => call("api_inventory", { p_vendor_id: params.vendorId ?? null, p_status: params.status ?? null }),
     restockItem: (itemId, amount, idempotencyKey) =>
       call("api_restock_item", { p_item_id: itemId, p_amount: amount, p_idempotency_key: idempotencyKey ?? null }),
@@ -115,6 +118,7 @@ export function makeRpcApi(getRpc: () => RpcCaller | null): Api {
         p_note: input.note ?? null,
         p_idempotency_key: input.idempotencyKey ?? null,
       }),
+    setItemImage: (itemId, path) => call("api_set_item_image", { p_item_id: itemId, p_path: path }),
     getStockHistory: (itemId) => call("api_stock_history", { p_item_id: itemId }),
     getRestockLog: (itemId) => call("api_restock_log", { p_item_id: itemId }),
   };

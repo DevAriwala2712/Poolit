@@ -135,6 +135,7 @@ function OrderCard({
               key={item!.id}
               art={item!.art}
               tint={item!.tint}
+              imagePath={item!.imagePath}
               size="sm"
               className="!h-11 !w-11 !text-lg ring-2 ring-white"
             />

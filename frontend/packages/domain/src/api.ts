@@ -85,6 +85,30 @@ export interface StudentView {
   hostelId?: string;
 }
 
+/** A store's cash for one day (all amounts in paise). */
+export interface CashSummary {
+  day: string;
+  deliveredCount: number;
+  expectedPaise: number;
+  collectedPaise: number;
+  /** Collected minus expected: negative means the store is short. */
+  differencePaise: number;
+  outstandingCount: number;
+  outstandingPaise: number;
+  outstanding: { orderId: string; studentName: string; block?: string; room?: string; amountDuePaise?: number }[];
+}
+
+/** What Poolit's commission came to for a store over a date range (paise). */
+export interface FeeStatement {
+  vendorId: string;
+  from: string;
+  to: string;
+  terms: { feeType: "percent" | "fixed_per_order"; feeValue: number } | null;
+  orders: number;
+  goodsPaise: number;
+  commissionPaise: number;
+}
+
 export interface PlaceOrderInput {
   slotId: string;
   studentName: string;
@@ -253,8 +277,19 @@ const expressApi = {
   dispatchSlot: (slotId: string) =>
     request<{ slot: Slot }>(`/slots/${slotId}/dispatch`, { method: "POST" }),
 
-  markDelivered: (orderId: string) =>
+  /** Hand an order over. For cash on delivery, `cashCollectedPaise` is the cash taken (default: the amount due). */
+  markDelivered: (orderId: string, _cashCollectedPaise?: number) =>
     request<{ order: Order }>(`/orders/${orderId}/deliver`, { method: "POST" }),
+
+  /** The store's cash for a day (default today). Only the Supabase backend has it. */
+  getCashSummary: async (_vendorId: string, _day?: string): Promise<CashSummary> => {
+    throw new ApiError(501, "The cash summary needs the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Commission statement for a date range. Only the Supabase backend has it. */
+  getFeeStatement: async (_vendorId: string, _from: string, _to: string): Promise<FeeStatement> => {
+    throw new ApiError(501, "The commission statement needs the new backend (VITE_BACKEND=supabase).");
+  },
 
   getInventory: (params: { vendorId?: string; status?: "low" | "out" } = {}) => {
     const q = new URLSearchParams();
@@ -293,6 +328,11 @@ const expressApi = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+
+  /** Attach (or, with null, remove) a product picture. Only the Supabase backend has pictures. */
+  setItemImage: async (_menuItemId: string, _path: string | null): Promise<MenuItem> => {
+    throw new ApiError(501, "Product pictures need the new backend (VITE_BACKEND=supabase).");
+  },
 
   getStockHistory: (menuItemId: string) => request<StockHistoryEntry[]>(`/menu-items/${menuItemId}/stock-history`),
 

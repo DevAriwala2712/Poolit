@@ -176,7 +176,7 @@ export function Tracking() {
           if (!item) return null;
           return (
             <div key={line.menuItemId} className="flex items-center gap-3 border-t border-line px-4 py-2.5">
-              <ProductArt art={item.art} tint={item.tint} size="sm" className="!h-10 !w-10 !text-lg" />
+              <ProductArt art={item.art} tint={item.tint} imagePath={item.imagePath} size="sm" className="!h-10 !w-10 !text-lg" />
               <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">
                 {item.name} <span className="text-ink-faint">× {line.qty}</span>
               </p>

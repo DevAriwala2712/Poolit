@@ -74,7 +74,7 @@ export function ProductDetail() {
       </header>
 
       <div className="px-4">
-        <ProductArt art={item.art} tint={item.tint} size="hero" />
+        <ProductArt art={item.art} tint={item.tint} imagePath={item.imagePath} size="hero" />
       </div>
 
       <div className="mt-4 px-4">
@@ -155,7 +155,7 @@ export function ProductDetail() {
                     className="flex w-[128px] shrink-0 flex-col rounded-[var(--radius-card)] bg-surface p-2.5 shadow-[var(--shadow-soft)]"
                   >
                     <button onClick={() => navigate(`/product/${other.id}`)} className="text-left">
-                      <ProductArt art={other.art} tint={other.tint} size="md" className="!h-[72px]" />
+                      <ProductArt art={other.art} tint={other.tint} imagePath={other.imagePath} size="md" className="!h-[72px]" />
                       <p className="mt-2 line-clamp-2 min-h-[2.4em] text-[12px] font-semibold leading-tight text-ink">
                         {other.name}
                       </p>

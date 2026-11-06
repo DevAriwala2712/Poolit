@@ -53,7 +53,8 @@ interface StoreContextValue extends StoreData {
   placeOrder: (input: PlaceOrderInput) => Promise<Order>;
   closeSlot: (slotId: string) => Promise<void>;
   dispatchSlot: (slotId: string) => Promise<void>;
-  markDelivered: (orderId: string) => Promise<void>;
+  /** Hand an order over; for cash on delivery pass the cash taken in paise (default: the amount due). */
+  markDelivered: (orderId: string, cashCollectedPaise?: number) => Promise<void>;
   restockItem: (vendorId: string, menuItemId: string, amount: number) => Promise<void>;
   setItemPrice: (vendorId: string, menuItemId: string, price: number) => Promise<void>;
   setItemBarcode: (vendorId: string, menuItemId: string, barcode: string) => Promise<void>;
@@ -62,6 +63,8 @@ interface StoreContextValue extends StoreData {
   /** Generate codes for every item in a store without one; resolves to the count. */
   generateMissingBarcodes: (vendorId: string) => Promise<number>;
   adjustStock: (menuItemId: string, input: StockAdjustmentInput) => Promise<void>;
+  /** Attach (or remove, with null) a product picture already uploaded to storage. */
+  setItemImage: (menuItemId: string, path: string | null) => Promise<void>;
   updateVendorSettings: (
     vendorId: string,
     patch: { acceptingOrders?: boolean; prepMinutes?: number; poolWindowMinutes?: number },
@@ -205,8 +208,8 @@ export function StoreProvider({
         await api.dispatchSlot(slotId);
         await refresh();
       }),
-      markDelivered: mutate(async (orderId) => {
-        await api.markDelivered(orderId);
+      markDelivered: mutate(async (orderId, cashCollectedPaise) => {
+        await api.markDelivered(orderId, cashCollectedPaise);
         await refresh();
       }),
       restockItem: mutate(async (_vendorId, menuItemId, amount) => {
@@ -233,6 +236,10 @@ export function StoreProvider({
       }),
       adjustStock: mutate(async (menuItemId, input) => {
         await api.adjustStock(menuItemId, input);
+        await refresh();
+      }),
+      setItemImage: mutate(async (menuItemId, path) => {
+        await api.setItemImage(menuItemId, path);
         await refresh();
       }),
       updateVendorSettings: mutate(async (vendorId, patch) => {

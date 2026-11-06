@@ -214,7 +214,7 @@ export function Profile() {
           <div className="space-y-2 py-1">
             {favourites.map((item) => (
               <div key={item.id} className="flex items-center gap-3 rounded-2xl bg-surface p-2.5 shadow-[var(--shadow-soft)]">
-                <ProductArt art={item.art} tint={item.tint} size="sm" />
+                <ProductArt art={item.art} tint={item.tint} imagePath={item.imagePath} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13.5px] font-semibold text-ink">{item.name}</p>
                   <p className="text-[12px] font-bold text-ink">{rupees(item.price)}</p>

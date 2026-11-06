@@ -1,3 +1,4 @@
+import { ItemPhoto } from "../components/ItemPhoto";
 import { CATEGORIES, rupees, stockState, useStore } from "@poolit/domain";
 import type { MenuItem } from "@poolit/domain";
 import { useMemo, useState } from "react";
@@ -256,7 +257,7 @@ export function Inventory() {
               return (
                 <li key={item.id} className="space-y-space-sm px-space-md py-space-sm">
                   <div className="flex items-center gap-space-sm">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-surface-container text-lg">{item.art}</span>
+                    <ItemPhoto item={item} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-body-lg text-on-surface">{item.name}</p>
                       <p className="truncate text-label-sm text-secondary">
@@ -331,9 +332,7 @@ export function Inventory() {
                     >
                       <Td>
                         <div className="flex items-center gap-space-sm">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-surface-container text-base">
-                            {item.art}
-                          </span>
+                          <ItemPhoto item={item} size="sm" />
                           <div>
                             <p className="text-body-md text-on-surface">{item.name}</p>
                             <p className="font-label-sm text-label-sm text-secondary">SKU: {item.id.slice(0, 8).toUpperCase()}</p>

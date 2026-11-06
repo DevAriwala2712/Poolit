@@ -88,8 +88,17 @@ const check = (name, ok, detail = "") => {
   await page.goto(base + "/orders");
   const handOver = page.getByRole("button", { name: /^Hand Over$/ }).first();
   await handOver.waitFor({ timeout: 15000 }).catch(() => {});
+  // the first row is Kabir's cash on delivery order: the screen says how much to collect
+  const beforeText = (await page.textContent("body")) || "";
+  const dueRupees = Number(sql(`select (subtotal_paise + round((delivery_fee_charged + tip) * 100)::int + 400)/100 from orders where student_name='Kabir'`));
+  const at = beforeText.indexOf("ollect");
+  check("a cash on delivery order shows how much cash to collect", new RegExp(`ollect\\s*₹\\s*${dueRupees}(?!\\d)`).test(beforeText), `due ${dueRupees}; text length ${beforeText.length}; near "ollect": ${at < 0 ? "(not found)" : beforeText.slice(Math.max(0, at - 20), at + 40)}`);
   await handOver.click().catch(() => {});
   await page.waitForTimeout(2500);
+  check("handing over a cash order records the cash taken, equal to the amount due", sql(`select cash_collected_paise from orders where student_name='Kabir'`) === String(dueRupees * 100), sql(`select cash_collected_paise from orders where student_name='Kabir'`));
+  await page.waitForTimeout(1500);
+  const cashLine = (await page.getByTestId("cash-today").textContent().catch(() => "")) || "";
+  check("the Orders screen shows today's cash", new RegExp(`Cash today: ₹\\s*${dueRupees} of ₹\\s*${dueRupees}`).test(cashLine), cashLine);
   check("handing over calls api_mark_delivered", calls.some((c) => c[1] === "api_mark_delivered" && c[2] === 200), JSON.stringify(calls.slice(-5)));
   check("exactly one order is delivered", sql(`select count(*) from orders o join slots s on s.id=o.slot_id where s.vendor_id='${YAMUNA_STORE}' and o.status='delivered'`) === "1");
 

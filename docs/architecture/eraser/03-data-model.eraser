@@ -95,6 +95,8 @@ orders [icon: file-text, color: orange, label: "orders (items are JSON lines wit
   items jsonb
   subtotal_paise integer
   delivery_fee_charged numeric
+  cash_collected_paise integer
+  cash_collected_at timestamptz
   status text
   created_at timestamptz
   updated_at timestamptz
@@ -132,7 +134,7 @@ stock_adjustments [icon: edit, color: yellow, label: "stock_adjustments (counts,
   at timestamptz
 }
 
-idempotency_keys [icon: repeat, color: gray, label: "idempotency_keys (safe retries, used by Express only so far)"] {
+idempotency_keys [icon: repeat, color: gray, label: "idempotency_keys (safe retries, used by orders, restock and stock changes)"] {
   scope text pk
   key text pk
   request_hash text
@@ -140,6 +142,28 @@ idempotency_keys [icon: repeat, color: gray, label: "idempotency_keys (safe retr
   response_status integer
   response_body jsonb
   created_at timestamptz
+}
+
+vendor_fee_terms [icon: percent, color: gray, label: "vendor_fee_terms (commission or fixed fee per store, set by admins only)"] {
+  vendor_id uuid pk
+  fee_type text
+  fee_value numeric
+  updated_at timestamptz
+  updated_by uuid
+}
+
+order_fee_ledger [icon: file-text, color: gray, label: "order_fee_ledger (one line per delivered order, written once)"] {
+  order_id uuid pk
+  vendor_id uuid
+  goods_paise integer
+  fee_paise integer
+  fee_type text
+  fee_value numeric
+  created_at timestamptz
+}
+
+platform_admins [icon: shield, color: gray, label: "platform_admins (Poolit staff who may set fees and read any statement)"] {
+  user_id uuid pk
 }
 
 // Relationships: many to one, from the foreign key to the table it points at
@@ -159,6 +183,10 @@ restock_logs.menu_item_id > menu_items.id
 stock_adjustments.vendor_id > vendors.id
 stock_adjustments.menu_item_id > menu_items.id
 stock_adjustments.user_id > auth_users.id
+vendor_fee_terms.vendor_id - vendors.id
+order_fee_ledger.order_id - orders.id
+order_fee_ledger.vendor_id > vendors.id
+platform_admins.user_id - auth_users.id
 
 // Not a database relationship: menu_items.image_path names a file in the
 // product-images storage bucket, and each line inside orders.items names a

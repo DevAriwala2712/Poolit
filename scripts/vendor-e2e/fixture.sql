@@ -18,7 +18,12 @@ begin
   select id into i from menu_items where vendor_id = 'b0000000-0000-4000-8000-000000000002' and name like 'Maggi%';
   foreach n in array array['Rohan', 'Meera', 'Kabir'] loop
     insert into auth.users (email, phone) values (null, '+9190001' || (random() * 89999 + 10000)::int) returning id into u;
-    perform place_order(s, n, 'A', '1' || (random() * 80 + 10)::int, 0, 'UPI', null,
+    -- Kabir (the newest order, so the first row on screen) pays cash on delivery
+    perform place_order(s, n, 'A', '1' || (random() * 80 + 10)::int, 0, case when n = 'Kabir' then 'Cash on delivery' else 'UPI' end, null,
                         jsonb_build_array(jsonb_build_object('menuItemId', i, 'qty', 2)), u);
   end loop;
+  -- all three were created in one instant; spread them so the screen order is Kabir, Meera, Rohan
+  update orders set created_at = now() - interval '3 minutes' where student_name = 'Rohan';
+  update orders set created_at = now() - interval '2 minutes' where student_name = 'Meera';
+  update orders set created_at = now() - interval '1 minute' where student_name = 'Kabir';
 end $$;

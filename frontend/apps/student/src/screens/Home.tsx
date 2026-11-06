@@ -156,7 +156,7 @@ export function Home() {
                 className="flex w-[132px] shrink-0 flex-col rounded-[var(--radius-card)] bg-surface p-2.5 shadow-[var(--shadow-soft)]"
               >
                 <button onClick={() => navigate(`/product/${item.id}`)} className="text-left">
-                  <ProductArt art={item.art} tint={item.tint} size="md" className="!h-20" />
+                  <ProductArt art={item.art} tint={item.tint} imagePath={item.imagePath} size="md" className="!h-20" />
                   <p className="mt-2 line-clamp-2 min-h-[2.4em] text-[12.5px] font-semibold leading-tight text-ink">
                     {item.name}
                   </p>

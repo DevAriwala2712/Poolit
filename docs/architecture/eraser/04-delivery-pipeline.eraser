@@ -17,7 +17,7 @@ Branch [icon: git-branch, color: green, label: "Feature branch on GitHub"]
 GitHub Actions [icon: github, color: green, label: "GitHub Actions CI (every pull request)"] {
   Backend job [icon: check-circle, color: green, label: "Express tests (18)"]
   Frontend job [icon: check-circle, color: green, label: "Frontend: typecheck, lint, 53 unit tests, both apps build"]
-  Database job [icon: check-circle, color: green, label: "Database: apply all 17 migrations on a fresh Postgres, run 4 test files (access control, pool rotation, photos, student view)"]
+  Database job [icon: check-circle, color: green, label: "Database: apply all migrations on a fresh Postgres, run 7 test files (access control, pool rotation, photos, student view, retries, cash and fees, privacy)"]
 }
 
 // ---------------- Checks run by hand before risky switches ----------------
@@ -25,7 +25,7 @@ GitHub Actions [icon: github, color: green, label: "GitHub Actions CI (every pul
 Manual checks [icon: clipboard, color: blue, label: "Checks run by hand (not in CI)"] {
   Student end to end [icon: play-circle, color: blue, label: "Student app on the new backend in Chromium, 13 checks"]
   Rollback check [icon: rotate-ccw, color: blue, label: "Student app on Express (rollback path), 5 checks"]
-  Photo pipeline check [icon: image, color: blue, label: "Resize and upload in real Chromium, 11 checks"]
+  Photo pipeline check [icon: image, color: blue, label: "Resize and upload in real Chromium, 28 checks including upload attacks"]
 }
 
 Review [icon: eye, color: green, label: "Pull request review and merge to main"]

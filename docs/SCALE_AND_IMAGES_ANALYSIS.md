@@ -433,3 +433,27 @@ First-month traffic is spread over the weeks users join, so it arrives gradually
 
 - Build R2 or S3 uploads now. It adds a second system, a signing function and a weaker link between a database row and its file, to solve a bandwidth problem that cache headers likely remove.
 - Serve originals and resize on request. The free plan does not include Supabase's image transformations, and the vendor's phone can do the resize once.
+
+## 16. Measured: database capacity test (2026-11-06)
+
+`scripts/load-test/run.sh` runs the real `api_place_order` and `api_student_view` functions, as signed-in
+students, through pgbench against a copy of the schema with 20,000 students, 17 open pools and
+425 items. Machine: 4 CPUs, 16 GB, PostgreSQL 16, 16 concurrent clients, 30 seconds per run.
+
+| Run | Load | Calls done | Failed | Median | p95 | p99 | Max |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| realistic | about 10 calls/s (98% refreshes, 2% orders) | 304 | 0 | 4.3 ms | 9.6 ms | 11.9 ms | 15.6 ms |
+| 10x | about 109 calls/s | 3,271 | 0 | 3.7 ms | 5.9 ms | 9.1 ms | 27.6 ms |
+| flat out | 1,312 calls/s | 39,356 | 0 | 10.6 ms | 25.5 ms | 34.8 ms | 66.5 ms |
+
+After the runs: 1,939 orders placed, 1,939 units taken from stock, 1,939 units in the saved orders
+(nothing oversold, nothing lost), no negative stock, no student over the 3-orders-per-pool cap.
+
+**What this proves.** The database design has a large margin: the stress case from section 11
+(about 11 refreshes/s) is 100 times below what one small machine did without errors, and the stock and
+cap rules held under concurrent writes.
+
+**What it does not prove.** It measures the database only. Supabase's free plan runs a smaller, shared
+machine, and requests also pass through its REST layer and the network. Treat it as headroom, and
+repeat the same script against a staging project of the same size before relying on a capacity number.
+The script fixed during this run: it used psql's `:'var'` quoting, which pgbench does not support.

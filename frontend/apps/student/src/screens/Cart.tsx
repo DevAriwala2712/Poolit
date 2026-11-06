@@ -63,7 +63,7 @@ export function Cart() {
             className={`flex items-center gap-3 p-3 ${i > 0 ? "border-t border-line" : ""}`}
           >
             <button onClick={() => navigate(`/product/${line.item.id}`)}>
-              <ProductArt art={line.item.art} tint={line.item.tint} size="sm" />
+              <ProductArt art={line.item.art} tint={line.item.tint} imagePath={line.item.imagePath} size="sm" />
             </button>
             <div className="min-w-0 flex-1">
               <p className="line-clamp-1 text-[13.5px] font-semibold text-ink">{line.item.name}</p>

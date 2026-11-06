@@ -31,7 +31,7 @@ export function ProductCard({ item, etaMinutes }: { item: MenuItem; etaMinutes: 
         className="text-left"
         aria-label={`View ${item.name}`}
       >
-        <ProductArt art={item.art} tint={item.tint} size="md" />
+        <ProductArt art={item.art} tint={item.tint} imagePath={item.imagePath} size="md" />
 
         <div className="mt-2 flex items-center gap-1.5">
           <span className="inline-flex items-center gap-1 rounded-md bg-cream-deep px-1.5 py-0.5 text-[10px] font-bold text-ink-soft">
