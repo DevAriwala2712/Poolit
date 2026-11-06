@@ -162,13 +162,49 @@ test("using it before the app has registered its Supabase client is a clear erro
   await assert.rejects(() => makeRpcApi(() => null).getHostels(), /not (set up|configured)/i);
 });
 
-// ---- the vendor console is not switched yet ----
+// ---- the vendor console ----
 
-test("vendor calls are refused with 501 until the console is switched", async () => {
+test("every vendor call uses its own function with the right argument names", async () => {
   const { rpc, calls } = fakeRpc({ data: {} });
   const api = makeRpcApi(() => rpc);
-  for (const call of [() => api.getVendorOverview(7), () => api.restockItem("m", 5), () => api.closeSlot("s"), () => api.getStaff("v")]) {
-    await assert.rejects(call, (e: unknown) => e instanceof ApiError && e.status === 501);
-  }
-  assert.equal(calls.length, 0, "nothing is sent for them");
+  const cases: [() => Promise<unknown>, string, Record<string, unknown> | undefined][] = [
+    [() => api.getVendorOverview(7), "api_vendor_overview", { p_days: 7 }],
+    [() => api.updateVendor("V", { acceptingOrders: false, prepMinutes: 8 }), "api_update_vendor", { p_vendor_id: "V", p_patch: { acceptingOrders: false, prepMinutes: 8 } }],
+    [() => api.createMenuItem("V", { name: "Cola", category: "Drinks", price: 45, unit: "750 ml", stockQty: 4 }), "api_create_menu_item", { p_vendor_id: "V", p_input: { name: "Cola", category: "Drinks", price: 45, unit: "750 ml", stockQty: 4 } }],
+    [() => api.getStaff("V"), "api_staff", { p_vendor_id: "V" }],
+    [() => api.createStaff("V", { name: "Ravi", role: "Packer", email: "r@x.com" }), "api_create_staff", { p_vendor_id: "V", p_name: "Ravi", p_role: "Packer", p_email: "r@x.com" }],
+    [() => api.createStaff("V", { name: "Sita", role: "Cook" }), "api_create_staff", { p_vendor_id: "V", p_name: "Sita", p_role: "Cook", p_email: null }],
+    [() => api.updateStaff("S", { status: "break" }), "api_update_staff", { p_staff_id: "S", p_patch: { status: "break" } }],
+    [() => api.deleteStaff("S"), "api_delete_staff", { p_staff_id: "S" }],
+    [() => api.getVendorOrders("V", "delivered"), "api_vendor_orders", { p_vendor_id: "V", p_status: "delivered" }],
+    [() => api.getVendorOrders("V"), "api_vendor_orders", { p_vendor_id: "V", p_status: null }],
+    [() => api.getSlotOrders("P"), "api_slot_orders", { p_slot_id: "P" }],
+    [() => api.getPickList("P"), "api_pick_list", { p_slot_id: "P" }],
+    [() => api.closeSlot("P"), "api_close_slot", { p_slot_id: "P" }],
+    [() => api.dispatchSlot("P"), "api_dispatch_slot", { p_slot_id: "P" }],
+    [() => api.markDelivered("O"), "api_mark_delivered", { p_order_id: "O" }],
+    [() => api.getInventory({ vendorId: "V", status: "low" }), "api_inventory", { p_vendor_id: "V", p_status: "low" }],
+    [() => api.getInventory(), "api_inventory", { p_vendor_id: null, p_status: null }],
+    [() => api.restockItem("M", 25), "api_restock_item", { p_item_id: "M", p_amount: 25 }],
+    [() => api.updateItem("M", { price: 60, lowStockThreshold: 3, barcode: null }), "api_update_menu_item", { p_item_id: "M", p_patch: { price: 60, lowStockThreshold: 3, barcode: null } }],
+    [() => api.generateBarcode("M"), "api_generate_barcode", { p_item_id: "M" }],
+    [() => api.generateMissingBarcodes("V"), "api_generate_missing_barcodes", { p_vendor_id: "V" }],
+    [() => api.adjustStock("M", { mode: "remove", qty: 2, reason: "damaged", note: "dropped" }), "api_adjust_stock", { p_item_id: "M", p_mode: "remove", p_qty: 2, p_reason: "damaged", p_note: "dropped" }],
+    [() => api.adjustStock("M", { mode: "set", qty: 40 }), "api_adjust_stock", { p_item_id: "M", p_mode: "set", p_qty: 40, p_reason: null, p_note: null }],
+    [() => api.getStockHistory("M"), "api_stock_history", { p_item_id: "M" }],
+    [() => api.getRestockLog("M"), "api_restock_log", { p_item_id: "M" }],
+  ];
+  for (const [call] of cases) await call();
+  assert.deepEqual(
+    calls.map((c) => ({ fn: c.fn, args: c.args })),
+    cases.map(([, fn, args]) => ({ fn, args })),
+  );
+});
+
+test("a vendor call refused for a non-vendor surfaces as a 403 with the store's message", async () => {
+  const { rpc } = fakeRpc({ error: { code: "PT403", message: "This account isn't a vendor account" } });
+  await assert.rejects(
+    () => makeRpcApi(() => rpc).getVendorOverview(7),
+    (e: unknown) => e instanceof ApiError && e.status === 403 && /isn't a vendor/.test(e.message),
+  );
 });
