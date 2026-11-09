@@ -76,7 +76,7 @@ export interface Slot {
   closesAt: number;
 }
 
-export type OrderStatus = "placed" | "pooled" | "dispatched" | "delivered";
+export type OrderStatus = "placed" | "pooled" | "dispatched" | "delivered" | "cancelled";
 
 export interface OrderLineItem {
   menuItemId: string;

@@ -103,6 +103,19 @@ export function makeRpcApi(getRpc: () => RpcCaller | null): Api {
       call("api_mark_delivered", { p_order_id: orderId, p_cash_collected_paise: cashCollectedPaise ?? null }),
     getCashSummary: (vendorId, day) => call("api_cash_summary", { p_vendor_id: vendorId, p_day: day ?? null }),
     getFeeStatement: (vendorId, from, to) => call("api_fee_statement", { p_vendor_id: vendorId, p_from: from, p_to: to }),
+    cancelOrder: (orderId) => call("api_cancel_order", { p_order_id: orderId }),
+    recordConsent: (version, ageConfirmed) => call("api_record_consent", { p_version: version, p_age_confirmed: ageConfirmed }),
+    exportMyData: () => call("api_export_my_data"),
+    deleteMyAccount: (confirm) => call("api_delete_my_account", { p_confirm: confirm }),
+    isAdmin: () => call("api_is_admin"),
+    getAuditLog: (params = {}) =>
+      call("api_audit_log", {
+        p_table: params.table ?? null,
+        p_row_id: params.rowId ?? null,
+        p_actor: params.actor ?? null,
+        p_before: params.before ?? null,
+        p_limit: params.limit ?? 100,
+      }),
     getInventory: (params = {}) => call("api_inventory", { p_vendor_id: params.vendorId ?? null, p_status: params.status ?? null }),
     restockItem: (itemId, amount, idempotencyKey) =>
       call("api_restock_item", { p_item_id: itemId, p_amount: amount, p_idempotency_key: idempotencyKey ?? null }),

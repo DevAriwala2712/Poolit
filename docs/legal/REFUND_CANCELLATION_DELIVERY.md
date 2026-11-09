@@ -1,12 +1,12 @@
 # Refund, Cancellation and Delivery policy (DRAFT for legal review)
 
 ## Facts this relies on
-- Today the app has **no in-app cancel or refund button**. A student contacts the grievance desk or the Store. Sections marked **(to build)** describe what the policy promises once the feature exists; do not publish a promise the product cannot keep.
+- The app has an in-app **Cancel order** button until the pool closes (built, tested). There is no in-app refund or later-cancel button: after the pool closes a student contacts the Store or the grievance desk. Sections marked **(to build)** describe what the policy promises once a feature exists; do not publish a promise the product cannot keep.
 - Payment today is cash on delivery, so most refund questions are "do not pay for what you did not get". UPI refunds arrive with payments (Phase 2).
 - The pool delivery fee is fixed when the pool closes. Items are priced at the time of order.
 
 ## Cancellation
-- **Before the pool closes:** you can ask to cancel; the Store removes the order and returns the stock. **(to build: a Cancel button until the pool closes.)**
+- **Before the pool closes:** tap **Cancel order** in Your orders; the order is cancelled, the items go back in stock and you are not charged.
 - **After the pool closes:** the Store has started packing. Cancel only if the Store agrees; otherwise the order is delivered as placed.
 - A Store that cannot supply an item cancels that item or the order and tells the student.
 

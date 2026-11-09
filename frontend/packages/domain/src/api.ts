@@ -109,6 +109,29 @@ export interface FeeStatement {
   commissionPaise: number;
 }
 
+/** Everything Poolit holds about a signed-in student (api_export_my_data). */
+export interface MyDataExport {
+  exportedAt: string;
+  account: { userId: string; phone?: string; email?: string };
+  profile: { name: string; hostelId?: string; block?: string; room?: string; createdAt?: string } | null;
+  consents: { version: string; ageConfirmed: boolean; acceptedAt: string }[];
+  orders: Order[];
+}
+
+/** One line of the activity log (api_audit_log); personal fields appear as "***". */
+export interface AuditEntry {
+  id: number;
+  at: number;
+  actor?: string;
+  actorEmail?: string;
+  actorRole?: string;
+  table: string;
+  op: "INSERT" | "UPDATE" | "DELETE";
+  rowId?: string;
+  old?: Record<string, unknown>;
+  new?: Record<string, unknown>;
+}
+
 export interface PlaceOrderInput {
   slotId: string;
   studentName: string;
@@ -289,6 +312,32 @@ const expressApi = {
   /** Commission statement for a date range. Only the Supabase backend has it. */
   getFeeStatement: async (_vendorId: string, _from: string, _to: string): Promise<FeeStatement> => {
     throw new ApiError(501, "The commission statement needs the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Cancel an order that is still waiting for its pool to close. Only the Supabase backend has it. */
+  cancelOrder: async (_orderId: string): Promise<{ message: string; order: Order }> => {
+    throw new ApiError(501, "Cancelling needs the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Record that the student accepted this version of the Terms and Privacy Policy and is 18 or older. */
+  recordConsent: async (_version: string, _ageConfirmed: boolean): Promise<{ version: string; acceptedAt: number }> => {
+    throw new ApiError(501, "Consent records need the new backend (VITE_BACKEND=supabase).");
+  },
+
+  exportMyData: async (): Promise<MyDataExport> => {
+    throw new ApiError(501, "Data download needs the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Erase the account. `confirm` must be the word DELETE. */
+  deleteMyAccount: async (_confirm: string): Promise<{ deleted: boolean }> => {
+    throw new ApiError(501, "Account deletion needs the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Whether the signed-in user is on the Poolit team. */
+  isAdmin: async (): Promise<boolean> => false,
+
+  getAuditLog: async (_params?: { table?: string; rowId?: string; actor?: string; before?: number; limit?: number }): Promise<AuditEntry[]> => {
+    throw new ApiError(501, "The activity log needs the new backend (VITE_BACKEND=supabase).");
   },
 
   getInventory: (params: { vendorId?: string; status?: "low" | "out" } = {}) => {

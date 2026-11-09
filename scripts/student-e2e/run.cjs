@@ -118,6 +118,18 @@ const check = (name, ok, detail = "") => {
 
   await page.getByRole("button", { name: /checkout|proceed|continue/i }).first().click().catch(() => {});
   await page.waitForURL(/checkout/, { timeout: 8000 }).catch(() => {});
+  // ---- 2b. consent before the first order ----
+  const consentHeading = page.getByText("Before you order");
+  await consentHeading.waitFor({ timeout: 8000 }).catch(() => {});
+  check("a signed-in student sees the consent screen before ordering", await consentHeading.isVisible());
+  const cont = page.getByRole("button", { name: "Continue", exact: true });
+  check("Continue stays off until they confirm they are 18+ and agree", await cont.isDisabled());
+  check("the consent screen links to the Terms and the Privacy Policy", (await page.getByRole("link", { name: "Terms of Use" }).count()) === 1 && (await page.getByRole("link", { name: "Privacy Policy" }).count()) === 1);
+  check("nothing is recorded yet", sql(`select count(*) from student_consents`) === "0");
+  await page.getByRole("checkbox").check();
+  await cont.click();
+  await page.waitForTimeout(1500);
+  check("accepting saves the consent on the server with the version", sql(`select version || '|' || age_confirmed from student_consents where user_id = '${STUDENT}'`) === "2026-11|true", sql(`select count(*) from student_consents`));
   const place = page.getByRole("button", { name: /Place order/i });
   await place.waitFor({ timeout: 8000 }).catch(() => {});
   const before = calls.length;
@@ -142,7 +154,49 @@ const check = (name, ok, detail = "") => {
   const ordersText = (await page.textContent("body")) || "";
   check("the Orders screen shows the order", /Maggi|Lays|Coca|Colgate|₹/.test(ordersText) && !/No orders/i.test(ordersText), ordersText.slice(0, 120));
 
-  const errors = calls.filter((c) => c[2] >= 400 && c[1] !== "api_place_order");
+  // ---- 6. an account cannot be deleted while an order is waiting ----
+  await page.goto(base + "/profile");
+  await page.getByRole("button", { name: "Delete my account" }).first().click();
+  await page.getByRole("textbox", { name: "Type DELETE to confirm" }).fill("DELETE");
+  await page.getByRole("button", { name: "Delete my account" }).last().click();
+  await page.waitForTimeout(1500);
+  check("deleting is refused while an order is in progress, with the reason", /order in progress/i.test((await page.textContent("body")) || ""));
+  check("and the account is untouched", sql(`select count(*) from auth.users where id = '${STUDENT}'`) === "1");
+
+  // ---- 7. cancelling an order that is still waiting for its pool ----
+  const orderRow = sql(`select id || '|' || (items->0->>'menuItemId') || '|' || (items->0->>'qty') from orders where student_id = '${STUDENT}' order by created_at desc limit 1`).split("|");
+  const stockNow = () => Number(sql(`select stock_qty from menu_items where id = '${orderRow[1]}'`));
+  const stockBeforeCancel = stockNow();
+  await page.goto(base + "/orders");
+  await page.getByRole("button", { name: "Cancel order" }).first().click();
+  check("cancelling asks for confirmation first", await page.getByText("Cancel this order?").isVisible());
+  await page.getByRole("button", { name: "Cancel order" }).last().click();
+  await page.waitForTimeout(2000);
+  check("confirming cancels the order in the database", sql(`select status from orders where id = '${orderRow[0]}'`) === "cancelled");
+  check("the items went back into stock", stockNow() === stockBeforeCancel + Number(orderRow[2]), `before ${stockBeforeCancel} after ${stockNow()}`);
+  check("the Orders screen now shows it as Cancelled under Past orders", /Past orders/.test((await page.textContent("body")) || "") && /Cancelled/.test((await page.textContent("body")) || ""));
+  check("and no Cancel button is left on it", (await page.getByRole("button", { name: "Cancel order" }).count()) === 0);
+
+  // ---- 8. downloading my data ----
+  await page.goto(base + "/profile");
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download my data" }).click()]);
+  const exported = JSON.parse(fs.readFileSync(await download.path(), "utf8"));
+  check("the download is a file named poolit-my-data.json", download.suggestedFilename() === "poolit-my-data.json");
+  check("it holds the account, the consent and the order", exported.account.userId === STUDENT && exported.consents.length === 1 && exported.consents[0].version === "2026-11" && exported.orders.length >= 1, JSON.stringify(exported).slice(0, 200));
+
+  // ---- 9. deleting my account ----
+  await page.getByRole("button", { name: "Delete my account" }).first().click();
+  const confirmDelete = page.getByRole("button", { name: "Delete my account" }).last();
+  check("deleting needs the word DELETE first", await confirmDelete.isDisabled());
+  await page.getByRole("textbox", { name: "Type DELETE to confirm" }).fill("DELETE");
+  await confirmDelete.click();
+  await page.waitForURL(/onboarding/, { timeout: 8000 }).catch(() => {});
+  check("the account is gone and the student is taken back to the start", /onboarding/.test(page.url()) && sql(`select count(*) from auth.users where id = '${STUDENT}'`) === "0", page.url());
+  check("their consent and profile are gone", sql(`select count(*) from student_consents where user_id = '${STUDENT}'`) === "0" && sql(`select count(*) from students where user_id = '${STUDENT}'`) === "0");
+  check("the order stays for the store, without the name", sql(`select student_name || '|' || coalesce(room, '-') from orders where id = '${orderRow[0]}'`) === "Deleted student|-");
+  check("and the audit log holds no trace of the name", sql(`select count(*) from audit_log where old_values::text like '%Anaya%' or new_values::text like '%Anaya%'`) === "0");
+
+  const errors = calls.filter((c) => c[2] >= 400 && c[1] !== "api_place_order" && !(c[1] === "api_delete_my_account" && c[2] === 409));
   check("no failed data calls during the whole run", errors.length === 0, JSON.stringify(errors));
 
   console.log("\ndata calls in order:", calls.map((c) => `${c[0]}s ${c[1]}${c[1] === "api_student_view" ? " " + c[3] : ""}`).join(" | "));

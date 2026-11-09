@@ -28,6 +28,7 @@ const STATUS_TONE: Record<OrderStatus, Tone> = {
   pooled: "ready",
   dispatched: "dispatched",
   delivered: "delivered",
+  cancelled: "error", // never shown: the database leaves cancelled orders out of store lists
 };
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -35,6 +36,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   pooled: "In Delivery Pool",
   dispatched: "Dispatched",
   delivered: "Delivered",
+  cancelled: "Cancelled",
 };
 
 const FILTERS: { key: OrderStatus | "all"; label: string }[] = [

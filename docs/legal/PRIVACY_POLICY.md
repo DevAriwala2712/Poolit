@@ -28,9 +28,9 @@ The database and sign-in run on **Supabase** (servers in Singapore). The app is 
 - Logs: at least 180 days (a legal requirement for security logs).
 
 ## Your rights, and how to use them
-- **See your data:** in the app, Profile, "Download my data" [to be added to the screen; the function exists].
+- **See your data:** in the app, Profile, "Download my data" (a JSON file).
 - **Correct it:** change your name, hostel, block or room in Profile.
-- **Delete your account:** in the app, Profile, "Delete my account" [to be added to the screen; the function exists]. Not possible while an order is on its way.
+- **Delete your account:** in the app, Profile, "Delete my account". Not possible while an order is on its way.
 - **Complain:** [GRIEVANCE OFFICER] (see the Grievance policy). You may also complain to the Data Protection Board of India.
 - **Nominate someone** to exercise these rights for you if you cannot: [process: LAWYER].
 

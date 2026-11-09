@@ -9,6 +9,7 @@ import {
 } from "@poolit/domain";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
+import { CancelOrderButton } from "../components/CancelOrderButton";
 import { ProductArt } from "../components/ProductArt";
 import { Badge, EmptyState } from "../components/ui";
 import { useCart } from "../state/CartContext";
@@ -23,8 +24,8 @@ export function Orders() {
   // The store only ever holds this signed-in student's own orders.
   const mine = [...orders].sort((a, b) => b.createdAt - a.createdAt);
 
-  const active = mine.filter((o) => o.status !== "delivered");
-  const past = mine.filter((o) => o.status === "delivered");
+  const active = mine.filter((o) => o.status !== "delivered" && o.status !== "cancelled");
+  const past = mine.filter((o) => o.status === "delivered" || o.status === "cancelled");
 
   function reorder(orderId: string) {
     const order = orders.find((o) => o.id === orderId);
@@ -151,12 +152,14 @@ function OrderCard({
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <Badge tone={order.status === "delivered" ? "lime" : "sun"}>
+          <Badge tone={order.status === "delivered" ? "lime" : order.status === "cancelled" ? "coral" : "sun"}>
             {ORDER_STAGE_LABEL[order.status]}
           </Badge>
           <Icon name="chevronRight" className="h-4 w-4 text-ink-faint" strokeWidth={2.4} />
         </div>
       </button>
+
+      <CancelOrderButton orderId={order.id} className="mt-3" />
 
       {onReorder && (
         <button

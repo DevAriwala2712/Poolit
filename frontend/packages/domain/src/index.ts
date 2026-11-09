@@ -9,9 +9,11 @@ export * from "./store";
 export { api, API_URL, ApiError, BACKEND, hasAuthToken, setAuthTokenProvider, setRpcCaller } from "./api";
 export type { RpcCaller, RpcError } from "./rpcApi";
 export type {
+  AuditEntry,
   CashSummary,
   FeeStatement,
   MeResponse,
+  MyDataExport,
   PlaceOrderInput,
   StockAdjustmentInput,
   StockAdjustmentReason,

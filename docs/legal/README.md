@@ -20,9 +20,12 @@ blank page. Square brackets mark things only you or your lawyer can fill in: `[C
 
 ## What exists in the product to support these documents
 
-Built and tested: an 18+ declaration is **not yet in the app** (the sign-up consent screen is still to
-build); students can **download their data** (`api_export_my_data`) and **delete their account**
-(`api_delete_my_account`, orders are kept with the name, room and note removed); cash on delivery
+Built and tested: a consent screen after sign-in (18+ confirmation and acceptance of the Terms and
+Privacy Policy, saved on the server with the version and time); students can **download their data**
+(`api_export_my_data`) and **delete their account** (`api_delete_my_account`, orders are kept with the
+name, room and note removed) from Profile; a **Cancel order** button until the pool closes; an
+**audit log** of every data change, with personal data masked; the in-app policy pages (text still
+marked draft until the placeholders are filled); cash on delivery
 records the cash taken; store commission is stored per store and written to a ledger per delivered
 order; retry-safe orders; encrypted off-site backups with a restore check.
 

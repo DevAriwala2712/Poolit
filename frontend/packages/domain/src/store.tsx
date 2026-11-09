@@ -51,6 +51,8 @@ interface StoreContextValue extends StoreData {
    */
   setHostelFocus: (hostelId: string | undefined) => void;
   placeOrder: (input: PlaceOrderInput) => Promise<Order>;
+  /** Cancel an order that is still waiting for its pool to close. */
+  cancelOrder: (orderId: string) => Promise<void>;
   closeSlot: (slotId: string) => Promise<void>;
   dispatchSlot: (slotId: string) => Promise<void>;
   /** Hand an order over; for cash on delivery pass the cash taken in paise (default: the amount due). */
@@ -254,6 +256,10 @@ export function StoreProvider({
         const order = await api.placeOrder(input);
         await refresh();
         return order;
+      }),
+      cancelOrder: mutate(async (orderId) => {
+        await api.cancelOrder(orderId);
+        await refresh();
       }),
       closeSlot: mutate(async (slotId) => {
         await api.closeSlot(slotId);

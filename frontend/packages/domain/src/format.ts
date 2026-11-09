@@ -30,6 +30,7 @@ export const ORDER_STAGE_LABEL: Record<OrderStatus, string> = {
   pooled: "Preparing",
   dispatched: "On the way",
   delivered: "Delivered",
+  cancelled: "Cancelled",
 };
 
 export const ORDER_STAGE_HINT: Record<OrderStatus, string> = {
@@ -37,6 +38,7 @@ export const ORDER_STAGE_HINT: Record<OrderStatus, string> = {
   pooled: "Your store is packing the pooled run",
   dispatched: "Out for delivery to your block",
   delivered: "Handed over — enjoy!",
+  cancelled: "You cancelled this order",
 };
 
 export function orderSubtotal(order: Order, menu: MenuItem[]): number {

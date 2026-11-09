@@ -166,6 +166,25 @@ platform_admins [icon: shield, color: gray, label: "platform_admins (Poolit staf
   user_id uuid pk
 }
 
+audit_log [icon: file-text, color: gray, label: "audit_log (who changed what, when; personal fields masked; kept 180 days; admins read it)"] {
+  id bigint pk
+  at timestamptz
+  actor uuid
+  actor_role text
+  table_name text
+  op text
+  row_id text
+  old_values jsonb
+  new_values jsonb
+}
+
+student_consents [icon: check-circle, color: purple, label: "student_consents (which policy version a student accepted, and that they are 18 or older)"] {
+  user_id uuid pk
+  version text pk
+  age_confirmed boolean
+  accepted_at timestamptz
+}
+
 // Relationships: many to one, from the foreign key to the table it points at
 vendors.hostel_id > hostels.id
 vendor_users.user_id > auth_users.id
@@ -187,6 +206,7 @@ vendor_fee_terms.vendor_id - vendors.id
 order_fee_ledger.order_id - orders.id
 order_fee_ledger.vendor_id > vendors.id
 platform_admins.user_id - auth_users.id
+student_consents.user_id > auth_users.id
 
 // Not a database relationship: menu_items.image_path names a file in the
 // product-images storage bucket, and each line inside orders.items names a

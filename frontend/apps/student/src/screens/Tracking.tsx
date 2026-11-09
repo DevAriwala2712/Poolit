@@ -10,6 +10,7 @@ import {
 } from "@poolit/domain";
 import type { OrderStatus } from "@poolit/domain";
 import { useNavigate, useParams } from "react-router-dom";
+import { CancelOrderButton } from "../components/CancelOrderButton";
 import { Icon } from "../components/Icon";
 import { PoolFeeCard } from "../components/PoolFeeCard";
 import { ProductArt } from "../components/ProductArt";
@@ -39,8 +40,9 @@ export function Tracking() {
     );
   }
 
+  const cancelled = order.status === "cancelled";
   const stageIndex = STAGES.indexOf(order.status);
-  const poolSize = poolCounts[slot.id] ?? orders.filter((o) => o.slotId === slot.id).length;
+  const poolSize = poolCounts[slot.id] ?? orders.filter((o) => o.slotId === slot.id && o.status !== "cancelled").length;
   const fee = order.deliveryFeeCharged ?? feeForOrderCount(poolSize);
   const subtotal = orderSubtotal(order, vendor.menu);
   const etaMinutes = vendor.prepMinutes + 4;
@@ -54,10 +56,10 @@ export function Tracking() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[12px] font-semibold text-cream/60">
-              {order.status === "delivered" ? "Delivered" : "Arriving in"}
+              {cancelled ? "Cancelled" : order.status === "delivered" ? "Delivered" : "Arriving in"}
             </p>
             <p className="mt-0.5 text-[32px] font-extrabold leading-none tracking-tight">
-              {order.status === "delivered" ? "Enjoy 🎉" : `${etaMinutes} mins`}
+              {cancelled ? "Not charged" : order.status === "delivered" ? "Enjoy 🎉" : `${etaMinutes} mins`}
             </p>
             <p className="mt-1.5 text-[13px] font-medium text-lime">
               {ORDER_STAGE_LABEL[order.status]}
@@ -65,11 +67,12 @@ export function Tracking() {
             <p className="text-[12px] text-cream/60">{ORDER_STAGE_HINT[order.status]}</p>
           </div>
           <span className="text-[44px]">
-            {order.status === "delivered" ? "✅" : order.status === "dispatched" ? "🛵" : "📦"}
+            {cancelled ? "🚫" : order.status === "delivered" ? "✅" : order.status === "dispatched" ? "🛵" : "📦"}
           </span>
         </div>
 
         {/* Stage rail */}
+        {!cancelled && (
         <div className="mt-5 flex items-center">
           {STAGES.map((stage, i) => {
             const done = i <= stageIndex;
@@ -103,10 +106,11 @@ export function Tracking() {
             );
           })}
         </div>
+        )}
       </section>
 
       {/* Live pool while still open */}
-      {slot.status === "open" && (
+      {slot.status === "open" && !cancelled && (
         <div className="mt-4 px-4">
           <p className="mb-2 px-1 text-[12.5px] font-semibold text-ink-soft">
             Pool closes in {countdown(slot.closesAt, now)} — your fee can still drop
@@ -218,7 +222,8 @@ export function Tracking() {
         </div>
       </section>
 
-      <div className="mt-5 px-4">
+      <div className="mt-5 space-y-3 px-4">
+        <CancelOrderButton orderId={order.id} />
         <Button full variant="outline" onClick={() => navigate("/")}>
           Back to store
         </Button>

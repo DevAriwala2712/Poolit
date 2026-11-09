@@ -250,7 +250,7 @@ begin
 
   -- The log keeps that this happened, not who it was.
   update audit_log set actor = null where actor = v_uid;
-  delete from audit_log where table_name = 'students' and row_id = v_uid::text;
+  delete from audit_log where table_name in ('students', 'student_consents') and row_id = v_uid::text;
   insert into audit_log (actor, actor_role, table_name, op, row_id)
   values (null, 'authenticated', 'students', 'DELETE', null);
   return jsonb_build_object('deleted', true);

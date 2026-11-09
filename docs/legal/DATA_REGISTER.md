@@ -12,6 +12,8 @@ Checked against the migrations in `supabase/migrations/` on 2026-11-06. Update w
 | Store fee terms, admin list | `vendor_fee_terms`, `platform_admins` | Store, Poolit staff | Billing, access | Poolit admins | While active | Manual |
 | Idempotency records | `idempotency_keys` | Student, store | Stop double orders | Nobody directly | Short-lived (clean-up job) | Clean-up job |
 | Product photos and names | Storage `product-images`, `menu_items` | Store | Show products | Everyone signed in | While listed | Store removes |
+| Consent: policy version, 18+ confirmation, time | `student_consents` | Student | Proof of consent | The student (export); Poolit | While the account exists | Account deletion |
+| Audit log: who changed what, when (personal fields masked as `***`) | `audit_log` | Students, stores, Poolit staff | Accountability, security | Poolit admins only | 180 days | Purged daily; the user id is cleared when an account is deleted |
 | Backups | Encrypted off-site bucket | All of the above | Recovery | Holders of the offline key | **[30 days]** | Expire by schedule |
 
 ## Processors and places
@@ -21,4 +23,4 @@ Supabase (Singapore region): database, sign-in, photo storage. Vercel or Cloudfl
 Location, contacts, photos of people, device identifiers beyond what sign-in needs, anyone under 18 (declaration to be added at sign-up).
 
 ## Rights built into the product
-Export: `api_export_my_data()`. Deletion: `api_delete_my_account('DELETE')` (blocked while an order is in progress, and for store or admin accounts). Both are tested in `supabase/tests/70_privacy.sql`. The two buttons in the student app screen are still to build.
+Export: `api_export_my_data()`. Deletion: `api_delete_my_account('DELETE')` (blocked while an order is in progress, and for store or admin accounts). Both are tested in `supabase/tests/70_privacy.sql` and have buttons in the student app's Profile screen.

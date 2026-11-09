@@ -30,13 +30,15 @@ Verified by running it, not by reading it. "Live" means applied to the Supabase 
 | Student app and vendor console on the database functions (`VITE_BACKEND=supabase`), Express path kept as rollback | Code done | Student e2e, vendor e2e 19/19, Express-path regression |
 | Faster buttons: stock and price changes show at once and are confirmed in the background; a refresh asked for during a poll now runs instead of being dropped | Code done | Vendor e2e on a simulated 1.5 s connection; mutation-checked |
 | Inventory: Undo after a restock, and a Fix stock panel (take away with a reason, or set an exact count) | Code done | Vendor e2e (35 checks) |
+| Student app: consent and 18+ screen, Cancel order, download my data, delete my account, in-app policy pages | Code done (migrations `cancel_order`, `consent` in repo, not yet live) | Student e2e 29 checks; `90_cancel_order`, `95_consent` |
+| Audit log of every data change, admin-readable, personal data masked, 180-day retention | Repo only (live apply waiting on a confirmation) | `80_audit_log`, mutation-checked |
 | Product photos in both apps (vendor Add/Edit photo, student pictures with emoji fallback) | Code done | `photo-e2e` |
 | Cash on delivery tracking, per-store commission or fixed fee, per-order fee ledger, store statements | **Live** (applied 6 Nov, `20261106064424_cod_and_fees.sql`) | `60_cod_and_fees.sql`, vendor e2e cash chip |
 | Student data export and account deletion functions | **Live** (applied 6 Nov, `20261106064449_privacy.sql`) | `70_privacy.sql`; app buttons not built |
 | Nightly encrypted backup, restore drill | Scripts tested locally; workflow untried on GitHub | `docs/BACKUP_AND_RESTORE.md` |
 | Database capacity test | Done locally | Section 16 of `SCALE_AND_IMAGES_ANALYSIS.md`: 1,312 calls/s flat out, p95 25 ms, no oversell |
 | Legal and policy drafts, runbooks | Drafted, **not reviewed by a lawyer** | `docs/legal/`, `docs/RUNBOOKS.md` |
-| Android app (Capacitor), UI consistency pass, sign-up consent and 18+ screen, privacy buttons, cancel button | **Not started** | |
+| Android app (Capacitor), UI consistency pass | **Not started** | |
 | UPI payments | Phase 2, not started | |
 
 **Done on 6 Nov:** the owner's account is in `platform_admins`.

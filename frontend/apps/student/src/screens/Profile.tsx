@@ -1,6 +1,7 @@
-import { rupees, useStore } from "@poolit/domain";
+import { ApiError, BACKEND, api, rupees, useStore } from "@poolit/domain";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ConfirmSheet } from "../components/ConfirmSheet";
 import { Icon } from "../components/Icon";
 import type { IconName } from "../components/Icon";
 import { ProductArt } from "../components/ProductArt";
@@ -22,6 +23,10 @@ export function Profile() {
   const toast = useToast();
   const [addressOpen, setAddressOpen] = useState(false);
   const [favOpen, setFavOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   const { session, phone, signOut } = useAuth();
   const myOrders = orders; // only the signed-in student's own orders
@@ -56,11 +61,48 @@ export function Profile() {
     },
     {
       icon: "chat",
-      label: "Help & support",
-      hint: "We reply in ~2 mins",
-      onClick: () => toast("Support chat coming soon", "info"),
+      label: "Help, terms and privacy",
+      hint: "Grievance contact, refunds, your rights",
+      onClick: () => navigate("/legal"),
     },
   ];
+
+  /** Saves everything Poolit holds about this student as a JSON file. */
+  async function downloadMyData() {
+    setDownloading(true);
+    try {
+      const data = await api.exportMyData();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "poolit-my-data.json";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("Your data was downloaded");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Couldn't download your data. Try again.", "info");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  async function deleteMyAccount() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.deleteMyAccount("DELETE");
+      setDeleteOpen(false);
+      cart.clear();
+      await signOut();
+      update({ name: "", onboarded: false });
+      toast("Your account was deleted");
+      navigate("/onboarding", { replace: true });
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : "Couldn't delete your account. Try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="pb-6">
@@ -142,6 +184,28 @@ export function Profile() {
         </div>
       </section>
 
+      {BACKEND === "supabase" && session && (
+        <section className="mx-4 mt-4">
+          <p className="mb-2 text-[13px] font-bold uppercase tracking-wide text-ink-soft">Your data</p>
+          <div className="space-y-2">
+            <Button full variant="outline" onClick={() => void downloadMyData()} disabled={downloading}>
+              {downloading ? "Preparing…" : "Download my data"}
+            </Button>
+            <Button
+              full
+              variant="ghost"
+              className="!text-coral"
+              onClick={() => {
+                setDeleteError(null);
+                setDeleteOpen(true);
+              }}
+            >
+              Delete my account
+            </Button>
+          </div>
+        </section>
+      )}
+
       <div className="mx-4 mt-6 space-y-2">
         <Button
           full
@@ -179,6 +243,18 @@ export function Profile() {
       </div>
 
       <p className="mt-6 text-center text-[11px] text-ink-faint">Poolit · Student app v1.0</p>
+
+      <ConfirmSheet
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Delete your account?"
+        message="This removes your login and saved details. Your past orders stay with the store for its accounts, but without your name, room or note. You can't undo this, and you can't delete while an order is on its way."
+        confirmLabel="Delete my account"
+        requireText="DELETE"
+        busy={deleting}
+        error={deleteError}
+        onConfirm={() => void deleteMyAccount()}
+      />
 
       <Sheet open={addressOpen} onClose={() => setAddressOpen(false)} title="Delivery address">
         <p className="text-[13px] text-ink-soft">{hostel.name}</p>

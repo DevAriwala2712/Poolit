@@ -23,7 +23,7 @@ Pools close by a minute-by-minute job (`poolit-sweep-slots`, `public.sweep_expir
 Signed in as a Poolit admin (a row in `platform_admins`): call `api_set_fee_terms` with the store, `percent` or `fixed_per_order`, and the value. `api_fee_statement` shows a store's delivered goods, fee and net for a date range (the store itself can read its own). Applied live on 6 Nov; grants and RLS checked there, but not yet exercised with a real admin login (no `platform_admins` row yet).
 
 ## 5. A student asks for their data or to be deleted
-1. They use the Profile buttons (**still to build**); until then an engineer runs, as that user's session, `select api_export_my_data();` and sends the JSON, or `select api_delete_my_account('DELETE');`.
+1. They use the Profile buttons (Download my data, Delete my account). If they cannot, an engineer runs `api_export_my_data()` or `api_delete_my_account('DELETE')` as that user.
 2. Deletion is refused while an order is in progress, and for store or admin accounts. Remove those by hand after checking nothing is owed.
 3. Record the request and the date (the grievance tracker) and reply within the legal time.
 
@@ -47,3 +47,9 @@ Vercel: Deployments, open the previous good one, Promote to production. The two 
 
 ## 10. The free plan limits you will hit first
 Egress (5 GB a month) and storage (1 GB) — check Settings, Usage weekly. Product photos are capped at 200 KB each by the upload rules (about 5,000 photos in 1 GB). The numbers and the plan upgrade point are in [SCALE_AND_IMAGES_ANALYSIS.md](SCALE_AND_IMAGES_ANALYSIS.md).
+
+## 11. Who changed this? (audit log)
+Every change to orders, students, pools, items, stores, staff, store logins, fees, the commission ledger, admins and stock history is recorded by database triggers, including edits made directly in the SQL editor. Signed in as a Poolit admin, call `api_audit_log` (filter by `p_table`, `p_row_id` for one order or item, or `p_actor`; page backwards with `p_before`). Personal fields show as `***`. Entries are kept 180 days, then purged nightly. Reads and sign-ins are not in this log; sign-ins are in Supabase's Auth logs, which the free plan keeps only briefly.
+
+## 12. A student cancelled, or says they could not
+A student can cancel only until the pool closes (the order becomes `cancelled`, stock returns, the fee of the others is worked out without it). After the pool closes the call is refused with 409 and they must contact the store. A cancelled order never shows in a store's lists.
