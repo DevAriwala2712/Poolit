@@ -17,7 +17,7 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
         <div className="flex h-16 w-16 animate-pulse items-center justify-center rounded-2xl bg-black p-3">
           <LogoMark className="h-full w-full" />
         </div>
-        <p className="text-[14px] font-semibold text-ink-soft">Loading your hostel store…</p>
+        <p className="text-body font-semibold text-ink-soft">Loading your hostel store…</p>
       </div>
     );
   }
@@ -29,8 +29,8 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
           📡
         </div>
         <p className="mt-1 text-[18px] font-bold text-ink">Can't reach Poolit</p>
-        <p className="max-w-[20rem] text-[13.5px] leading-relaxed text-ink-soft">{error}</p>
-        <p className="text-[11.5px] text-ink-faint">
+        <p className="max-w-[20rem] text-body-sm leading-relaxed text-ink-soft">{error}</p>
+        <p className="text-caption text-ink-faint">
           API: <span className="font-mono">{API_URL}</span>
         </p>
         <Button className="mt-3" onClick={() => void refresh()}>
@@ -48,9 +48,9 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
           🏪
         </div>
         <p className="mt-1 text-[18px] font-bold text-ink">No stores yet</p>
-        <p className="max-w-[20rem] text-[13.5px] leading-relaxed text-ink-soft">
+        <p className="max-w-[20rem] text-body-sm leading-relaxed text-ink-soft">
           The server is up but has no data. Seed it with{" "}
-          <span className="font-mono text-[12.5px]">npm run seed</span> in the backend.
+          <span className="font-mono text-small">npm run seed</span> in the backend.
         </p>
         <Button className="mt-3" onClick={() => void refresh()}>
           Try again

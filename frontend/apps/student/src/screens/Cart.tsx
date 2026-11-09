@@ -47,7 +47,7 @@ export function Cart() {
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lime text-ink">
             <Icon name="bolt" className="h-4 w-4" filled strokeWidth={0} />
           </span>
-          <p className="text-[12.5px] font-semibold leading-snug text-[#4c6b04]">
+          <p className="text-small font-semibold leading-snug text-[#4c6b04]">
             Pooling saves you {rupees(bill.savedVsSolo)} on this order
           </p>
         </div>
@@ -64,9 +64,9 @@ export function Cart() {
               <ProductArt art={line.item.art} tint={line.item.tint} imagePath={line.item.imagePath} size="sm" />
             </button>
             <div className="min-w-0 flex-1">
-              <p className="line-clamp-1 text-[13.5px] font-semibold text-ink">{line.item.name}</p>
-              <p className="text-[11.5px] text-ink-faint">{line.item.unit}</p>
-              <p className="mt-0.5 text-[13px] font-extrabold text-ink">{rupees(line.lineTotal)}</p>
+              <p className="line-clamp-1 text-body-sm font-semibold text-ink">{line.item.name}</p>
+              <p className="text-caption text-ink-faint">{line.item.unit}</p>
+              <p className="mt-0.5 text-body-sm font-extrabold text-ink">{rupees(line.lineTotal)}</p>
             </div>
             <QtyStepper
               qty={line.qty}
@@ -80,7 +80,7 @@ export function Cart() {
 
       <button
         onClick={() => navigate("/categories")}
-        className="mx-4 mt-3 flex w-[calc(100%-2rem)] items-center justify-center gap-2 rounded-2xl border border-dashed border-line py-3 text-[13.5px] font-semibold text-ink-soft"
+        className="mx-4 mt-3 flex w-[calc(100%-2rem)] items-center justify-center gap-2 rounded-2xl border border-dashed border-line py-3 text-body-sm font-semibold text-ink-soft"
       >
         <Icon name="plus" className="h-4 w-4" strokeWidth={2.4} />
         Add more items
@@ -88,8 +88,8 @@ export function Cart() {
 
       {/* Bill summary */}
       <div className="mx-4 mt-4 rounded-[var(--radius-card)] bg-surface p-4 shadow-[var(--shadow-soft)]">
-        <p className="text-[15px] font-bold text-ink">Bill summary</p>
-        <dl className="mt-3 space-y-2 text-[13.5px]">
+        <p className="text-lead font-bold text-ink">Bill summary</p>
+        <dl className="mt-3 space-y-2 text-body-sm">
           <BillRow label="Item total" value={rupees(bill.itemTotal)} />
           <BillRow
             label="Delivery fee"
@@ -101,12 +101,12 @@ export function Cart() {
           <BillRow label="Platform fee" value={rupees(bill.platformFee)} />
         </dl>
         <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
-          <span className="text-[15px] font-bold text-ink">To pay</span>
+          <span className="text-lead font-bold text-ink">To pay</span>
           <span className="text-[20px] font-extrabold text-ink">{rupees(bill.total)}</span>
         </div>
       </div>
 
-      <p className="mt-3 px-4 text-center text-[11.5px] text-ink-faint">
+      <p className="mt-3 px-4 text-center text-caption text-ink-faint">
         Delivered by {vendor?.name} · Pooled with {orderCount} other{orderCount === 1 ? "" : "s"}
       </p>
 
@@ -138,10 +138,10 @@ function BillRow({
     <div className="flex items-baseline justify-between gap-3">
       <dt className="text-ink-soft">
         {label}
-        {hint && <span className="ml-1.5 text-[11px] text-ink-faint">({hint})</span>}
+        {hint && <span className="ml-1.5 text-caption text-ink-faint">({hint})</span>}
       </dt>
       <dd className={`flex items-baseline gap-1.5 font-semibold ${accent ? "text-[#4c6b04]" : "text-ink"}`}>
-        {struck && <span className="text-[11.5px] font-medium text-ink-faint line-through">{struck}</span>}
+        {struck && <span className="text-caption font-medium text-ink-faint line-through">{struck}</span>}
         {value}
       </dd>
     </div>

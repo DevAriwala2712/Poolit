@@ -74,7 +74,7 @@ export function Categories() {
     <div className="pb-6">
       <header className="sticky top-0 z-30 bg-cream/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] backdrop-blur">
         <div className="flex items-center gap-2">
-          <div className="flex min-h-[46px] flex-1 items-center gap-2.5 rounded-2xl bg-surface px-3.5 shadow-[var(--shadow-soft)]">
+          <div className="flex min-h-[48px] flex-1 items-center gap-2.5 rounded-2xl bg-surface px-3.5 shadow-[var(--shadow-soft)]">
             <Icon name="search" className="h-[18px] w-[18px] text-ink-faint" />
             <input
               ref={inputRef}
@@ -84,7 +84,7 @@ export function Categories() {
                 if (params.get("focus")) setParams({}, { replace: true });
               }}
               placeholder="Search the store"
-              className="w-full bg-transparent text-[14px] font-medium text-ink outline-none placeholder:text-ink-faint"
+              className="w-full bg-transparent text-body font-medium text-ink outline-none placeholder:text-ink-faint"
             />
             {query ? (
               <button onClick={() => setQuery("")} aria-label="Clear">
@@ -101,7 +101,7 @@ export function Categories() {
           >
             <Icon name="filter" className="h-[18px] w-[18px] text-ink" />
             {activeFilterCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-coral px-1 text-[10px] font-extrabold text-white">
+              <span className="absolute -right-1 -top-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-coral px-1 text-micro font-extrabold text-white">
                 {activeFilterCount}
               </span>
             )}
@@ -120,7 +120,7 @@ export function Categories() {
         </div>
       </header>
 
-      <p className="px-4 pb-2 pt-1 text-[12.5px] font-medium text-ink-soft">
+      <p className="px-4 pb-2 pt-1 text-small font-medium text-ink-soft">
         {loading ? "Searching…" : `${results.length} ${results.length === 1 ? "item" : "items"}`}
       </p>
 
@@ -175,7 +175,7 @@ export function Categories() {
       >
         <div className="space-y-5 py-1">
           <div>
-            <p className="mb-2 text-[12px] font-bold uppercase tracking-wide text-ink-soft">Sort by</p>
+            <p className="mb-2 text-small font-bold uppercase tracking-wide text-ink-soft">Sort by</p>
             <div className="flex flex-wrap gap-2">
               {SORTS.map((s) => (
                 <Chip key={s.key} active={sort === s.key} onClick={() => setSort(s.key)}>
@@ -186,7 +186,7 @@ export function Categories() {
           </div>
 
           <div>
-            <p className="mb-2 text-[12px] font-bold uppercase tracking-wide text-ink-soft">Preference</p>
+            <p className="mb-2 text-small font-bold uppercase tracking-wide text-ink-soft">Preference</p>
             <div className="flex flex-wrap gap-2">
               <Chip active={diet === "all"} onClick={() => setDiet("all")}>All</Chip>
               <Chip active={diet === "veg"} onClick={() => setDiet("veg")}>Veg only</Chip>
@@ -196,8 +196,8 @@ export function Categories() {
 
           <div>
             <div className="mb-2 flex items-baseline justify-between">
-              <p className="text-[12px] font-bold uppercase tracking-wide text-ink-soft">Max price</p>
-              <span className="text-[13px] font-bold text-ink">₹{maxPrice}</span>
+              <p className="text-small font-bold uppercase tracking-wide text-ink-soft">Max price</p>
+              <span className="text-body-sm font-bold text-ink">₹{maxPrice}</span>
             </div>
             <input
               type="range"
@@ -214,7 +214,7 @@ export function Categories() {
             onClick={() => setInStockOnly((v) => !v)}
             className="flex w-full items-center justify-between rounded-2xl bg-surface p-3.5 shadow-[var(--shadow-soft)]"
           >
-            <span className="text-[14px] font-semibold text-ink">In stock only</span>
+            <span className="text-body font-semibold text-ink">In stock only</span>
             <span
               className={`flex h-6 w-11 items-center rounded-full p-0.5 transition ${
                 inStockOnly ? "bg-lime" : "bg-line"
@@ -228,7 +228,7 @@ export function Categories() {
             </span>
           </button>
 
-          <p className="text-[12px] text-ink-faint">
+          <p className="text-small text-ink-faint">
             {menu.filter((m) => stockState(m) === "out").length} items are currently sold out in this store.
           </p>
         </div>

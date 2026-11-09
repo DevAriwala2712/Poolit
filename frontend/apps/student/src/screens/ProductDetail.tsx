@@ -87,11 +87,11 @@ export function ProductDetail() {
         <h1 className="mt-2 text-[23px] font-extrabold leading-tight tracking-tight text-ink">
           {item.name}
         </h1>
-        <p className="text-[13.5px] text-ink-soft">{item.unit}</p>
+        <p className="text-body-sm text-ink-soft">{item.unit}</p>
 
         <div className="mt-2 flex items-center gap-3">
           <Rating value={item.rating} count={item.ratingCount} />
-          <span className="flex items-center gap-1 text-[11.5px] font-semibold text-ink-soft">
+          <span className="flex items-center gap-1 text-caption font-semibold text-ink-soft">
             <Icon name="clock" className="h-3 w-3" strokeWidth={2.4} />
             Delivered in {vendor?.prepMinutes ?? 8} mins
           </span>
@@ -104,12 +104,12 @@ export function ProductDetail() {
                 {rupees(item.price)}
               </span>
               {item.mrp && item.mrp > item.price && (
-                <span className="text-[14px] font-medium text-ink-faint line-through">
+                <span className="text-body font-medium text-ink-faint line-through">
                   {rupees(item.mrp)}
                 </span>
               )}
             </div>
-            <p className="mt-1 text-[11.5px] text-ink-faint">Inclusive of all taxes</p>
+            <p className="mt-1 text-caption text-ink-faint">Inclusive of all taxes</p>
           </div>
           <QtyStepper
             qty={qty}
@@ -125,17 +125,17 @@ export function ProductDetail() {
         </div>
 
         {low && (
-          <p className="mt-2 text-[12.5px] font-semibold text-coral">
+          <p className="mt-2 text-small font-semibold text-coral">
             Hurry — only {item.stockQty} left in your hostel's store.
           </p>
         )}
 
         <div className="mt-5 rounded-[var(--radius-card)] bg-lime-soft p-4">
-          <p className="flex items-center gap-1.5 text-[13px] font-bold text-[#4c6b04]">
+          <p className="flex items-center gap-1.5 text-body-sm font-bold text-[#4c6b04]">
             <Icon name="users" className="h-4 w-4" strokeWidth={2.2} />
             Pool this with your hostel
           </p>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-[#5c7d1a]">
+          <p className="mt-1 text-small leading-relaxed text-[#5c7d1a]">
             Your delivery fee drops automatically as more students order in the same window — down
             to free once 11 orders join.
           </p>
@@ -156,12 +156,12 @@ export function ProductDetail() {
                   >
                     <button onClick={() => navigate(`/product/${other.id}`)} className="text-left">
                       <ProductArt art={other.art} tint={other.tint} imagePath={other.imagePath} size="md" className="!h-[72px]" />
-                      <p className="mt-2 line-clamp-2 min-h-[2.4em] text-[12px] font-semibold leading-tight text-ink">
+                      <p className="mt-2 line-clamp-2 min-h-[2.4em] text-small font-semibold leading-tight text-ink">
                         {other.name}
                       </p>
                     </button>
                     <div className="mt-1.5 flex items-center justify-between gap-1">
-                      <span className="text-[13px] font-extrabold text-ink">{rupees(other.price)}</span>
+                      <span className="text-body-sm font-extrabold text-ink">{rupees(other.price)}</span>
                       <QtyStepper
                         qty={otherQty}
                         max={other.stockQty}

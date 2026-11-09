@@ -34,7 +34,7 @@ export function CancelOrderButton({ orderId, className = "" }: { orderId: string
     <>
       <button
         onClick={() => setOpen(true)}
-        className={`flex w-full items-center justify-center rounded-xl bg-coral-soft py-2.5 text-[13px] font-bold text-coral active:scale-[0.99] ${className}`}
+        className={`flex w-full items-center justify-center rounded-xl bg-coral-soft py-2.5 text-body-sm font-bold text-coral active:scale-[0.99] ${className}`}
       >
         Cancel order
       </button>

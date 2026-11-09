@@ -118,7 +118,7 @@ export function Profile() {
               placeholder="Add your name"
               className="w-full bg-transparent text-[19px] font-extrabold tracking-tight text-cream outline-none placeholder:text-cream/40"
             />
-            <p className="truncate text-[12.5px] text-cream/60">
+            <p className="truncate text-small text-cream/60">
               {hostel.name} · {profile.block}, Room {profile.room}
             </p>
           </div>
@@ -136,8 +136,8 @@ export function Profile() {
               <Icon name={row.icon} className="h-[18px] w-[18px]" strokeWidth={2.1} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-bold text-ink">{row.label}</span>
-              <span className="block truncate text-[12px] text-ink-soft">{row.hint}</span>
+              <span className="block text-body font-bold text-ink">{row.label}</span>
+              <span className="block truncate text-small text-ink-soft">{row.hint}</span>
             </span>
             <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-ink-faint" strokeWidth={2.4} />
           </button>
@@ -145,7 +145,7 @@ export function Profile() {
       </section>
 
       <section className="mx-4 mt-4">
-        <p className="mb-2 text-[13px] font-bold uppercase tracking-wide text-ink-soft">Switch hostel</p>
+        <p className="mb-2 text-body-sm font-bold uppercase tracking-wide text-ink-soft">Switch hostel</p>
         <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
           {hostels.map((h) => (
             <Chip
@@ -165,7 +165,7 @@ export function Profile() {
 
       {BACKEND === "supabase" && session && (
         <section className="mx-4 mt-4">
-          <p className="mb-2 text-[13px] font-bold uppercase tracking-wide text-ink-soft">Your data</p>
+          <p className="mb-2 text-body-sm font-bold uppercase tracking-wide text-ink-soft">Your data</p>
           <div className="space-y-2">
             <Button full variant="outline" onClick={() => void downloadMyData()} disabled={downloading}>
               {downloading ? "Preparing…" : "Download my data"}
@@ -221,7 +221,7 @@ export function Profile() {
         )}
       </div>
 
-      <p className="mt-6 text-center text-[11px] text-ink-faint">Poolit · Student app v1.0</p>
+      <p className="mt-6 text-center text-caption text-ink-faint">Poolit · Student app v1.0</p>
 
       <ConfirmSheet
         open={deleteOpen}
@@ -236,10 +236,10 @@ export function Profile() {
       />
 
       <Sheet open={addressOpen} onClose={() => setAddressOpen(false)} title="Delivery address">
-        <p className="text-[13px] text-ink-soft">{hostel.name}</p>
+        <p className="text-body-sm text-ink-soft">{hostel.name}</p>
         <div className="mt-3 space-y-3">
           <div>
-            <span className="text-[12px] font-semibold text-ink-soft">Block</span>
+            <span className="text-small font-semibold text-ink-soft">Block</span>
             <div className="mt-1.5 flex flex-wrap gap-2">
               {hostel.blocks.map((b) => (
                 <Chip key={b} active={profile.block === b} onClick={() => update({ block: b })}>
@@ -249,12 +249,12 @@ export function Profile() {
             </div>
           </div>
           <label className="block">
-            <span className="text-[12px] font-semibold text-ink-soft">Room number</span>
+            <span className="text-small font-semibold text-ink-soft">Room number</span>
             <input
               value={profile.room}
               onChange={(e) => update({ room: e.target.value.replace(/\D/g, "").slice(0, 4) })}
               inputMode="numeric"
-              className="mt-1.5 min-h-[46px] w-full rounded-2xl bg-surface px-4 text-[15px] font-medium text-ink shadow-[var(--shadow-soft)] outline-none focus:ring-2 focus:ring-lime"
+              className="mt-1.5 min-h-[48px] w-full rounded-2xl bg-surface px-4 text-lead font-medium text-ink shadow-[var(--shadow-soft)] outline-none focus:ring-2 focus:ring-lime"
             />
           </label>
         </div>
@@ -262,7 +262,7 @@ export function Profile() {
 
       <Sheet open={favOpen} onClose={() => setFavOpen(false)} title="Favourites">
         {favourites.length === 0 ? (
-          <p className="py-8 text-center text-[13.5px] text-ink-soft">
+          <p className="py-8 text-center text-body-sm text-ink-soft">
             Tap the heart on any product to save it here.
           </p>
         ) : (
@@ -271,8 +271,8 @@ export function Profile() {
               <div key={item.id} className="flex items-center gap-3 rounded-2xl bg-surface p-2.5 shadow-[var(--shadow-soft)]">
                 <ProductArt art={item.art} tint={item.tint} imagePath={item.imagePath} size="sm" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13.5px] font-semibold text-ink">{item.name}</p>
-                  <p className="text-[12px] font-bold text-ink">{rupees(item.price)}</p>
+                  <p className="truncate text-body-sm font-semibold text-ink">{item.name}</p>
+                  <p className="text-small font-bold text-ink">{rupees(item.price)}</p>
                 </div>
                 <button
                   onClick={() => toggleFavorite(item.id)}

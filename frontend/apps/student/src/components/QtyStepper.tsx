@@ -27,7 +27,7 @@ export function QtyStepper({
   if (disabled) {
     return (
       <span
-        className={`inline-flex ${h} ${w} items-center justify-center rounded-xl bg-cream-deep text-[12px] font-bold text-ink-faint`}
+        className={`inline-flex ${h} ${w} items-center justify-center rounded-xl bg-cream-deep text-small font-bold text-ink-faint`}
       >
         Sold out
       </span>
@@ -38,7 +38,7 @@ export function QtyStepper({
     return (
       <button
         onClick={onAdd}
-        className={`inline-flex ${h} ${w} items-center justify-center rounded-xl bg-lime-soft text-[13px] font-extrabold tracking-wide text-[#4c6b04] ring-1 ring-lime/50 transition active:scale-95`}
+        className={`inline-flex ${h} ${w} items-center justify-center rounded-xl bg-lime-soft text-body-sm font-extrabold tracking-wide text-[#4c6b04] ring-1 ring-lime/50 transition active:scale-95`}
       >
         ADD
       </button>
@@ -56,7 +56,7 @@ export function QtyStepper({
       >
         <Icon name="minus" className="h-4 w-4" strokeWidth={2.6} />
       </button>
-      <span className="text-[14px] font-extrabold tabular-nums">{qty}</span>
+      <span className="text-body font-extrabold tabular-nums">{qty}</span>
       <button
         onClick={onAdd}
         disabled={qty >= max}

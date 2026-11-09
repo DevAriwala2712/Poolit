@@ -31,7 +31,7 @@ export function Consent({ userId, onDone }: { userId: string; onDone: () => void
 
   return (
     <div className="flex min-h-screen flex-col bg-cream px-6 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-[calc(env(safe-area-inset-top)+24px)]">
-      <span className="flex items-center gap-1.5 text-[15px] font-extrabold tracking-tight text-ink">
+      <span className="flex items-center gap-1.5 text-lead font-extrabold tracking-tight text-ink">
         <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-black p-1.5">
           <LogoMark className="h-full w-full" />
         </span>
@@ -40,7 +40,7 @@ export function Consent({ userId, onDone }: { userId: string; onDone: () => void
 
       <div className="flex flex-1 flex-col justify-center">
         <h1 className="text-[28px] font-extrabold leading-tight tracking-tight text-ink">Before you order</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
+        <p className="mt-3 text-lead leading-relaxed text-ink-soft">
           Poolit saves your mobile number, name, hostel, block and room, and what you order, so your store can deliver to
           you. Your number is used to sign you in and is never sold. You can download your data or delete your account in
           Profile at any time.
@@ -53,7 +53,7 @@ export function Consent({ userId, onDone }: { userId: string; onDone: () => void
             onChange={(e) => setAgreed(e.target.checked)}
             className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-coral)]"
           />
-          <span className="text-[14px] leading-snug text-ink">
+          <span className="text-body leading-snug text-ink">
             I am 18 or older, and I agree to the{" "}
             <Link to="/legal/terms" className="font-semibold underline">
               Terms of Use
@@ -66,7 +66,7 @@ export function Consent({ userId, onDone }: { userId: string; onDone: () => void
           </span>
         </label>
 
-        {error && <p className="mt-3 rounded-xl bg-coral-soft px-3 py-2 text-[13px] text-coral">{error}</p>}
+        {error && <p className="mt-3 rounded-xl bg-coral-soft px-3 py-2 text-body-sm text-coral">{error}</p>}
       </div>
 
       <Button full onClick={() => void accept()} disabled={!agreed || busy}>

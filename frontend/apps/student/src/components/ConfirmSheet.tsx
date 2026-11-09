@@ -37,20 +37,20 @@ export function ConfirmSheet({
 
   return (
     <Sheet open={open} onClose={close} title={title}>
-      <p className="text-[14px] leading-relaxed text-ink-soft">{message}</p>
+      <p className="text-body leading-relaxed text-ink-soft">{message}</p>
       {requireText && (
         <label className="mt-3 block">
-          <span className="text-[12px] font-semibold text-ink-soft">Type {requireText} to confirm</span>
+          <span className="text-small font-semibold text-ink-soft">Type {requireText} to confirm</span>
           <input
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             autoCapitalize="characters"
             autoCorrect="off"
-            className="mt-1.5 min-h-[46px] w-full rounded-2xl bg-surface px-4 text-[16px] font-medium text-ink shadow-[var(--shadow-soft)] outline-none focus:ring-2 focus:ring-coral"
+            className="mt-1.5 min-h-[48px] w-full rounded-2xl bg-surface px-4 text-input font-medium text-ink shadow-[var(--shadow-soft)] outline-none focus:ring-2 focus:ring-coral"
           />
         </label>
       )}
-      {error && <p className="mt-3 rounded-xl bg-coral-soft px-3 py-2 text-[13px] text-coral">{error}</p>}
+      {error && <p className="mt-3 rounded-xl bg-coral-soft px-3 py-2 text-body-sm text-coral">{error}</p>}
       <div className="mt-4 flex gap-2">
         <Button variant="outline" full onClick={close} disabled={busy}>
           Keep it

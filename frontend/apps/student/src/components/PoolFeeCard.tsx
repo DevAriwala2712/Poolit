@@ -50,7 +50,7 @@ export function PoolFeeCard({
 
       <div className="relative flex items-start justify-between gap-3">
         <div>
-          <p className="flex items-center gap-1.5 text-[12px] font-semibold text-cream/60">
+          <p className="flex items-center gap-1.5 text-small font-semibold text-cream/60">
             <Icon name="users" className="h-3.5 w-3.5" />
             {orderCount} {orderCount === 1 ? "student" : "students"} pooling now
           </p>
@@ -62,11 +62,11 @@ export function PoolFeeCard({
             >
               {fee === 0 ? "FREE" : rupees(fee)}
             </span>
-            <span className="text-[12px] font-medium text-cream/50">delivery</span>
+            <span className="text-small font-medium text-cream/50">delivery</span>
           </div>
         </div>
 
-        <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-cream/10 px-2.5 py-1.5 text-[12px] font-bold tabular-nums text-cream">
+        <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-cream/10 px-2.5 py-1.5 text-small font-bold tabular-nums text-cream">
           <Icon name="clock" className="h-3.5 w-3.5 text-lime" />
           {countdown(closesAt, now)}
         </span>
@@ -84,7 +84,7 @@ export function PoolFeeCard({
         ))}
       </div>
 
-      <p className="relative mt-2.5 text-[12.5px] font-medium text-cream/70">
+      <p className="relative mt-2.5 text-small font-medium text-cream/70">
         {remaining === null ? (
           <span className="font-bold text-lime">Max pooling reached — delivery is free 🎉</span>
         ) : (

@@ -46,14 +46,14 @@ export function Onboarding() {
   return (
     <div className="flex min-h-screen flex-col bg-cream px-6 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-[calc(env(safe-area-inset-top)+20px)]">
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-[15px] font-extrabold tracking-tight text-ink">
+        <span className="flex items-center gap-1.5 text-lead font-extrabold tracking-tight text-ink">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-black p-1.5">
             <LogoMark className="h-full w-full" />
           </span>
           Poolit
         </span>
         {!isLast && (
-          <button onClick={finish} className="text-[13px] font-semibold text-ink-soft">
+          <button onClick={finish} className="text-body-sm font-semibold text-ink-soft">
             Skip
           </button>
         )}
@@ -69,18 +69,18 @@ export function Onboarding() {
         <h1 className="mt-8 whitespace-pre-line text-[30px] font-extrabold leading-[1.15] tracking-tight text-ink">
           {slide.title}
         </h1>
-        <p className="mt-3 max-w-[19rem] text-[15px] leading-relaxed text-ink-soft">{slide.body}</p>
+        <p className="mt-3 max-w-[19rem] text-lead leading-relaxed text-ink-soft">{slide.body}</p>
       </div>
 
       {isLast && (
         <div className="mb-6 space-y-3">
           <label className="block">
-            <span className="text-[12px] font-semibold text-ink-soft">Your name</span>
+            <span className="text-small font-semibold text-ink-soft">Your name</span>
             <input
               value={profile.name}
               onChange={(e) => update({ name: e.target.value })}
               placeholder="e.g. Priya"
-              className="mt-1 min-h-[48px] w-full rounded-2xl bg-surface px-4 text-[15px] font-medium text-ink shadow-[var(--shadow-soft)] outline-none placeholder:text-ink-faint focus:ring-2 focus:ring-lime"
+              className="mt-1 min-h-[48px] w-full rounded-2xl bg-surface px-4 text-lead font-medium text-ink shadow-[var(--shadow-soft)] outline-none placeholder:text-ink-faint focus:ring-2 focus:ring-lime"
             />
           </label>
 
@@ -98,10 +98,10 @@ export function Onboarding() {
               <Icon name={locationAsked ? "check" : "pin"} className="h-5 w-5" strokeWidth={2.2} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-bold text-ink">
+              <span className="block text-body font-bold text-ink">
                 {locationAsked ? "Location confirmed" : "Use my hostel location"}
               </span>
-              <span className="block truncate text-[12.5px] text-ink-soft">
+              <span className="block truncate text-small text-ink-soft">
                 {hostel.name} · {profile.block} · Room {profile.room}
               </span>
             </span>

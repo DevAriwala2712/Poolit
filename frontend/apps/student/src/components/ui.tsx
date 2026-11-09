@@ -30,7 +30,7 @@ export function Button({
   return (
     <button
       {...rest}
-      className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl px-5 text-[15px] font-semibold transition disabled:opacity-40 disabled:active:scale-100 ${buttonVariants[variant]} ${full ? "w-full" : ""} ${className}`}
+      className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl px-5 text-lead font-semibold transition disabled:opacity-40 disabled:active:scale-100 ${buttonVariants[variant]} ${full ? "w-full" : ""} ${className}`}
     >
       {icon && <Icon name={icon} className="h-[18px] w-[18px]" />}
       {children}
@@ -76,7 +76,7 @@ export function Chip({
   return (
     <button
       onClick={onClick}
-      className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition active:scale-95 ${
+      className={`inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full px-3.5 text-body-sm font-semibold transition active:scale-95 ${
         active
           ? "bg-ink text-cream"
           : "bg-surface text-ink-soft shadow-[var(--shadow-soft)]"
@@ -105,7 +105,7 @@ export function Badge({
   };
   return (
     <span
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${tones[tone]}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-caption font-bold ${tones[tone]}`}
     >
       {children}
     </span>
@@ -142,7 +142,7 @@ export function SectionHeader({
     <div className="mb-3 flex items-baseline justify-between gap-3 px-4">
       <h2 className="text-[17px] font-bold tracking-tight text-ink">{title}</h2>
       {action && (
-        <button onClick={onAction} className="text-[13px] font-semibold text-coral">
+        <button onClick={onAction} className="text-body-sm font-semibold text-coral">
           {action}
         </button>
       )}
@@ -192,7 +192,7 @@ export function EmptyState({
         {art}
       </div>
       <p className="mt-4 text-[17px] font-bold text-ink">{title}</p>
-      <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{body}</p>
+      <p className="mt-1 text-body leading-relaxed text-ink-soft">{body}</p>
       {action && (
         <Button variant="lime" className="mt-5" onClick={onAction}>
           {action}
@@ -206,7 +206,7 @@ export function EmptyState({
 
 export function Rating({ value, count }: { value: number; count?: number }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-ink-soft">
+    <span className="inline-flex items-center gap-1 text-caption font-semibold text-ink-soft">
       <Icon name="star" filled className="h-3 w-3 text-sun" strokeWidth={0} />
       {value.toFixed(1)}
       {count !== undefined && <span className="text-ink-faint">({count > 999 ? `${(count / 1000).toFixed(1)}k` : count})</span>}

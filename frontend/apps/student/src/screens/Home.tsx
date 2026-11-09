@@ -64,11 +64,11 @@ export function Home() {
       <header className="sticky top-0 z-30 bg-cream/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] backdrop-blur">
         <div className="flex items-center gap-3">
           <button onClick={() => setAddressOpen(true)} className="min-w-0 flex-1 text-left">
-            <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-coral">
+            <span className="flex items-center gap-1 text-caption font-bold uppercase tracking-wide text-coral">
               <Icon name="bolt" className="h-3 w-3" filled strokeWidth={0} />
               Delivery in {eta} mins
             </span>
-            <span className="mt-0.5 flex items-center gap-1 text-[15px] font-bold text-ink">
+            <span className="mt-0.5 flex items-center gap-1 text-lead font-bold text-ink">
               <span className="truncate">
                 {profile.block}, Room {profile.room}
               </span>
@@ -77,7 +77,7 @@ export function Home() {
           </button>
           <button
             onClick={() => navigate("/profile")}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink text-[13px] font-bold text-cream"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink text-body-sm font-bold text-cream"
           >
             {(profile.name || "S").charAt(0).toUpperCase()}
           </button>
@@ -85,10 +85,10 @@ export function Home() {
 
         <button
           onClick={() => navigate("/categories?focus=1")}
-          className="mt-3 flex min-h-[46px] w-full items-center gap-2.5 rounded-2xl bg-surface px-3.5 text-left shadow-[var(--shadow-soft)]"
+          className="mt-3 flex min-h-[48px] w-full items-center gap-2.5 rounded-2xl bg-surface px-3.5 text-left shadow-[var(--shadow-soft)]"
         >
           <Icon name="search" className="h-[18px] w-[18px] text-ink-faint" />
-          <span className="flex-1 text-[14px] text-ink-faint">Search "cold coffee"</span>
+          <span className="flex-1 text-body text-ink-faint">Search "cold coffee"</span>
           <Icon name="mic" className="h-[18px] w-[18px] text-coral" />
         </button>
       </header>
@@ -116,7 +116,7 @@ export function Home() {
                 >
                   {meta.art}
                 </div>
-                <p className="mt-1.5 text-[11.5px] font-semibold leading-tight text-ink">{cat}</p>
+                <p className="mt-1.5 text-caption font-semibold leading-tight text-ink">{cat}</p>
               </button>
             );
           })}
@@ -135,8 +135,8 @@ export function Home() {
             >
               <span className="text-[34px]">{offer.art}</span>
               <div className="min-w-0">
-                <p className="text-[15px] font-extrabold leading-tight text-ink">{offer.title}</p>
-                <p className="text-[12.5px] font-medium text-ink-soft">{offer.body}</p>
+                <p className="text-lead font-extrabold leading-tight text-ink">{offer.title}</p>
+                <p className="text-small font-medium text-ink-soft">{offer.body}</p>
               </div>
             </div>
           ))}
@@ -157,13 +157,13 @@ export function Home() {
               >
                 <button onClick={() => navigate(`/product/${item.id}`)} className="text-left">
                   <ProductArt art={item.art} tint={item.tint} imagePath={item.imagePath} size="md" className="!h-20" />
-                  <p className="mt-2 line-clamp-2 min-h-[2.4em] text-[12.5px] font-semibold leading-tight text-ink">
+                  <p className="mt-2 line-clamp-2 min-h-[2.4em] text-small font-semibold leading-tight text-ink">
                     {item.name}
                   </p>
-                  <p className="text-[11px] text-ink-faint">{item.unit}</p>
+                  <p className="text-caption text-ink-faint">{item.unit}</p>
                 </button>
                 <div className="mt-2 flex items-center justify-between gap-1">
-                  <span className="text-[13.5px] font-extrabold text-ink">{rupees(item.price)}</span>
+                  <span className="text-body-sm font-extrabold text-ink">{rupees(item.price)}</span>
                   <QtyStepper
                     qty={qty}
                     max={item.stockQty}
@@ -202,10 +202,10 @@ function AddressSheet({ open, onClose }: { open: boolean; onClose: () => void })
 
   return (
     <Sheet open={open} onClose={onClose} title="Delivery address">
-      <p className="text-[13px] text-ink-soft">{hostel.name}</p>
+      <p className="text-body-sm text-ink-soft">{hostel.name}</p>
       <div className="mt-3 space-y-3">
         <div>
-          <span className="text-[12px] font-semibold text-ink-soft">Block</span>
+          <span className="text-small font-semibold text-ink-soft">Block</span>
           <div className="mt-1.5 flex flex-wrap gap-2">
             {hostel.blocks.map((b) => (
               <Chip key={b} active={profile.block === b} onClick={() => update({ block: b })}>
@@ -215,12 +215,12 @@ function AddressSheet({ open, onClose }: { open: boolean; onClose: () => void })
           </div>
         </div>
         <label className="block">
-          <span className="text-[12px] font-semibold text-ink-soft">Room number</span>
+          <span className="text-small font-semibold text-ink-soft">Room number</span>
           <input
             value={profile.room}
             onChange={(e) => update({ room: e.target.value.replace(/\D/g, "").slice(0, 4) })}
             inputMode="numeric"
-            className="mt-1.5 min-h-[46px] w-full rounded-2xl bg-surface px-4 text-[15px] font-medium text-ink shadow-[var(--shadow-soft)] outline-none focus:ring-2 focus:ring-lime"
+            className="mt-1.5 min-h-[48px] w-full rounded-2xl bg-surface px-4 text-lead font-medium text-ink shadow-[var(--shadow-soft)] outline-none focus:ring-2 focus:ring-lime"
           />
         </label>
       </div>

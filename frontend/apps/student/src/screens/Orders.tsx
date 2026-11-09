@@ -65,7 +65,7 @@ export function Orders() {
 
       {active.length > 0 && (
         <section className="px-4">
-          <h2 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-ink-soft">
+          <h2 className="mb-2 text-body-sm font-bold uppercase tracking-wide text-ink-soft">
             Active
           </h2>
           <div className="space-y-3">
@@ -78,7 +78,7 @@ export function Orders() {
 
       {past.length > 0 && (
         <section className="mt-6 px-4">
-          <h2 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-ink-soft">
+          <h2 className="mb-2 text-body-sm font-bold uppercase tracking-wide text-ink-soft">
             Past orders
           </h2>
           <div className="space-y-3">
@@ -142,11 +142,11 @@ function OrderCard({
           ))}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-bold text-ink">{vendor.name}</p>
-          <p className="text-[12px] text-ink-soft">
+          <p className="truncate text-body font-bold text-ink">{vendor.name}</p>
+          <p className="text-small text-ink-soft">
             {orderItemCount(order)} items · {relativeDay(order.createdAt)}, {clockTime(order.createdAt)}
           </p>
-          <p className="mt-0.5 text-[13px] font-extrabold text-ink">
+          <p className="mt-0.5 text-body-sm font-extrabold text-ink">
             {rupees(total)}
           </p>
         </div>
@@ -163,7 +163,7 @@ function OrderCard({
       {onReorder && (
         <button
           onClick={onReorder}
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-lime-soft py-2.5 text-[13px] font-bold text-[#4c6b04] ring-1 ring-lime/40 active:scale-[0.99]"
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-lime-soft py-2.5 text-body-sm font-bold text-[#4c6b04] ring-1 ring-lime/40 active:scale-[0.99]"
         >
           <Icon name="receipt" className="h-4 w-4" strokeWidth={2.2} />
           Reorder
