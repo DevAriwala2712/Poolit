@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Text fonts are served from this app (no third-party request, work offline). */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/jetbrains-mono";
 
 /*
   Poolit Vendor Console — "Culinary Operations Command"
@@ -79,8 +82,8 @@
   --spacing-sidebar-width: 15rem;
   --spacing-sidebar-collapsed-width: 3.5rem;
 
-  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-sans: "Geist Variable", "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 html,

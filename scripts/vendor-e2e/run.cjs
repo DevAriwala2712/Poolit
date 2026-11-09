@@ -69,6 +69,9 @@ const check = (name, ok, detail = "") => {
   await page.getByText("Close Pool", { exact: false }).first().waitFor({ timeout: 25000 }).catch(() => {});
   check("the console loads the owner's store through one overview call", calls.filter((c) => c[1] === "api_vendor_overview").length >= 1 && calls.every((c) => c[2] === 200), JSON.stringify(calls));
   check("no call to the old Express API", expressCalls.length === 0, expressCalls.join());
+  const fontFiles = await page.evaluate(() => performance.getEntriesByType("resource").map((e) => e.name).filter((n) => /\.woff2/.test(n)));
+  check("the text fonts are served by the app itself, not a third party", fontFiles.some((n) => /geist/.test(n) && n.startsWith(base)) && fontFiles.some((n) => /jetbrains/.test(n) && n.startsWith(base)), JSON.stringify(fontFiles));
+  check("and are actually applied", await page.evaluate(() => document.fonts.check('16px "Geist Variable"') && document.fonts.check('12px "JetBrains Mono Variable"')));
   const body = (await page.textContent("body")) || "";
   check("the store and its waiting orders are on screen", /Yamuna/i.test(body) && /Rohan|Meera|Kabir|3 orders|3 /.test(body), body.slice(0, 160));
 

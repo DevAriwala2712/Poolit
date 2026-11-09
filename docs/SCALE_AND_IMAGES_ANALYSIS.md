@@ -457,3 +457,14 @@ cap rules held under concurrent writes.
 machine, and requests also pass through its REST layer and the network. Treat it as headroom, and
 repeat the same script against a staging project of the same size before relying on a capacity number.
 The script fixed during this run: it used psql's `:'var'` quoting, which pgbench does not support.
+
+## 17. Status of the UI consistency plan (9 Nov 2026)
+
+| Item from section 13 | State |
+| --- | --- |
+| 5. Self-host fonts | **Done for the vendor console's text fonts** (Geist and JetBrains Mono, about 70 KB, served by the app, checked in a real browser). The icon font (Material Symbols) is still loaded from Google: a self-hosted variable build is 1.5 to 4 MB, far larger than the small subset Google sends, so it stays until the icons used are known well enough to subset safely. |
+| Made-up content and inconsistent totals | **Done** (see the "Honesty pass" row in the production plan): no fake wallet, promo codes or invented vendor panels; totals include the platform fee. |
+| 1. Tokens (type, control height, radius, spacing) | Not started. Needs the before/after screenshot set first (item 3). |
+| 2. Shared pieces (toast, connection gate, auth, logo) | Not started. |
+| 3. Screenshot proof of no redesign | Not started; the Chromium runs could capture them. |
+| 4. One wording/format helper | Partly: `rupees`, `orderTotal` and the status labels are shared; dates and "pool" wording are not audited. |
