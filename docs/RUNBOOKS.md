@@ -53,3 +53,6 @@ Every change to orders, students, pools, items, stores, staff, store logins, fee
 
 ## 12. A student cancelled, or says they could not
 A student can cancel only until the pool closes (the order becomes `cancelled`, stock returns, the fee of the others is worked out without it). After the pool closes the call is refused with 409 and they must contact the store. A cancelled order never shows in a store's lists.
+
+## 13. Crashes in the apps
+Both apps report uncaught errors and unhandled rejections to `api_report_error` (new backend only). Same message on the same page is one row with a count; the page is stored without its query string; nothing personal is sent; 300 new kinds a minute at most; kept 30 days. Read them as a Poolit admin in the vendor console, Settings, Activity log, "Crash reports", or with `api_client_errors`. A render crash shows a "Something went wrong, Reload" screen instead of a blank page. There is no push alert yet: choose a destination and add a scheduled check.

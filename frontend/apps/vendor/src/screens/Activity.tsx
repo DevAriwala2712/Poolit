@@ -1,5 +1,5 @@
 import { ApiError, api } from "@poolit/domain";
-import type { AuditEntry } from "@poolit/domain";
+import type { AuditEntry, ClientErrorEntry } from "@poolit/domain";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Badge, Button, Card, EmptyState } from "../components/ui";
@@ -28,6 +28,7 @@ export function Activity() {
   const [more, setMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [crashes, setCrashes] = useState<ClientErrorEntry[]>([]);
 
   const load = useCallback(
     async (before?: number) => {
@@ -49,6 +50,11 @@ export function Activity() {
   useEffect(() => {
     if (admin) void load();
   }, [admin, load]);
+
+  useEffect(() => {
+    if (!admin) return;
+    api.getClientErrors(50).then(setCrashes).catch(() => setCrashes([]));
+  }, [admin]);
 
   if (!admin) {
     return (
@@ -79,6 +85,26 @@ export function Activity() {
           <Button size="sm" icon="refresh" onClick={() => void load()} disabled={loading}>Refresh</Button>
         </div>
         {error && <p className="mt-space-sm text-body-sm text-error">{error}</p>}
+      </Card>
+
+      <Card icon="bug_report" title="Crash reports" subtitle="Errors the apps reported, merged by message and page. Kept 30 days.">
+        {crashes.length === 0 ? (
+          <p className="text-body-md text-secondary">No crashes reported.</p>
+        ) : (
+          <ul className="divide-y divide-surface-container-low">
+            {crashes.map((c) => (
+              <li key={`${c.app}|${c.page}|${c.message}`} className="py-space-xs">
+                <div className="flex flex-wrap items-center gap-space-xs text-body-sm">
+                  <Badge tone="error" dot={false}>{c.app}</Badge>
+                  <span className="font-medium text-on-surface">{c.occurrences}×</span>
+                  <span className="text-secondary">last {new Date(c.lastAt).toLocaleString("en-IN")}</span>
+                  {c.page && <span className="font-mono text-label-sm text-secondary">{c.page}</span>}
+                </div>
+                <p className="break-words font-mono text-label-sm text-on-surface">{c.message}</p>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <Card flush>

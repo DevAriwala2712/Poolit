@@ -10,6 +10,7 @@ export { api, API_URL, ApiError, BACKEND, hasAuthToken, setAuthTokenProvider, se
 export type { RpcCaller, RpcError } from "./rpcApi";
 export type {
   AuditEntry,
+  ClientErrorEntry,
   CashSummary,
   FeeStatement,
   MeResponse,
@@ -21,3 +22,5 @@ export type {
   StudentProfile,
   StudentView,
 } from "./api";
+export { ErrorBoundary } from "./ErrorBoundary";
+export { installErrorReporting, reportError, resetErrorReporting } from "./errorReporting";

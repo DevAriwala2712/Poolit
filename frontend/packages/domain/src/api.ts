@@ -118,6 +118,18 @@ export interface MyDataExport {
   orders: Order[];
 }
 
+/** One kind of crash reported by the apps, with how often it happened. */
+export interface ClientErrorEntry {
+  app: "student" | "vendor";
+  message: string;
+  stack?: string;
+  page?: string;
+  userAgent?: string;
+  firstAt: number;
+  lastAt: number;
+  occurrences: number;
+}
+
 /** One line of the activity log (api_audit_log); personal fields appear as "***". */
 export interface AuditEntry {
   id: number;
@@ -336,6 +348,14 @@ const expressApi = {
   /** Poolit team only: set a store's commission ("percent" 0-50, or "fixed_per_order" rupees 0-100). */
   setFeeTerms: async (_vendorId: string, _feeType: "percent" | "fixed_per_order", _feeValue: number): Promise<{ vendorId: string; feeType: string; feeValue: number }> => {
     throw new ApiError(501, "Fee settings need the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Tell Poolit about a crash in the app (see errorReporting.ts). Does nothing on the old backend. */
+  reportError: async (_app: "student" | "vendor", _message: string, _stack?: string, _page?: string, _userAgent?: string): Promise<void> => {},
+
+  /** Poolit team only: crash reports from the apps, newest first. */
+  getClientErrors: async (_limit?: number): Promise<ClientErrorEntry[]> => {
+    throw new ApiError(501, "Error reports need the new backend (VITE_BACKEND=supabase).");
   },
 
   /** Whether the signed-in user is on the Poolit team. */

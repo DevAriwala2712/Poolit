@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { BACKEND, setRpcCaller } from "@poolit/domain";
+import { BACKEND, ErrorBoundary, installErrorReporting, setRpcCaller } from "@poolit/domain";
 import App from "./App";
 import "./index.css";
 import { supabase } from "./lib/supabaseClient";
@@ -10,10 +10,15 @@ import { supabase } from "./lib/supabaseClient";
 // this client (the same one that holds the student's login). Default: the Express API.
 if (BACKEND === "supabase") setRpcCaller(async (fn, args) => await supabase.rpc(fn, args));
 
+// Crashes are reported to Poolit (new backend only), so they are seen without anyone having to complain.
+installErrorReporting("student");
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </BrowserRouter>
   </StrictMode>,
 );

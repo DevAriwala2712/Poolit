@@ -211,6 +211,9 @@ const check = (name, ok, detail = "") => {
   await op.goto(base + "/activity");
   await op.getByText("Poolit team only").waitFor({ timeout: 10000 }).catch(() => {});
   check("an ordinary owner cannot open the activity log", /Poolit team only/.test((await op.textContent("body")) || ""));
+  await op.evaluate(() => { setTimeout(() => { throw new Error("e2e boom vendor"); }, 0); });
+  await op.waitForTimeout(1500);
+  check("an uncaught error in the vendor console is reported", sql(`select app from client_errors where message = 'e2e boom vendor'`) === "vendor");
   await ownerCtx.close();
 
   const adminCtx = await newContext(ADMIN);
@@ -227,6 +230,8 @@ const check = (name, ok, detail = "") => {
   check("and the statement now shows the new terms", /Current terms\s*10% of goods/.test((await ap.textContent("body")) || ""));
 
   await ap.getByText("Open the activity log").click();
+  await ap.getByText("e2e boom vendor").waitFor({ timeout: 10000 }).catch(() => {});
+  check("an admin sees the crash report in the activity screen", (await ap.getByText("e2e boom vendor").count()) >= 1 && (await ap.getByText("Crash reports").count()) === 1);
   await ap.getByText("Activity log").first().waitFor({ timeout: 10000 }).catch(() => {});
   await ap.waitForTimeout(1500);
   const logText = (await ap.textContent("body")) || "";

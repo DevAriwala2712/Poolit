@@ -172,6 +172,14 @@ const check = (name, ok, detail = "") => {
   const ordersText = (await page.textContent("body")) || "";
   check("the Orders screen shows the order", /Maggi|Lays|Coca|Colgate|₹/.test(ordersText) && !/No orders/i.test(ordersText), ordersText.slice(0, 120));
 
+  // ---- 5b. crashes are reported to Poolit ----
+  await page.evaluate(() => { setTimeout(() => { throw new Error("e2e boom student"); }, 0); });
+  await page.evaluate(() => { Promise.reject(new Error("e2e rejected student")); });
+  await page.waitForTimeout(1500);
+  check("an uncaught error in the student app is reported with the app and page", sql(`select app || '|' || page from client_errors where message = 'e2e boom student'`) === "student|/orders", sql(`select string_agg(message, ';') from client_errors`));
+  check("so is an unhandled promise rejection", sql(`select count(*) from client_errors where message = 'e2e rejected student'`) === "1");
+  check("a refused action the student already saw (a 4xx) is not reported as a crash", sql(`select count(*) from client_errors where message ilike '%order in progress%'`) === "0");
+
   // ---- 6. an account cannot be deleted while an order is waiting ----
   await page.goto(base + "/profile");
   check("Profile has no made-up wallet or free-money button", !/Hostel wallet|Add money/.test((await page.textContent("body")) || ""));

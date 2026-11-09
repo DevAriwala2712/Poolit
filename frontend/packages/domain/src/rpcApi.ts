@@ -109,6 +109,10 @@ export function makeRpcApi(getRpc: () => RpcCaller | null): Api {
     deleteMyAccount: (confirm) => call("api_delete_my_account", { p_confirm: confirm }),
     setFeeTerms: (vendorId, feeType, feeValue) =>
       call("api_set_fee_terms", { p_vendor_id: vendorId, p_fee_type: feeType, p_fee_value: feeValue }),
+    reportError: async (app, message, stack, page, userAgent) => {
+      await call("api_report_error", { p_app: app, p_message: message, p_stack: stack ?? null, p_page: page ?? null, p_user_agent: userAgent ?? null });
+    },
+    getClientErrors: (limit) => call("api_client_errors", { p_limit: limit ?? 100 }),
     isAdmin: () => call("api_is_admin"),
     getAuditLog: (params = {}) =>
       call("api_audit_log", {
