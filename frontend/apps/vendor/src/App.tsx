@@ -5,6 +5,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ConnectionGate } from "./components/ConnectionGate";
 import { LogoMark } from "./components/LogoMark";
 import { Shell } from "./components/Shell";
+import { Activity } from "./screens/Activity";
 import { Analytics } from "./screens/Analytics";
 import { Dashboard } from "./screens/Dashboard";
 import { Inventory } from "./screens/Inventory";
@@ -59,6 +60,7 @@ function AuthGate() {
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/analytics" element={<AdvancedOnly><Analytics /></AdvancedOnly>} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/activity" element={<Activity />} />
               </Route>
               {/* Full-screen, outside the Shell chrome — built for a phone at the shelf. */}
               <Route

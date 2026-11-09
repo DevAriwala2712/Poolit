@@ -2,10 +2,13 @@ import { SLOT_DURATION_MINUTES, feeForOrderCount, rupees, useStore } from "@pool
 import type { StaffMember } from "@poolit/domain";
 import { api } from "@poolit/domain";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card } from "../components/ui";
 import { useAuth } from "../state/AuthContext";
 import { useUIMode } from "../state/UIModeContext";
+import { CommissionCard } from "../components/CommissionCard";
+import { useIsAdmin } from "../hooks/useIsAdmin";
 import { useVendor } from "../state/VendorContext";
 
 const TABS = ["Store Profile", "Delivery & Pooling", "Kitchen SLA & Ops", "Team & Roles", "Settlement & Hardware"];
@@ -15,6 +18,7 @@ export function Settings() {
   const { refresh, updateVendorSettings } = useStore();
   const { session, signOut } = useAuth();
   const { advancedMode, setAdvancedMode } = useUIMode();
+  const admin = useIsAdmin();
   const [tab, setTab] = useState(TABS[0]);
   const [accepting, setAccepting] = useState(vendor.acceptingOrders);
   const [prep, setPrep] = useState(vendor.prepMinutes);
@@ -358,19 +362,11 @@ export function Settings() {
         </div>
 
         <div className="flex flex-col gap-space-md lg:col-span-4">
-          {advancedMode && (
-            <Card icon="account_balance_wallet" title="Direct Settlement" subtitle="Treasury Route">
-              <p className="text-label-sm uppercase tracking-wide text-secondary">Scheduled Next Payout (04:00 AM IST)</p>
-              <p className="text-headline-lg text-on-surface">₹42,680.00</p>
-              <div className="mt-space-xs h-1.5 overflow-hidden rounded-full bg-surface-container">
-                <div className="h-full w-[78%] rounded-full bg-primary" />
-              </div>
-              <p className="mt-space-2xs text-label-sm text-secondary">78% of Daily Liquidity Cleared</p>
-              <div className="mt-space-sm space-y-1.5 text-body-sm">
-                <Row label="Gateway Engine" value="Razorpay Campus Treasury" />
-                <Row label="Merchant ID" value={`TIET_${vendor.name.split(" ")[0]?.toUpperCase()}_01`} />
-              </div>
-              <Button size="sm" icon="receipt_long" className="mt-space-sm w-full justify-center">Audit Settlement Logs</Button>
+          <CommissionCard vendorId={vendor.id} />
+
+          {admin && (
+            <Card icon="history" title="Activity log" subtitle="Who changed what, and when">
+              <Link to="/activity" className="text-body-md text-primary underline">Open the activity log</Link>
             </Card>
           )}
 
@@ -443,15 +439,6 @@ function Peripheral({ icon, name, hint, status }: { icon: string; name: string; 
         <p className="text-label-sm text-secondary">{hint}</p>
       </div>
       <span className="text-label-sm text-tertiary">{status}</span>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between text-secondary">
-      <span>{label}</span>
-      <span className="text-on-surface">{value}</span>
     </div>
   );
 }

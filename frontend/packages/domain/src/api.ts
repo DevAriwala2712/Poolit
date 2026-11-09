@@ -333,6 +333,11 @@ const expressApi = {
     throw new ApiError(501, "Account deletion needs the new backend (VITE_BACKEND=supabase).");
   },
 
+  /** Poolit team only: set a store's commission ("percent" 0-50, or "fixed_per_order" rupees 0-100). */
+  setFeeTerms: async (_vendorId: string, _feeType: "percent" | "fixed_per_order", _feeValue: number): Promise<{ vendorId: string; feeType: string; feeValue: number }> => {
+    throw new ApiError(501, "Fee settings need the new backend (VITE_BACKEND=supabase).");
+  },
+
   /** Whether the signed-in user is on the Poolit team. */
   isAdmin: async (): Promise<boolean> => false,
 

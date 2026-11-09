@@ -190,6 +190,59 @@ const check = (name, ok, detail = "") => {
   rest.delayMs = 0;
   await ctx.close();
 
+  // ---------- 1b. commission statement, fee settings and the activity log ----------
+  const ADMIN = "d0000000-0000-4000-8000-000000000009";
+  sql(`insert into auth.users (id, email) values ('${ADMIN}', 'admin@example.com') on conflict do nothing; insert into vendor_users (user_id, vendor_id, role) values ('${ADMIN}', '${YAMUNA_STORE}', 'owner') on conflict do nothing; insert into platform_admins (user_id) values ('${ADMIN}') on conflict do nothing`);
+
+  const ownerCtx = await newContext(OWNER);
+  const op = await ownerCtx.newPage();
+  op.on("pageerror", (e) => console.log("PAGE ERROR", e.message));
+  await op.goto(base + "/settings");
+  await op.getByText("Commission statement").waitFor({ timeout: 15000 }).catch(() => {});
+  const ownerSettings = (await op.textContent("body")) || "";
+  check("the store's Settings has a commission statement", /Commission statement/.test(ownerSettings) && /Delivered orders/.test(ownerSettings), ownerSettings.slice(0, 120));
+  check("with no terms set it says so", /Current terms\s*Not set yet/.test(ownerSettings), ownerSettings.slice(0, 300));
+  check("the made-up settlement card is gone", !/Razorpay Campus Treasury|42,680/.test(ownerSettings));
+  check("an ordinary owner gets no fee form and no activity link", !/set this store.s commission/i.test(ownerSettings) && !/Open the activity log/.test(ownerSettings));
+  await op.goto(base + "/activity");
+  await op.getByText("Poolit team only").waitFor({ timeout: 10000 }).catch(() => {});
+  check("an ordinary owner cannot open the activity log", /Poolit team only/.test((await op.textContent("body")) || ""));
+  await ownerCtx.close();
+
+  const adminCtx = await newContext(ADMIN);
+  const ap = await adminCtx.newPage();
+  ap.on("pageerror", (e) => console.log("PAGE ERROR", e.message));
+  await ap.goto(base + "/settings");
+  await ap.getByLabel("Commission value").waitFor({ timeout: 15000 }).catch(() => {});
+  check("a Poolit admin sees the fee form", (await ap.getByLabel("Commission value").count()) === 1);
+  check("and the link to the activity log", (await ap.getByText("Open the activity log").count()) === 1);
+  await ap.getByLabel("Commission value").fill("10");
+  await ap.getByRole("button", { name: "Save", exact: true }).click();
+  await ap.waitForTimeout(2500);
+  check("saving sets 10 percent for the store in the database", sql(`select fee_type || ':' || fee_value from vendor_fee_terms where vendor_id = '${YAMUNA_STORE}'`) === "percent:10", sql(`select count(*) from vendor_fee_terms`));
+  check("and the statement now shows the new terms", /Current terms\s*10% of goods/.test((await ap.textContent("body")) || ""));
+
+  await ap.getByText("Open the activity log").click();
+  await ap.getByText("Activity log").first().waitFor({ timeout: 10000 }).catch(() => {});
+  await ap.waitForTimeout(1500);
+  const logText = (await ap.textContent("body")) || "";
+  check("the activity log shows the fee change, with who made it", /vendor_fee_terms/.test(logText) && /admin@example\.com/.test(logText), logText.slice(0, 200));
+  check("and shows personal details only as ***", !/Rohan|Meera|Kabir/.test(logText.replace(/Activity log/g, "")) && /\*\*\*/.test(logText));
+  await ap.getByLabel("Filter by table").selectOption("vendor_fee_terms");
+  await ap.waitForTimeout(1500);
+  const filtered = (await ap.locator("li").allTextContents()).join("\n");
+  check("filtering by table shows only that table", /vendor_fee_terms/.test(filtered) && !/orders/.test(filtered.replace(/Delivered orders/g, "")), filtered.slice(0, 160));
+  sql(`insert into audit_log (table_name, op, row_id) select 'hostels', 'UPDATE', g::text from generate_series(1, 40) g`); // enough to fill more than one page
+  await ap.getByLabel("Filter by table").selectOption("");
+  await ap.waitForTimeout(1200);
+  const before50 = await ap.locator("li").count();
+  const older = ap.getByRole("button", { name: "Load older" });
+  check("a full page offers Load older", before50 >= 50 && (await older.count()) === 1, `rows ${before50}`);
+  await older.click();
+  await ap.waitForTimeout(1500);
+  check("and loading older adds more rows", (await ap.locator("li").count()) > before50);
+  await adminCtx.close();
+
   // ---------- 2. a student (not a vendor) cannot use the console ----------
   const sctx = await newContext(STUDENT);
   const spage = await sctx.newPage();

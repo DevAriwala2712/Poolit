@@ -25,6 +25,7 @@ const TITLES: Record<string, { crumb: string; sub: string }> = {
   "/orders": { crumb: "Orders Management", sub: "Accept, prepare and dispatch pooled runs." },
   "/inventory": { crumb: "Inventory Management", sub: "SKU realtime stock & prep." },
   "/analytics": { crumb: "Analytics & Performance Review", sub: "Revenue, volume and peak hours." },
+  "/activity": { crumb: "Activity Log", sub: "Who changed what, and when." },
   "/settings": { crumb: "Store Operations & Settings", sub: "Store profile, pooling rules, kitchen SLA & dispatch parameters." },
 };
 

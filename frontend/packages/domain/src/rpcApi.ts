@@ -107,6 +107,8 @@ export function makeRpcApi(getRpc: () => RpcCaller | null): Api {
     recordConsent: (version, ageConfirmed) => call("api_record_consent", { p_version: version, p_age_confirmed: ageConfirmed }),
     exportMyData: () => call("api_export_my_data"),
     deleteMyAccount: (confirm) => call("api_delete_my_account", { p_confirm: confirm }),
+    setFeeTerms: (vendorId, feeType, feeValue) =>
+      call("api_set_fee_terms", { p_vendor_id: vendorId, p_fee_type: feeType, p_fee_value: feeValue }),
     isAdmin: () => call("api_is_admin"),
     getAuditLog: (params = {}) =>
       call("api_audit_log", {

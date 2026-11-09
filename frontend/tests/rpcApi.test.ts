@@ -193,6 +193,7 @@ test("every vendor call uses its own function with the right argument names", as
     [() => api.recordConsent("2026-11", true), "api_record_consent", { p_version: "2026-11", p_age_confirmed: true }],
     [() => api.exportMyData(), "api_export_my_data", undefined],
     [() => api.deleteMyAccount("DELETE"), "api_delete_my_account", { p_confirm: "DELETE" }],
+    [() => api.setFeeTerms("V", "percent", 5), "api_set_fee_terms", { p_vendor_id: "V", p_fee_type: "percent", p_fee_value: 5 }],
     [() => api.isAdmin(), "api_is_admin", undefined],
     [() => api.getAuditLog({ table: "orders", limit: 20 }), "api_audit_log", { p_table: "orders", p_row_id: null, p_actor: null, p_before: null, p_limit: 20 }],
     [() => api.getInventory({ vendorId: "V", status: "low" }), "api_inventory", { p_vendor_id: "V", p_status: "low" }],
