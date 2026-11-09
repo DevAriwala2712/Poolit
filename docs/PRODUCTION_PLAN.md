@@ -33,6 +33,7 @@ Verified by running it, not by reading it. "Live" means applied to the Supabase 
 | Student app: consent and 18+ screen, Cancel order, download my data, delete my account, in-app policy pages | Code done (migrations `cancel_order`, `consent` in repo, not yet live) | Student e2e 29 checks; `90_cancel_order`, `95_consent` |
 | Audit log of every data change, admin-readable, personal data masked, 180-day retention | Repo only (live apply waiting on a confirmation) | `80_audit_log`, mutation-checked |
 | Vendor console: real commission statement (replaces a made-up settlement card), admin fee form, admin activity log screen | Code done | Vendor e2e 49 checks |
+| Honesty pass: cash on delivery is the only payment offered until UPI exists; fake wallet, promo codes, invented vendor hardware/settlement/telemetry panels and non-functional Settings tabs removed; order totals now include the ₹4 platform fee and frozen prices, and say "to pay on delivery" instead of "paid" | Code done | Student e2e 41, vendor e2e 50 |
 | Product photos in both apps (vendor Add/Edit photo, student pictures with emoji fallback) | Code done | `photo-e2e` |
 | Cash on delivery tracking, per-store commission or fixed fee, per-order fee ledger, store statements | **Live** (applied 6 Nov, `20261106064424_cod_and_fees.sql`) | `60_cod_and_fees.sql`, vendor e2e cash chip |
 | Student data export and account deletion functions | **Live** (applied 6 Nov, `20261106064449_privacy.sql`) | `70_privacy.sql`; app buttons not built |

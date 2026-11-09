@@ -1,3 +1,4 @@
+import { PLATFORM_FEE } from "./constants";
 import type { MenuItem, Order, OrderStatus } from "./types";
 
 export function rupees(amount: number): string {
@@ -41,11 +42,23 @@ export const ORDER_STAGE_HINT: Record<OrderStatus, string> = {
   cancelled: "You cancelled this order",
 };
 
+/** Goods value in rupees: the price frozen when the order was placed, else today's menu price. */
 export function orderSubtotal(order: Order, menu: MenuItem[]): number {
+  if (order.subtotalPaise !== undefined) return order.subtotalPaise / 100;
   return order.items.reduce(
     (sum, line) => sum + (menu.find((m) => m.id === line.menuItemId)?.price ?? 0) * line.qty,
     0,
   );
+}
+
+/**
+ * What the student pays for an order, in rupees: goods + delivery fee + tip + platform fee.
+ * Once the pool has closed the server states the exact amount; before that `fee` is the
+ * estimate for the pool as it stands.
+ */
+export function orderTotal(order: Order, menu: MenuItem[], fee: number): number {
+  if (order.amountDuePaise !== undefined) return order.amountDuePaise / 100;
+  return orderSubtotal(order, menu) + fee + (order.tip ?? 0) + PLATFORM_FEE;
 }
 
 export function orderItemCount(order: Order): number {

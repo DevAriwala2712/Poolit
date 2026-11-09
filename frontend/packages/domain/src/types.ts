@@ -94,6 +94,8 @@ export interface Order {
   status: OrderStatus;
   /** Locked in once the slot closes; undefined while the slot is still open. */
   deliveryFeeCharged?: number;
+  /** Goods value in paise at the prices frozen when the order was placed. */
+  subtotalPaise?: number;
   /** Everything the student pays, in paise: goods + delivery + platform fee + tip. Known once the delivery fee is locked. */
   amountDuePaise?: number;
   /** Cash taken at the door for a cash on delivery order, in paise, once handed over. */

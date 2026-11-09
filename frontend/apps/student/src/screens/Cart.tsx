@@ -1,11 +1,10 @@
 import { rupees } from "@poolit/domain";
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { PoolFeeCard } from "../components/PoolFeeCard";
 import { ProductArt } from "../components/ProductArt";
 import { QtyStepper } from "../components/QtyStepper";
-import { Badge, Button, EmptyState } from "../components/ui";
+import { Button, EmptyState } from "../components/ui";
 import { useBill } from "../hooks/useBill";
 import { useHostelContext } from "../hooks/useHostelContext";
 import { useCart } from "../state/CartContext";
@@ -14,8 +13,7 @@ export function Cart() {
   const navigate = useNavigate();
   const cart = useCart();
   const { slot, orderCount, vendor } = useHostelContext();
-  const [promo, setPromo] = useState("");
-  const bill = useBill({ promo });
+  const bill = useBill();
 
   if (bill.isEmpty) {
     return (
@@ -88,28 +86,6 @@ export function Cart() {
         Add more items
       </button>
 
-      {/* Promo */}
-      <div className="mx-4 mt-4 rounded-[var(--radius-card)] bg-surface p-3.5 shadow-[var(--shadow-soft)]">
-        <div className="flex items-center gap-2.5">
-          <Icon name="tag" className="h-[18px] w-[18px] shrink-0 text-coral" />
-          <input
-            value={promo}
-            onChange={(e) => setPromo(e.target.value.toUpperCase())}
-            placeholder="Enter promo code"
-            className="w-full bg-transparent text-[14px] font-semibold tracking-wide text-ink outline-none placeholder:font-medium placeholder:tracking-normal placeholder:text-ink-faint"
-          />
-          {bill.promoValid === true && <Badge tone="lime">Applied</Badge>}
-        </div>
-        {bill.promoValid === true && bill.promoLabel && (
-          <p className="mt-1.5 pl-7 text-[12px] font-medium text-[#4c6b04]">{bill.promoLabel}</p>
-        )}
-        {bill.promoValid === false && (
-          <p className="mt-1.5 pl-7 text-[12px] font-medium text-coral">
-            That code isn't valid. Try HOSTEL50.
-          </p>
-        )}
-      </div>
-
       {/* Bill summary */}
       <div className="mx-4 mt-4 rounded-[var(--radius-card)] bg-surface p-4 shadow-[var(--shadow-soft)]">
         <p className="text-[15px] font-bold text-ink">Bill summary</p>
@@ -123,9 +99,6 @@ export function Cart() {
             struck={bill.savedVsSolo > 0 ? rupees(20) : undefined}
           />
           <BillRow label="Platform fee" value={rupees(bill.platformFee)} />
-          {bill.promoDiscount > 0 && (
-            <BillRow label="Promo discount" value={`− ${rupees(bill.promoDiscount)}`} accent />
-          )}
         </dl>
         <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
           <span className="text-[15px] font-bold text-ink">To pay</span>

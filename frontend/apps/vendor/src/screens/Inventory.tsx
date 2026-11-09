@@ -468,39 +468,6 @@ export function Inventory() {
         <div className="px-space-md py-space-sm text-label-sm text-secondary">Showing {rows.length} of {pool.length} items</div>
       </Card>
 
-      {/* Decorative — future hardware/automation integrations */}
-      {advancedMode && (
-        <div className="grid grid-cols-1 gap-space-md lg:grid-cols-3">
-          <Card title="Auto-Order Webhook" action={<Badge tone="ready" dot={false}>Ready</Badge>}>
-            <p className="text-body-sm text-secondary">
-              Trigger vendor delivery slips directly once minimum inventory threshold is crossed on Campus Central DB.
-            </p>
-            <div className="mt-space-sm flex items-center justify-between text-body-sm">
-              <span className="text-secondary">Supplier: Metro Cash & Fresh Prep</span>
-              <span className="text-primary">Configure →</span>
-            </div>
-          </Card>
-          <Card title="Cold Holding Storage #02" action={<span className="flex items-center gap-space-2xs text-body-sm text-tertiary"><span className="h-2 w-2 rounded-full bg-tertiary" />3.8°C</span>}>
-            <p className="text-body-sm text-secondary">
-              Refrigeration sensor reading steady within safe compliance bounds for raw meat & dairy bases.
-            </p>
-            <div className="mt-space-sm flex items-center justify-between text-body-sm">
-              <span className="text-secondary">Chamber: Unit E-Walkin</span>
-              <span className="text-tertiary">Nominal</span>
-            </div>
-          </Card>
-          <Card title="Prep Consumption Run" action={<span className="text-body-sm text-secondary">1.4x Rush Factor</span>}>
-            <div className="h-1.5 overflow-hidden rounded-full bg-surface-container">
-              <div className="h-full w-[78%] rounded-full bg-primary" />
-            </div>
-            <div className="mt-space-sm flex items-center justify-between text-body-sm">
-              <span className="text-secondary">Peak rush: 12:30 PM - 2:00 PM</span>
-              <span className="text-primary">78% cap</span>
-            </div>
-          </Card>
-        </div>
-      )}
-
       <AddItemModal
         open={addItemOpen}
         onClose={() => setAddItemOpen(false)}

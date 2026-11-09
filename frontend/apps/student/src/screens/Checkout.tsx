@@ -11,11 +11,10 @@ import { useProfile } from "../state/ProfileContext";
 import { useToast } from "../state/ToastContext";
 import { ScreenHeader } from "./Cart";
 
+// Cash on delivery is the only way to pay until online payment (UPI) is built. Offering UPI,
+// a wallet or a card now would record a method that nobody is ever charged for.
 const PAYMENTS: { id: string; label: string; hint: string; icon: IconName }[] = [
-  { id: "upi", label: "UPI", hint: "GPay · PhonePe · Paytm", icon: "bolt" },
-  { id: "wallet", label: "Hostel wallet", hint: "Balance ₹480", icon: "wallet" },
-  { id: "card", label: "Card", hint: "Visa · Mastercard · RuPay", icon: "shield" },
-  { id: "cod", label: "Cash on delivery", hint: "Pay the rider directly", icon: "tag" },
+  { id: "cod", label: "Cash on delivery", hint: "Pay the store's delivery staff at your door", icon: "tag" },
 ];
 
 export function Checkout() {
@@ -27,7 +26,7 @@ export function Checkout() {
   const { placeOrder } = useStore();
 
   const [tip, setTip] = useState(0);
-  const [payment, setPayment] = useState("upi");
+  const [payment, setPayment] = useState("cod");
   const [note, setNote] = useState("");
   const [placing, setPlacing] = useState(false);
   // One key per intended order: if the reply is lost and the student taps again, the
@@ -135,6 +134,7 @@ export function Checkout() {
             );
           })}
         </div>
+        <p className="mt-2 text-[12px] text-ink-faint">Online payment (UPI) is coming soon.</p>
       </section>
 
       {/* Tip */}

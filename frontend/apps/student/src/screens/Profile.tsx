@@ -123,27 +123,6 @@ export function Profile() {
             </p>
           </div>
         </div>
-
-        <div className="mt-5 flex items-center justify-between rounded-2xl bg-cream/10 p-3.5">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-lime text-ink">
-              <Icon name="wallet" className="h-[18px] w-[18px]" strokeWidth={2.1} />
-            </span>
-            <div>
-              <p className="text-[11.5px] text-cream/60">Hostel wallet</p>
-              <p className="text-[17px] font-extrabold leading-tight">{rupees(profile.walletBalance)}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              update({ walletBalance: profile.walletBalance + 200 });
-              toast("₹200 added to wallet");
-            }}
-            className="rounded-xl bg-lime px-3.5 py-2 text-[12.5px] font-bold text-ink"
-          >
-            Add money
-          </button>
-        </div>
       </header>
 
       <section className="mx-4 -mt-3 overflow-hidden rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-soft)]">

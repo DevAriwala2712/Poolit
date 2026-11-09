@@ -3,7 +3,10 @@ import {
   ORDER_STAGE_LABEL,
   countdown,
   feeForOrderCount,
+  PLATFORM_FEE,
+  isCashOnDelivery,
   orderSubtotal,
+  orderTotal,
   rider,
   rupees,
   useStore,
@@ -206,6 +209,10 @@ export function Tracking() {
               {fee === 0 ? "FREE" : rupees(fee)}
             </span>
           </div>
+          <div className="flex justify-between text-ink-soft">
+            <span>Platform fee</span>
+            <span className="font-semibold text-ink">{rupees(PLATFORM_FEE)}</span>
+          </div>
           {order.tip ? (
             <div className="flex justify-between text-ink-soft">
               <span>Rider tip</span>
@@ -213,11 +220,11 @@ export function Tracking() {
             </div>
           ) : null}
           <div className="flex justify-between border-t border-line pt-2 text-[15px] font-bold text-ink">
-            <span>Total paid</span>
-            <span>{rupees(subtotal + fee + (order.tip ?? 0))}</span>
+            <span>{isCashOnDelivery(order.paymentMethod) && order.status !== "delivered" && order.status !== "cancelled" ? "To pay on delivery" : "Total"}</span>
+            <span>{rupees(orderTotal(order, vendor.menu, fee))}</span>
           </div>
           {order.paymentMethod && (
-            <p className="pt-0.5 text-[11.5px] text-ink-faint">Paid via {order.paymentMethod}</p>
+            <p className="pt-0.5 text-[11.5px] text-ink-faint">Payment: {order.paymentMethod}</p>
           )}
         </div>
       </section>

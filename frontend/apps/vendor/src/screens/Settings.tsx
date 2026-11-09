@@ -11,7 +11,6 @@ import { CommissionCard } from "../components/CommissionCard";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { useVendor } from "../state/VendorContext";
 
-const TABS = ["Store Profile", "Delivery & Pooling", "Kitchen SLA & Ops", "Team & Roles", "Settlement & Hardware"];
 
 export function Settings() {
   const { vendor, hostel } = useVendor();
@@ -19,7 +18,6 @@ export function Settings() {
   const { session, signOut } = useAuth();
   const { advancedMode, setAdvancedMode } = useUIMode();
   const admin = useIsAdmin();
-  const [tab, setTab] = useState(TABS[0]);
   const [accepting, setAccepting] = useState(vendor.acceptingOrders);
   const [prep, setPrep] = useState(vendor.prepMinutes);
   const [batchWindow, setBatchWindow] = useState(vendor.poolWindowMinutes ?? SLOT_DURATION_MINUTES);
@@ -143,22 +141,6 @@ export function Settings() {
         />
       </Card>
 
-      {advancedMode && (
-        <div className="flex flex-wrap items-center gap-space-xs">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`rounded px-space-sm py-space-xs text-body-sm transition ${
-                tab === t ? "bg-primary-container text-on-primary-container" : "bg-surface-container-lowest text-secondary shadow-sm hover:bg-surface-container"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      )}
-
       <div className="grid grid-cols-1 gap-space-md lg:grid-cols-12">
         <div className="flex flex-col gap-space-md lg:col-span-8">
           <Card icon="storefront" title="Station Identifier" subtitle={`${vendor.name} · ${hostel?.name ?? "—"}`}>
@@ -193,7 +175,7 @@ export function Settings() {
           </Card>
 
           {advancedMode && (
-            <Card icon="local_shipping" title="Campus Pooling & Batch Optimization" action={<span className="rounded bg-secondary-container px-space-xs py-space-2xs text-label-sm text-on-secondary-container">Algo v4.2 Active</span>}>
+            <Card icon="local_shipping" title="Campus Pooling & Batch Optimization">
             <div className="mt-space-sm grid grid-cols-1 gap-space-md sm:grid-cols-2">
               <div>
                 <div className="flex items-center justify-between">
@@ -370,17 +352,6 @@ export function Settings() {
             </Card>
           )}
 
-          {advancedMode && (
-            <Card title="Peripheral Topology" action={<span className="text-label-sm text-secondary">3/3 Online</span>}>
-              <div className="space-y-space-sm">
-                <Peripheral icon="print" name="Star Micronics TSP143" hint="KOT Station 1 · IP 192.168.1.104" status="Connected" />
-                <Peripheral icon="tablet" name="iPad Air Line Expeditor" hint="Battery 94% · Sync Latency 14ms" status="Active" />
-                <Peripheral icon="qr_code_scanner" name="Zebra DS2208 Handheld" hint="Runner Handshake Barcode" status="Paired" />
-              </div>
-              <Button size="sm" icon="network_ping" className="mt-space-sm w-full justify-center">Ping Local Devices</Button>
-            </Card>
-          )}
-
           <Card title="Account" subtitle="Signed in to the vendor console">
             <div className="flex items-center justify-between rounded-lg bg-surface-container-low p-space-sm">
               <div className="min-w-0">
@@ -427,18 +398,5 @@ function ToggleRow({
         <span className={`h-4 w-4 rounded-full bg-surface-container-lowest transition-transform ${checked ? "translate-x-4" : "translate-x-0"}`} />
       </span>
     </button>
-  );
-}
-
-function Peripheral({ icon, name, hint, status }: { icon: string; name: string; hint: string; status: string }) {
-  return (
-    <div className="flex items-center gap-space-sm rounded-lg bg-surface-container-low p-space-sm">
-      <MaterialIcon name={icon} className="text-[16px] text-secondary" />
-      <div className="min-w-0 flex-1">
-        <p className="text-body-sm text-on-surface">{name}</p>
-        <p className="text-label-sm text-secondary">{hint}</p>
-      </div>
-      <span className="text-label-sm text-tertiary">{status}</span>
-    </div>
   );
 }

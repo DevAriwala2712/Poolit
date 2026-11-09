@@ -203,6 +203,7 @@ const check = (name, ok, detail = "") => {
   check("the store's Settings has a commission statement", /Commission statement/.test(ownerSettings) && /Delivered orders/.test(ownerSettings), ownerSettings.slice(0, 120));
   check("with no terms set it says so", /Current terms\s*Not set yet/.test(ownerSettings), ownerSettings.slice(0, 300));
   check("the made-up settlement card is gone", !/Razorpay Campus Treasury|42,680/.test(ownerSettings));
+  check("Settings no longer shows invented hardware, tabs or algorithm labels", !/Peripheral Topology|Star Micronics|Settlement & Hardware|Algo v4/.test(ownerSettings));
   check("an ordinary owner gets no fee form and no activity link", !/set this store.s commission/i.test(ownerSettings) && !/Open the activity log/.test(ownerSettings));
   await op.goto(base + "/activity");
   await op.getByText("Poolit team only").waitFor({ timeout: 10000 }).catch(() => {});

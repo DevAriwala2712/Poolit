@@ -2,7 +2,6 @@ import { orderSubtotal, rupees, useStore } from "@poolit/domain";
 import { useMemo, useState } from "react";
 import { AreaChart, HBarList, Heatmap } from "../components/charts";
 import { KpiCard } from "../components/KpiCard";
-import { MaterialIcon } from "../components/MaterialIcon";
 import { Button, Card } from "../components/ui";
 import { useMetrics, pctDelta } from "../hooks/useMetrics";
 import { useVendor } from "../state/VendorContext";
@@ -188,14 +187,6 @@ export function Analytics() {
             formatValue={(v) => String(v)}
           />
         </Card>
-      </div>
-
-      {/* Decorative — future audit/monitoring wiring */}
-      <div className="flex flex-wrap items-center justify-between gap-space-xs rounded-lg bg-surface-container-lowest px-space-md py-space-sm text-label-sm text-secondary shadow-sm">
-        <span className="flex items-center gap-space-xs">
-          <MaterialIcon name="verified" className="text-[14px] text-tertiary" /> POS Sync Validated · Report Generation: Automatic 04:00 UTC
-        </span>
-        <span>Operator: Central Dispatch Hub · SLA Integrity Index: 98.8%</span>
       </div>
     </div>
   );

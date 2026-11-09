@@ -1,7 +1,7 @@
 import {
   ORDER_STAGE_LABEL,
   orderItemCount,
-  orderSubtotal,
+  orderTotal,
   relativeDay,
   clockTime,
   rupees,
@@ -120,8 +120,7 @@ function OrderCard({
   const vendor = vendors.find((v) => v.id === slot?.vendorId);
   if (!vendor) return null;
 
-  const subtotal = orderSubtotal(order, vendor.menu);
-  const fee = order.deliveryFeeCharged ?? 0;
+  const total = orderTotal(order, vendor.menu, order.deliveryFeeCharged ?? 0);
   const arts = order.items
     .map((l) => vendor.menu.find((m) => m.id === l.menuItemId))
     .filter(Boolean)
@@ -148,7 +147,7 @@ function OrderCard({
             {orderItemCount(order)} items · {relativeDay(order.createdAt)}, {clockTime(order.createdAt)}
           </p>
           <p className="mt-0.5 text-[13px] font-extrabold text-ink">
-            {rupees(subtotal + fee + (order.tip ?? 0))}
+            {rupees(total)}
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">

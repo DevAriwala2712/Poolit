@@ -115,6 +115,9 @@ const check = (name, ok, detail = "") => {
   await page.goto(base + "/cart");
   const hasCart = await page.getByText(/maggi|lays|coca|colgate/i).first().isVisible().catch(() => false);
   check("the item is in the cart", hasCart);
+  const cartText = (await page.textContent("body")) || "";
+  check("the cart has no promo code box (promo codes were never applied by the server)", !/promo/i.test(cartText), cartText.slice(0, 100));
+  check("the bill shows the platform fee", /Platform fee/.test(cartText) && /₹4(?!\d)/.test(cartText));
 
   await page.getByRole("button", { name: /checkout|proceed|continue/i }).first().click().catch(() => {});
   await page.waitForURL(/checkout/, { timeout: 8000 }).catch(() => {});
@@ -131,6 +134,9 @@ const check = (name, ok, detail = "") => {
   await page.waitForTimeout(1500);
   check("accepting saves the consent on the server with the version", sql(`select version || '|' || age_confirmed from student_consents where user_id = '${STUDENT}'`) === "2026-11|true", sql(`select count(*) from student_consents`));
   const place = page.getByRole("button", { name: /Place order/i });
+  const checkoutText = (await page.textContent("body")) || "";
+  check("cash on delivery is the only payment method offered", /Cash on delivery/.test(checkoutText) && !/Hostel wallet|Visa|GPay/.test(checkoutText), checkoutText.slice(0, 160));
+  check("it says online payment is coming soon", /UPI\) is coming soon/.test(checkoutText));
   await place.waitFor({ timeout: 8000 }).catch(() => {});
   const before = calls.length;
   await place.click().catch(() => {});
@@ -141,6 +147,18 @@ const check = (name, ok, detail = "") => {
   const order = sql(`select student_id || '|' || student_name || '|' || status || '|' || coalesce(subtotal_paise::text,'') from orders order by created_at desc limit 1`);
   check("the order is saved against the signed-in student", order.startsWith(STUDENT + "|"), order);
   check("the order has the frozen price (subtotal in paise)", /\|\d+$/.test(order) && Number(order.split("|")[3]) > 0, order);
+
+  check("the order is saved as cash on delivery", sql(`select payment_method from orders where student_id = '${STUDENT}' order by created_at desc limit 1`) === "Cash on delivery");
+
+  // ---- 3b. the tracking bill includes the platform fee and says what is still to pay ----
+  const placed = sql(`select id || '|' || subtotal_paise from orders where student_id = '${STUDENT}' order by created_at desc limit 1`).split("|");
+  await page.goto(base + "/track/" + placed[0]);
+  await page.getByText("Platform fee").waitFor({ timeout: 8000 }).catch(() => {});
+  const trackText = (await page.textContent("body")) || "";
+  const expectTotal = Number(placed[1]) / 100 + 20 + 4; // goods + delivery fee for a pool of one + platform fee
+  check("the tracking bill lists the platform fee", /Platform fee\s*₹4(?!\d)/.test(trackText), trackText.slice(0, 200));
+  check("a cash order that is not delivered yet says what is to pay, including the platform fee", new RegExp(`To pay on delivery\s*₹${expectTotal}(?!\d)`).test(trackText), `expected ₹${expectTotal}; ${trackText.slice(0, 300)}`);
+  check("and does not claim it was paid", !/Total paid|Paid via/.test(trackText));
 
   // ---- 4. polling ----
   const viewCallsBefore = calls.filter((c) => c[1] === "api_student_view").length;
@@ -156,6 +174,7 @@ const check = (name, ok, detail = "") => {
 
   // ---- 6. an account cannot be deleted while an order is waiting ----
   await page.goto(base + "/profile");
+  check("Profile has no made-up wallet or free-money button", !/Hostel wallet|Add money/.test((await page.textContent("body")) || ""));
   await page.getByRole("button", { name: "Delete my account" }).first().click();
   await page.getByRole("textbox", { name: "Type DELETE to confirm" }).fill("DELETE");
   await page.getByRole("button", { name: "Delete my account" }).last().click();
