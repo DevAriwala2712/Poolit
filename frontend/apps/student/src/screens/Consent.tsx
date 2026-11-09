@@ -1,7 +1,6 @@
-import { api, ApiError } from "@poolit/domain";
+import { ApiError, LogoMark, api } from "@poolit/domain";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { LogoMark } from "../components/LogoMark";
 import { Button } from "../components/ui";
 import { POLICY_VERSION, rememberConsent } from "../lib/policy";
 

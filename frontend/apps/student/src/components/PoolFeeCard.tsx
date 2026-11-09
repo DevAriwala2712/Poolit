@@ -1,6 +1,5 @@
-import { FEE_TIERS, countdown, feeForOrderCount, nextTierFee, ordersUntilNextTier, rupees } from "@poolit/domain";
+import { FEE_TIERS, countdown, feeForOrderCount, nextTierFee, ordersUntilNextTier, rupees, useNow } from "@poolit/domain";
 import { useEffect, useRef, useState } from "react";
-import { useNow } from "../hooks/useNow";
 import { Icon } from "./Icon";
 
 /**

@@ -1,5 +1,5 @@
+import { LogoMark } from "@poolit/domain";
 import { useState, type FormEvent } from "react";
-import { LogoMark } from "../components/LogoMark";
 import { Button } from "../components/ui";
 import { useAuth } from "../state/AuthContext";
 

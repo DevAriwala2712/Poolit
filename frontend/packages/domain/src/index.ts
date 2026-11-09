@@ -24,3 +24,5 @@ export type {
 } from "./api";
 export { ErrorBoundary } from "./ErrorBoundary";
 export { installErrorReporting, reportError, resetErrorReporting } from "./errorReporting";
+export { LogoMark } from "./LogoMark";
+export { useNow } from "./useNow";

@@ -1,9 +1,8 @@
-import { StoreProvider } from "@poolit/domain";
+import { LogoMark, StoreProvider } from "@poolit/domain";
 import { lazy, Suspense } from "react";
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ConnectionGate } from "./components/ConnectionGate";
-import { LogoMark } from "./components/LogoMark";
 import { Shell } from "./components/Shell";
 import { Activity } from "./screens/Activity";
 import { Analytics } from "./screens/Analytics";

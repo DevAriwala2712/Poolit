@@ -1,8 +1,7 @@
-import { useStore } from "@poolit/domain";
+import { LogoMark, useStore } from "@poolit/domain";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
-import { LogoMark } from "../components/LogoMark";
 import { Button } from "../components/ui";
 import { useProfile } from "../state/ProfileContext";
 
