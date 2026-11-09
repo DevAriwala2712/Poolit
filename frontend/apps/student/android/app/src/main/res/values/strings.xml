@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Poolit</string>
+    <string name="title_activity_main">Poolit</string>
+    <string name="package_name">app.poolit.student</string>
+    <string name="custom_url_scheme">app.poolit.student</string>
+</resources>
