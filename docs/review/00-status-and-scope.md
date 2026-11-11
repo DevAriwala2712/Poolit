@@ -28,6 +28,16 @@ same at both.
 | Rollout switches | `ENFORCE_VENDOR_SCOPING`, `STUDENT_LOGIN_REQUIRED`, `ALLOWED_ORIGINS`, `VITE_BACKEND` documented as not yet set on Vercel | `docs/PRODUCTION_PLAN.md@396345d:49`. **Not verified**: Vercel is not reachable from this review |
 | Not started | Staging project, backup secrets (the backup workflow has never run), restore drill | same |
 
+## What is on live (read-only counts, 11 Nov 2026)
+
+2 auth users, both email logins, both linked to all five stores (one owner, one staff); the
+owner is also the one platform admin. 0 students, 0 phone accounts, 0 MFA factors. 53
+orders, all seed data (no account link, no payment method). 5 hostels, 5 stores, 112 items,
+5 open pools. 0 uploaded pictures. Database 16 MB. All 4 cron jobs succeeded on every run in
+the last 24 hours (1,440 sweeps); no failed run on record.
+
+**No real student data is on live yet. Every finding is a pre-launch blocker, not a breach.**
+
 ## What could not be reached
 
 These are collected in `05-owner-checklist.md` as they come up and stay "unverified" until
@@ -39,6 +49,8 @@ the owner confirms them:
   keys, exposed API schemas, GraphQL switch.
 - GitHub repository settings (branch protection, secrets, secret scanning, Dependabot).
 - SMS provider, Cloudflare, Play Console.
+- The live Auth settings endpoint and the GraphQL endpoint: blocked by this environment's
+  network policy.
 
 ## Ground rules
 

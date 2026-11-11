@@ -1,13 +1,16 @@
 # 3. Security findings
 
-Status: **in progress**. Sections are added as each step finishes. Severity scale is in
+Status: **complete** for steps 3 to 10. Severity scale is in
 [00-status-and-scope.md](00-status-and-scope.md#severity). Paths are at `396345d` (pull
 request 9, equal to live) unless marked `@main`.
 
-## Summary so far
+## Summary
 
 | ID | Severity | Finding | Live today? |
 | --- | --- | --- | --- |
+| [SEC-14](#sec-14) | Critical | A student's order text runs as script in the vendor console when tickets are printed, and can read the store's login session | Yes (console code on `main`) |
+| [SEC-15](#sec-15) | High | The seed script deletes six tables of whatever database it is pointed at; the only database is live and no backup exists | Yes |
+| [SEC-16](#sec-16) | High | The deployed Express API is documented as still in permissive mode: order lists with names and rooms are public, and any store login can act on every store | Per docs; not verified on Vercel |
 | [SEC-01](#sec-01) | High | A student can label an order as paid ("UPI" or any text); the vendor console shows "Paid via …" and no cash is expected | Yes |
 | [SEC-02](#sec-02) | Medium | Store staff can change prices through the database function; only owners should | Yes |
 | [SEC-03](#sec-03) | Medium | One signed-in account can take a store's whole stock in one order, at no cost, and repeat | Yes |
@@ -21,6 +24,16 @@ request 9, equal to live) unless marked `@main`.
 | [SEC-11](#sec-11) | Low | No limit on how many pictures a store can upload | Yes |
 | [SEC-12](#sec-12) | Info | Signed-out callers see exact stock and low-stock thresholds of every store | Yes |
 | [SEC-13](#sec-13) | Info | The same functions may be reachable through GraphQL | To confirm |
+| [SEC-17](#sec-17) | Medium | Anyone who can create an account is "signed in" for 36 functions; whether sign-up is open is a dashboard setting not yet confirmed | To confirm |
+| [SEC-18](#sec-18) | Medium | The two store logins have no second factor; one is also the platform admin; leaked-password check is off | Yes |
+| [SEC-19](#sec-19) | Medium | No Content-Security-Policy on either app | Yes |
+| [SEC-20](#sec-20) | Medium | The backup job puts the full database password in GitHub; workflows have default token permissions and tag-pinned actions | When secrets are set |
+| [SEC-21](#sec-21) | Low | Express: anonymous orders bypass the limit of 3; idempotency result saved after the reply; last-owner check is read-then-write; rate limits are per instance and fail open | Yes |
+| [SEC-22](#sec-22) | Low | Android: `allowBackup="true"`; release build not minified; never built or tested | Not shipped |
+| [SEC-23](#sec-23) | Low | Privacy documents do not match the system in six places | Drafts |
+| [SEC-24](#sec-24) | Low | `cron.job_run_details` is never pruned | Yes |
+| [SEC-25](#sec-25) | Low | Development dependencies have 2 high and 2 moderate advisories | Build machines only |
+| [SEC-26](#sec-26) | Info | The vendor console loads its icon font from Google | Yes |
 
 ## What held up
 
@@ -224,5 +237,219 @@ exposed than through REST. Owner checklist: switch it off if unused.
 
 ---
 
-Next sections: authentication and sessions (step 5), the Express API (6), frontends and
-Android (8), privacy (9), supply chain and CI (10).
+## Vendor console and Express (steps 6, 8)
+
+### SEC-14
+
+**Student text runs as script in the vendor console.** Critical.
+
+- "Batch KOT" builds the print page as a string and inserts `o.studentName`, `o.block`,
+  `o.room` and `o.note` without escaping, then writes it with `document.write` into a window
+  opened by the console (`frontend/apps/vendor/src/screens/Orders.tsx:87-98`; same code on
+  `main` at `:90-101`). The label printer next to it does escape
+  (`components/BarcodeLabels.tsx:8`).
+- A window opened that way has the console's origin, so script in it can reach
+  `opener.localStorage`, where the Supabase client keeps the access and refresh tokens.
+- All four fields are typed by the student: 60, 40, 20 and 140 characters on the database
+  path; on Express the note may be 500 (`backend/schemas/index.js:17 @main`).
+- Neither app sends a Content-Security-Policy (SEC-19), so nothing blocks inline handlers.
+
+Reproduced in Chromium against the real console
+([evidence/probes/05_print_window_xss.spec.ts](evidence/probes/05_print_window_xss.spec.ts)):
+a 101-character note changed the console tab's title to the list of storage keys and the
+session entry was readable. Output in `05_print_window_xss.out`.
+
+Who can plant it: any signed-in student through `api_place_order`; on the Express path,
+anyone at all while `STUDENT_LOGIN_REQUIRED` is off (SEC-16). It fires when store staff use
+Batch KOT (advanced mode, a button and Ctrl/⌘+P) while that order is in the open pool.
+Impact: takeover of the store login: prices, stock, every order's name and room, cash
+records; with store scoping off on Express, every store.
+Fix: escape the four fields (reuse `esc` from `BarcodeLabels.tsx`, adding `'`), or build the
+print view with React in a hidden frame. Add a Content-Security-Policy. Add a test with a
+`<svg onload>` name.
+
+### SEC-15
+
+**The seed script wipes the database it is pointed at.** High.
+
+- `backend/seed.js:113-118 @main` deletes every row of `restock_logs`, `orders`,
+  `menu_items`, `slots`, `vendors` and `hostels` using the service-role key. No confirmation,
+  no environment check, not in a transaction.
+- `README.md:25-34 @main` tells a new developer to put the project's URL and service-role key
+  in `backend/.env` and run `npm run seed`, described as "safe to re-run". `npm run dev:seed`
+  and `dev:fresh` run it too (`backend/package.json:10-11`).
+- There is one Supabase project. No staging exists, the free plan has no point-in-time
+  restore, and the backup workflow has never run.
+
+Impact: one habitual command removes all stores, menus and orders with no way back.
+Fix: refuse to run unless the URL is local or an explicit `--i-know-this-deletes` flag names
+the project; correct the README; create the staging project; get one backup taken and one
+restore tested before any real order exists.
+
+### SEC-16
+
+**Express is documented as still in permissive mode.** High, unverified.
+
+Per `docs/PRODUCTION_PLAN.md:49 @396345d` the Vercel settings are still waiting on the
+owner. With `STUDENT_LOGIN_REQUIRED` and `ENFORCE_VENDOR_SCOPING` unset
+(`backend/utils/flags.js`):
+
+- `GET /vendors/:id/orders`, `GET /slots/:id/orders`, `GET /slots/:id/pick-list` need no
+  sign-in and return student names, blocks and rooms (`backend/routes/vendors.js:22`,
+  `slots.js:22-23`).
+- `POST /slots/:id/orders` needs no sign-in; only a per-instance limit of 30 a minute per IP.
+- Any account linked to any store may restock, reprice, close, dispatch and deliver for
+  every store, and `GET /vendor/overview` returns every store
+  (`backend/middleware/requireVendorAccess.js:25-34`,
+  `controllers/vendorConsoleController.js:20-24`).
+- CORS allows every origin when `ALLOWED_ORIGINS` is unset (`backend/app.js:30-48`).
+
+Live currently holds only seed orders (53, none linked to an account), so nothing real is
+exposed yet. This becomes a breach on the first real order.
+Fix: set the three variables now (the logins are already linked), or take the Express
+deployment down once both apps run on the database functions. Owner checklist items V1–V4.
+
+### SEC-21
+
+**Smaller Express issues.** Low.
+
+- Orders placed without sign-in have no `student_id`, so the limit of 3 per pool does not
+  apply to them; SEC-03 needs no account on this path.
+- The idempotency middleware saves the first response after replying and does not wait
+  (`backend/middleware/idempotency.js:68-76`); on a serverless function the save can be lost,
+  leaving the key "in progress" and answering retries with 409 for 24 hours.
+- The last-owner rule reads the owner count, then writes
+  (`backend/controllers/memberController.js:96-101,118-123`); two simultaneous demotions can
+  leave a store with no owner.
+- Rate limits are per warm instance unless Upstash is configured, and allow the request when
+  the store fails (`backend/middleware/rateLimit.js`).
+- `GET /inventory` and `GET /menu-items/:id/restock-log` are public (stock and restock history).
+- `GET /` lists every route.
+
+## Authentication and sessions (step 5)
+
+### SEC-17
+
+**"Signed in" is the only bar for 36 functions.** Medium, to confirm.
+
+Student functions check only that a session exists. The student app creates accounts on
+first OTP (`signInWithOtp`, `frontend/apps/student/src/state/AuthContext.tsx:119`). If email
+sign-up or anonymous sign-in is also enabled in the project (both are Supabase defaults that
+the repo cannot show), anyone can mint accounts with the public key and no phone, which
+removes the one cost behind SEC-01, SEC-03 and the per-pool limit. Live has only the two
+store logins today, so no evidence either way. The Auth settings endpoint was not reachable
+from this review. Owner checklist A1–A6. Also to decide: CAPTCHA and per-number OTP limits,
+since each SMS costs money and nothing in the repo limits requests.
+
+### SEC-18
+
+**Store and admin logins are password-only.** Medium. Live: 0 MFA factors; the security
+advisor reports leaked-password protection off and too few MFA options. One of the two
+logins is owner of all five stores and the platform admin (fee terms, audit log, error
+reports). Combined with SEC-14, one stolen session is the whole system.
+Fix: enable TOTP and require it for `platform_admins` (check the `aal` claim in
+`private.is_platform_admin`); turn on the leaked-password check; use a separate admin login.
+
+Reviewed and sound: `backend/utils/verifyToken.js` verifies signature, issuer and audience,
+pins the algorithm list, sends legacy and unverifiable tokens to the Auth server, and never
+falls back after a failed verification. Known and documented: a locally verified token
+stays valid for up to an hour after sign-out. The same window applies on the database path
+after `api_delete_my_account`; calls then fail on foreign keys, not on an access check.
+
+## Frontends and Android (step 8)
+
+### SEC-19
+
+**No Content-Security-Policy.** Medium. Both `vercel.json` files set `nosniff`,
+`Referrer-Policy` and `X-Frame-Options` only. A policy without `unsafe-inline` for scripts
+would have stopped SEC-14's handler. No `Strict-Transport-Security` either (Vercel adds it
+on its own domains; confirm on a custom domain). Planned for week 5; should move before the
+pilot. The service worker caches the app shell and hashed assets only, same-origin `GET`
+only: sound.
+
+### SEC-22
+
+**Android wrapper.** Low, not shipped. `android:allowBackup="true"`
+(`frontend/apps/student/android/app/src/main/AndroidManifest.xml:5`) lets the WebView's
+storage, including the session, into device backups. `minifyEnabled false`. No signing
+setup. `docs/ANDROID_APP.md` states it has never been built. Sound: https scheme, no mixed
+content, only the `INTERNET` permission, one exported launcher activity, provider not
+exported. The checked-in `gradle-wrapper.jar` (sha256 `7d3a4ac4…6172`) should be verified
+against Gradle 8.14.3's published checksum before the first build.
+
+### SEC-26
+
+**Google Fonts in the vendor console.** Info. `frontend/apps/vendor/index.html:15-18` loads
+Material Symbols from `fonts.googleapis.com`; staff IP addresses go to Google and the
+processor list in the privacy draft does not name it. Self-host it as was done for the text
+fonts.
+
+Sound: every other render path goes through React escaping; no `innerHTML` or `eval`;
+admin-only screens are gated in the database, not only by `useIsAdmin`; the client sends
+`location.pathname` to the error reporter (the function itself would keep a URL fragment if
+one were sent).
+
+## Privacy and data lifecycle (step 9)
+
+### SEC-23
+
+**The privacy drafts and the system differ.** Low (drafts, pre-launch).
+
+| Document says | System does |
+| --- | --- |
+| `DATA_REGISTER.md` lists the tables holding personal data | Missing: `client_errors` (user id, user agent, stack), `staff` (name, email), `stock_adjustments.user_id`, Express request logs (IP, user id) |
+| Product photos are "seen by everyone signed in" | The bucket is public; no sign-in needed |
+| "Other students never see your name… or order" | True on the database path; false on Express while SEC-16 stands |
+| "Store accounts see only their own store's orders" | False on Express while store scoping is off |
+| Logs kept "at least 180 days" | Only `audit_log` (data changes) is kept 180 days. Access logs live in Supabase and Vercel on free-plan retention, which is far shorter (confirm; owner checklist) |
+| Backups "kept for [30] days" | `scripts/backup/backup.sh` uploads and never deletes; expiry must be a bucket rule |
+
+Also: SEC-06 (consent only in the app), SEC-08 (user id left in `client_errors`). Tests are
+cited as `supabase/tests/70_privacy.sql`; the file is `70_privacy.test.sql`.
+
+Sound: export returns only the caller's data; deletion clears orders, profile, consents,
+idempotency keys and audit rows, and is refused for store and admin accounts and while an
+order is in progress; audit masking covers student name, phone, block, room, note and id.
+
+### SEC-24
+
+**`cron.job_run_details` grows without limit.** Low. 12,798 rows on live on 11 Nov, about
+1,440 a day from the every-minute sweep. On a 500 MB plan this matters within months.
+Fix: a daily job deleting rows older than a week.
+
+## Supply chain, CI and secrets (step 10)
+
+### SEC-20
+
+**CI and backup workflow hardening.** Medium once secrets exist.
+
+- `backup.yml` needs `BACKUP_DB_URL`, the database owner's connection string, as a GitHub
+  secret. Anyone who can change a workflow on a branch that can read secrets, or any
+  compromised action, gets the whole database. Use a dedicated read-only role for dumps.
+- No workflow declares `permissions:`, so the token has the repository default.
+- Actions are pinned by tag (`actions/checkout@v4`, `setup-node@v4`), not by commit.
+- `main` has no branch protection (branch list shows `protected: false`), and CI on `main`
+  does not run at all (ARCH-02), so nothing gates a merge.
+
+Sound: no secret in any commit on any of the six branches (pattern scan of full history for
+JWTs, service keys, private keys, cloud keys, connection strings, passwords); only
+`.env.example` files were ever committed; the backup is encrypted to a public key so the job
+cannot read what it wrote; the keep-alive job uses only the public key.
+
+### SEC-25
+
+**Development dependency advisories.** Low. `npm audit` on 11 Nov: runtime dependencies
+clean in both lockfiles at both commits. Including development dependencies: backend 2
+moderate (`minimatch`); frontend 2 high (`vite` 8.2.0–8.2.2 via `launch-editor`,
+`source-map-js`). They affect build machines and the dev server, not what ships.
+`npm audit fix` resolves all four. `docs/PHASE1_CLOSEOUT.md` still says 0.
+
+## Check on the existing test suite
+
+Eight access rules were removed one at a time from a copy of the migrations and
+`scripts/test-db.sh` was run after each: cancel another student's order, cash summary
+without a store check, fee statement without an owner check, picture on another store's
+item, audit log open to any signed-in user, staff edit by a non-owner, export returning
+everyone's orders, delivery without a store check. **All eight were caught.** The suite can
+be trusted for what it covers. What it does not cover is listed per finding (SEC-02 above
+all), and it has not run in CI since 5 Nov (ARCH-02).
