@@ -19,3 +19,20 @@ The live Supabase project is only ever read (catalog queries and advisors). Atta
 run against a throwaway local database built from the migrations.
 
 Evidence (generated listings, probe SQL, outputs) is in [evidence/](evidence/).
+
+## Paused on 11 Nov 2026: found but not yet written up in full
+
+| Severity | Finding | Evidence |
+| --- | --- | --- |
+| Critical | "Batch KOT" in the vendor console writes the student's name, block, room and order note unescaped into a same-origin print window (`frontend/apps/vendor/src/screens/Orders.tsx`, on `main` and pull request 9). A 101-character note read the store's Supabase session from browser storage. On the Express path the order needs no sign-in while `STUDENT_LOGIN_REQUIRED` is off | Passing browser reproduction: `evidence/probes/05_print_window_xss.spec.ts` and `.out` |
+| High | `backend/seed.js` deletes six tables of whatever database `.env` points at, with no guard; `README.md` calls it "safe to re-run"; the only project is live and no backup has run | Code read |
+| High (not verified on Vercel) | With both rollout flags off, three Express order-list routes are public and return names and rooms; any store login can act on every store | [01-inventory.md](01-inventory.md) |
+| Low | Express idempotency stores the response after replying (`backend/middleware/idempotency.js`) | Code read |
+| Low | `cron.job_run_details` is never pruned: 12,798 rows on live, about 1,440 a day | Live count |
+
+Live facts (read-only, 11 Nov): 2 auth users, both store logins, one also the platform
+admin; 0 students; 0 MFA factors; 53 orders, all seed data; database 16 MB; all 4 cron jobs
+succeeding. No real student data is on live yet, so these are pre-launch blockers, not a breach.
+
+Still to do: authentication, rest of Express, frontends and Android, privacy, supply chain
+and CI, threat model, architecture findings, owner checklist, backlog, coverage matrix.
