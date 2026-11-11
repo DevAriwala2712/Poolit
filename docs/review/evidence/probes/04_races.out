@@ -1,0 +1,22 @@
+== 1: six simultaneous orders from one student (limit is 3)
+placed
+placed
+placed
+(three calls refused: "You can place up to 3 orders in one pool")
+active orders for B: 3
+== 2: seven accounts order 1 unit each, stock is 5
+placed (x5)
+(two calls refused: "Insufficient stock for one or more items")
+R2 orders: 5, stock now: 0
+== 3: same idempotency key sent twice at once
+{"id": "9fe86878-4b0d-4492-bf68-6758877c95df",
+{"id": "9fe86878-4b0d-4492-bf68-6758877c95df",
+orders named K: 1
+== 4: two staff tap Deliver on the same order at once
+Order marked as delivered
+(other call refused: order is currently "delivered")
+delivered rows: 1
+== 5: student cancels while the expired pool is being closed
+closer: ERROR:  deadlock detected
+canceller: (409 "The pool has closed and the store is preparing your order", rolled back)
+order oA status: placed

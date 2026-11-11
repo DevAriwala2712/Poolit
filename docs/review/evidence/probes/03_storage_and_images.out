@@ -1,0 +1,19 @@
+== upload rule
+ownerY into own folder: stored
+ownerY thumb: stored
+ownerY into store X folder: ERROR 42501: new row violates row-level security policy for 
+student into store X folder: ERROR 42501: new row violates row-level security policy for 
+signed-out: ERROR 42501: new row violates row-level security policy for 
+bad name (.svg): ERROR 42501: new row violates row-level security policy for 
+path traversal: ERROR 42501: new row violates row-level security policy for 
+overwrite (update) by owner: 0 rows
+delete by owner: 0 rows
+list by owner: 0 rows visible
+how many files one vendor may add: 2000 accepted in one go (no count or quota rule)
+== shared picture by barcode crosses stores
+store X item picture before: (none)
+ownerY sets the same barcode on an own item: 8901234567890
+ownerY attaches a picture to that item: 219da1eb-08db-4adc-8767-38b4579f2fcd/aaaaaaaaaaaaaaaa.webp
+store X item picture now (seen signed-out): 219da1eb-08db-4adc-8767-38b4579f2fcd/aaaaaaaaaaaaaaaa.webp
+that path is in store Y's folder: true
+can store X see or remove it: api_set_item_image(null) -> 219da1eb-08db-4adc-8767-38b4579f2fcd/aaaaaaaaaaaaaaaa.webp
