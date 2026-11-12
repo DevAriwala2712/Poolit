@@ -1,11 +1,12 @@
 import { rupees } from "@poolit/domain";
 import type { MenuItem } from "@poolit/domain";
 import { ean13Svg, isValidEAN13 } from "../lib/ean13";
+import { escapeHtml } from "../lib/html";
 import { Barcode } from "./Barcode";
 import { Drawer } from "./Drawer";
 import { Button } from "./ui";
 
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+const esc = escapeHtml;
 
 /** Opens a print-ready A4 sheet of shelf labels (3 per row, 63.5 × 38 mm). */
 export function printLabels(items: MenuItem[], storeName: string) {

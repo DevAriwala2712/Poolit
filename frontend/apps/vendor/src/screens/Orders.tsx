@@ -10,6 +10,7 @@ import {
   useStore,
 } from "@poolit/domain";
 import type { Order, OrderStatus } from "@poolit/domain";
+import { escapeHtml } from "../lib/html";
 import { useEffect, useMemo, useState } from "react";
 import { Drawer } from "../components/Drawer";
 import { MaterialIcon } from "../components/MaterialIcon";
@@ -81,16 +82,16 @@ export function Orders() {
         const itemsHtml = o.items
           .map((line) => {
             const item = vendor.menu.find((m2) => m2.id === line.menuItemId);
-            return `<li>${line.qty} × ${item?.name ?? "Unknown item"}</li>`;
+            return `<li>${escapeHtml(line.qty)} × ${escapeHtml(item?.name ?? "Unknown item")}</li>`;
           })
           .join("");
         return `
           <section class="ticket">
-            <h2>#${o.id.slice(-6).toUpperCase()}</h2>
-            <p>${o.studentName} — ${o.block ?? ""}, Room ${o.room ?? ""}</p>
-            <p class="time">${clockTime(o.createdAt)}</p>
+            <h2>#${escapeHtml(o.id.slice(-6).toUpperCase())}</h2>
+            <p>${escapeHtml(o.studentName)} — ${escapeHtml(o.block)}, Room ${escapeHtml(o.room)}</p>
+            <p class="time">${escapeHtml(clockTime(o.createdAt))}</p>
             <ul>${itemsHtml}</ul>
-            ${o.note ? `<p class="note">Note: ${o.note}</p>` : ""}
+            ${o.note ? `<p class="note">Note: ${escapeHtml(o.note)}</p>` : ""}
           </section>
         `;
       })
@@ -98,7 +99,7 @@ export function Orders() {
 
     const win = window.open("", "_blank", "width=420,height=600");
     if (!win) return;
-    win.document.write(`<!doctype html><html><head><title>Batch KOT — ${vendor.name}</title>
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Batch KOT — ${escapeHtml(vendor.name)}</title>
       <style>
         body { font-family: monospace; padding: 12px; }
         .ticket { border-bottom: 2px dashed #000; padding: 10px 0; page-break-inside: avoid; }
