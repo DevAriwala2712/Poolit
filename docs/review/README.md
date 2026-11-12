@@ -23,6 +23,8 @@ pre-launch blockers, not a breach.
 
 ## Fix first (about one developer-day plus an hour in the dashboards)
 
+Items 1, 3 and 5 are fixed on this branch (`ff712af`, `8ae0be2`, `ddc944d`). Items 2, 4 and 6 need your accounts: [08-owner-steps.md](08-owner-steps.md).
+
 1. **SEC-14, Critical.** Escape student text in the vendor console's Batch KOT print. A
    101-character order note read the store's login session in a real browser.
 2. **SEC-16, High (not verified on Vercel).** Set the three Express flags; until then order
@@ -49,6 +51,7 @@ SEC-02, SEC-03, SEC-04, SEC-05, and the rebase in ARCH-03. Full order in
 | [05-owner-checklist.md](05-owner-checklist.md) | Dashboard settings to confirm (29 items) |
 | [06-remediation-backlog.md](06-remediation-backlog.md) | 32 fixes ordered by release gate |
 | [07-coverage-matrix.md](07-coverage-matrix.md) | Each inventory row with its verdict, and what was not done |
+| [08-owner-steps.md](08-owner-steps.md) | Exact dashboard steps for the fix-first items that need your accounts |
 | [evidence/](evidence/) | Generated listings, drift check, probe scripts and recorded output |
 
 ## Limits of this review

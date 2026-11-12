@@ -6,13 +6,15 @@ access, not code.
 
 ## Now (before anything else merges)
 
+Items 2, 4 and 6 need dashboard access: exact steps in [08-owner-steps.md](08-owner-steps.md).
+
 | # | Do | Fixes | Size |
 | --- | --- | --- | --- |
-| 1 | Escape the four fields in Batch KOT (`Orders.tsx`), add a hostile-name test | SEC-14 | S |
+| 1 | ~~Escape the four fields in Batch KOT (`Orders.tsx`), add a hostile-name test~~ **Done** `ff712af` | SEC-14 | S |
 | 2 | Set `ENFORCE_VENDOR_SCOPING=true`, `STUDENT_LOGIN_REQUIRED=true` (or take Express order lists down), `ALLOWED_ORIGINS` | SEC-16 | Owner |
-| 3 | Guard `backend/seed.js`; fix the README instruction | SEC-15 | S |
+| 3 | ~~Guard `backend/seed.js`; fix the README instruction~~ **Done** `8ae0be2` | SEC-15 | S |
 | 4 | Take one encrypted dump of live by hand and store it off the project | ARCH-04 | Owner, S |
-| 5 | Rename the duplicate `database` job in `ci.yml` on `main`; confirm a green run | ARCH-02 | S |
+| 5 | ~~Rename the duplicate `database` job in `ci.yml`; fix the backend database setup~~ **Done** `ddc944d` | ARCH-02 | S |
 | 6 | Turn on leaked-password protection and TOTP; enrol both logins; confirm sign-up and anonymous sign-in are off | SEC-17, SEC-18 | Owner |
 
 ## Before merging pull request 9
