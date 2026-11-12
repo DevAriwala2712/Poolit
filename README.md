@@ -24,16 +24,21 @@ open a separate terminal tab for each.
 cd backend && npm install && cp .env.example .env
 ```
 
-Open `backend/.env` and fill in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
-from your Supabase project (Project Settings → API in the Supabase dashboard).
+Open `backend/.env` and fill in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+For development use a local Supabase (`npx supabase start` prints both), not
+the production project.
 
-Seed the database (safe to re-run — it clears and reseeds demo data) and
-start the server:
+Seed the database and start the server:
 
 ```bash
 npm run seed
 npm run dev
 ```
+
+**`npm run seed` deletes every hostel, store, menu item, pool and order in the
+database it points at** before inserting demo data. It refuses to run unless
+`SUPABASE_URL` is local, or `SEED_CONFIRM_PROJECT` is set to that project's ref.
+Never run it against production.
 
 The API is now live at `http://localhost:5057` — leave this terminal running.
 (Default port is 5057, not 5000, because macOS's AirPlay Receiver squats on
