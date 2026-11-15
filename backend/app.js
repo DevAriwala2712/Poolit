@@ -22,27 +22,33 @@ app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
 // Middleware
-// ALLOWED_ORIGINS, if set, is a comma-separated allowlist (e.g. the deployed
-// student/vendor URLs). Left unset, CORS stays wide open — the same
-// permissive default this had before — since student ordering is public.
+// CORS: which websites may call this API from a browser.
+//   * This Vercel team's own sites (production and previews of the student and vendor apps:
+//     https://<project>-devariwala2712s-projects.vercel.app and the -git-<branch>- previews).
+//   * Local development (http://localhost:<port>).
+//   * Anything listed in ALLOWED_ORIGINS (comma-separated), e.g. a custom domain.
+// Every other website is refused with 403. Requests with no Origin header (server-to-server,
+// curl, health checks) are not browser cross-origin requests and pass through as before.
+const TEAM_SITE = /^https:\/\/(student|vendor|backend)(-[a-z0-9-]+)?-devariwala2712s-projects\.vercel\.app$/;
+const LOCAL_DEV = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
 
+function originAllowed(origin) {
+  return !origin || allowedOrigins.includes(origin) || TEAM_SITE.test(origin) || LOCAL_DEV.test(origin);
+}
+
 app.use(
-  cors(
-    allowedOrigins.length > 0
-      ? {
-          origin: (origin, callback) => {
-            if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-            const err = new Error("Not allowed by CORS");
-            err.status = 403;
-            callback(err);
-          },
-        }
-      : undefined
-  )
+  cors({
+    origin: (origin, callback) => {
+      if (originAllowed(origin)) return callback(null, true);
+      const err = new Error("Not allowed by CORS");
+      err.status = 403;
+      callback(err);
+    },
+  })
 );
 app.use(express.json({ limit: "100kb" }));
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));

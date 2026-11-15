@@ -27,6 +27,36 @@ test("disallowed CORS origin → 403, not 500", async () => {
   assert.equal(res.status, 403);
 });
 
+test("CORS: the team's Vercel sites, local dev and ALLOWED_ORIGINS are allowed; look-alikes are refused", async () => {
+  const allowed = [
+    "https://student-devariwala2712s-projects.vercel.app",
+    "https://vendor-git-claude-determined-da-e21456-devariwala2712s-projects.vercel.app",
+    "http://localhost:5173",
+    "https://vendor.example", // from ALLOWED_ORIGINS
+  ];
+  for (const origin of allowed) {
+    const res = await fetch(`${base}/`, { headers: { Origin: origin } });
+    assert.equal(res.status, 200, origin);
+    assert.equal(res.headers.get("access-control-allow-origin"), origin, origin);
+  }
+  const refused = [
+    "https://student.vercel.app",
+    "https://evil-devariwala2712s-projects.vercel.app.attacker.com",
+    "http://student-devariwala2712s-projects.vercel.app",
+    "https://attacker-devariwala2712s-projects.vercel.app",
+    "http://localhost.attacker.com",
+  ];
+  for (const origin of refused) {
+    const res = await fetch(`${base}/`, { headers: { Origin: origin } });
+    assert.equal(res.status, 403, origin);
+  }
+});
+
+test("no Origin header (server-to-server) still works", async () => {
+  const res = await fetch(`${base}/`);
+  assert.equal(res.status, 200);
+});
+
 test("malformed JSON → 400", async () => {
   const res = await fetch(`${base}/slots/x/orders`, {
     method: "POST",
