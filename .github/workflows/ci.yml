@@ -75,7 +75,9 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  database:
+  # Separate from the job above: this one runs supabase/tests/*.test.sql (access control,
+  # pools, photos, student view). Two jobs with the same key make the workflow invalid.
+  database-access:
     runs-on: ubuntu-latest
     services:
       postgres:
