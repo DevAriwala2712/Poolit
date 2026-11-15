@@ -35,6 +35,7 @@ Verified by running it, not by reading it. "Live" means applied to the Supabase 
 | Vendor console: real commission statement (replaces a made-up settlement card), admin fee form, admin activity log screen | Code done | Vendor e2e 49 checks |
 | Honesty pass: cash on delivery is the only payment offered until UPI exists; fake wallet, promo codes, invented vendor hardware/settlement/telemetry panels and non-functional Settings tabs removed; order totals now include the ₹4 platform fee and frozen prices, and say "to pay on delivery" instead of "paid" | Code done | Student e2e 41, vendor e2e 50 |
 | Error tracking on the free stack: both apps report crashes (and an error boundary replaces a blank page), merged and rate-limited in a table, admins read them in the Activity screen; alerts still need a destination (email or chat) | **Live** (migration `client_errors` applied 10 Nov) | `97_client_errors`, student and vendor browser runs |
+| The four architecture items: **RLS** (tables closed, access only through checked functions; live, tested), **no separate backend** (production builds call the database functions; `.env.production`), **images** (Supabase Storage, resized 800/400 px WebP at most 200 KB, hash names, 1-year cache; no S3 or paid CDN needed), **CORS** (Express refuses unknown sites by default; Supabase accepts any site by design, protected by sign-in and function checks) | Done in code and database; live once `main` deploys | DB tests, backend 20 tests, browser runs |
 | Product photos in both apps (vendor Add/Edit photo, student pictures with emoji fallback) | Code done | `photo-e2e` |
 | Cash on delivery tracking, per-store commission or fixed fee, per-order fee ledger, store statements | **Live** (applied 6 Nov, `20261106064424_cod_and_fees.sql`) | `60_cod_and_fees.sql`, vendor e2e cash chip |
 | Student data export and account deletion functions | **Live** (applied 6 Nov, `20261106064449_privacy.sql`) | `70_privacy.sql`; app buttons not built |
@@ -46,7 +47,7 @@ Verified by running it, not by reading it. "Live" means applied to the Supabase 
 
 **Done on 6 Nov:** the owner's account is in `platform_admins`.
 
-**Waiting on the owner:** a staging Supabase project; Cloudflare R2 bucket and GitHub secrets for backups; Vercel settings (`ENFORCE_VENDOR_SCOPING`, `ALLOWED_ORIGINS`, `VITE_BACKEND`); Supabase auth settings (leaked-password protection, MFA); the commission decision; SMS/DLT setup; allow `*.supabase.co` from the build environment so the live project can be tested end to end.
+**Waiting on the owner:** a staging Supabase project; Cloudflare R2 bucket and GitHub secrets for backups; Supabase auth settings (leaked-password protection, MFA); the commission decision; SMS/DLT setup; allow `*.supabase.co` from the build environment so the live project can be tested end to end.
 
 ## Current state audit
 
