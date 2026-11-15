@@ -14,6 +14,7 @@
     "@capacitor/android": "^8.6.0",
     "@capacitor/core": "^8.6.0",
     "@poolit/domain": "*",
+    "@sentry/react": "^8.55.2",
     "@supabase/supabase-js": "^2.114.0"
   },
   "devDependencies": {

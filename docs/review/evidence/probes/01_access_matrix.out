@@ -1,0 +1,54 @@
+fn | expect | anon | stranger | studentA | studentB | staffX | ownerX | ownerY | admin
+api_audit_log | admin | denied | 403 | 403 | 403 | 403 | 403 | 403 | ALLOWED
+api_client_errors | admin | denied | 403 | 403 | 403 | 403 | 403 | 403 | ALLOWED
+api_set_fee_terms | admin | denied | 403 | 403 | 403 | 403 | 403 | 403 | ALLOWED
+api_current_slot | all | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_hostels | all | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_live_fee | all | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_report_error | all | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_slot | all | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_student_view | all | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_vendor | all | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_vendor_menu | all | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_vendors | all | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_create_staff | ownerX | denied | 403 | 403 | 403 | 403 | ALLOWED | 403 | 403
+api_delete_staff | ownerX | denied | 403 | 403 | 403 | 403 | ALLOWED | 403 | 403
+api_update_menu_item(price) | ownerX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_update_staff | ownerX | denied | 403 | 403 | 403 | 403 | ALLOWED | 403 | 403
+api_update_vendor | ownerX | denied | 403 | 403 | 403 | 403 | ALLOWED | 403 | 403
+api_fee_statement | ownerX+admin | denied | 403 | 403 | 403 | 403 | ALLOWED | 403 | ALLOWED
+api_export_my_data | signed-in | denied | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_is_admin | signed-in | denied | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_me | signed-in | denied | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_my_orders | signed-in | denied | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_place_order | signed-in | denied | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_record_consent | signed-in | denied | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_update_me | signed-in | denied | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED | ALLOWED
+api_adjust_stock | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_cash_summary | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_close_slot | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_create_menu_item | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_dispatch_slot | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_generate_barcode | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_generate_missing_barcodes | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_inventory | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_mark_delivered | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_pick_list | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_restock_item | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_restock_log | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_set_item_image | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_slot_orders | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_staff | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_stock_history | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_update_menu_item | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_vendor_orders | storeX | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | 403 | 403
+api_cancel_order | studentA | denied | 404 | ALLOWED | 404 | 404 | 404 | 404 | 404
+api_delete_my_account | students | denied | ALLOWED | ALLOWED(409) | ALLOWED | 403 | 403 | 403 | 403
+api_inventory(no id) | vendors | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | ALLOWED | 403
+api_vendor_overview | vendors | denied | 403 | 403 | 403 | ALLOWED | ALLOWED | ALLOWED | 403
+(47 rows)
+
+DEVIATIONS (allowed but not expected, or expected but refused):
+fn | actor | outcome | expect
+api_update_menu_item(price) | staffX | ALLOWED | ownerX
+(1 row)

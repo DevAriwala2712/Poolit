@@ -1,3 +1,4 @@
+const { reportError } = require("../utils/reportError");
 const supabase = require("../config/supabaseClient");
 const { toMenuItemJSON } = require("../utils/serialize");
 
@@ -27,7 +28,7 @@ exports.generateBarcode = async (req, res) => {
     }
     res.json(toMenuItemJSON(data));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to generate a barcode" });
   }
 };
@@ -50,7 +51,7 @@ exports.generateMissingBarcodes = async (req, res) => {
     }
     res.json({ generated: generated.length, items: generated });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to generate barcodes" });
   }
 };
@@ -92,7 +93,7 @@ exports.adjustStock = async (req, res) => {
     }
     res.json({ item: toMenuItemJSON(data.item), adjustment: toAdjustmentJSON(data.adjustment) });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to adjust stock" });
   }
 };
@@ -114,7 +115,7 @@ exports.getStockHistory = async (req, res) => {
     ].sort((a, b) => b.at - a.at);
     res.json(entries.slice(0, 50));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to load stock history" });
   }
 };

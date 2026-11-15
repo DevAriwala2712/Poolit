@@ -100,7 +100,7 @@ const STILL = `*,*::before,*::after{animation:none!important;transition:none!imp
   const session = (sub) => ({ access_token: jwt(sub), refresh_token: "r", token_type: "bearer", expires_in: 7200, expires_at: Math.floor(Date.now() / 1000) + 7200, user: { id: sub, aud: "authenticated", role: "authenticated", email: "x@example.com", app_metadata: {}, user_metadata: {} } });
   for (const size of [{ width: 390, height: 844 }, { width: 1280, height: 860 }]) {
     const ctx = await browser.newContext({ deviceScaleFactor: 1 });
-    await ctx.addInitScript((s) => { localStorage.setItem("sb-localhost-auth-token", JSON.stringify(s)); localStorage.setItem("poolit-vendor-ui-mode", "advanced"); }, session(ADMIN));
+    await ctx.addInitScript((s) => { localStorage.setItem("sb-localhost-auth-token", JSON.stringify(s)); localStorage.setItem("poolit-vendor-advanced-mode-v1", "true"); }, session(ADMIN));
     for (const [route, name] of [["/", "vendor-dashboard"], ["/orders", "vendor-orders"], ["/inventory", "vendor-inventory"], ["/analytics", "vendor-analytics"], ["/settings", "vendor-settings"], ["/activity", "vendor-activity"]]) {
       await shoot(ctx, vBase, route, name, size, { wait: 2500 });
     }

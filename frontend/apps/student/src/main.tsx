@@ -5,6 +5,7 @@ import { BACKEND, ErrorBoundary, installErrorReporting, setRpcCaller } from "@po
 import App from "./App";
 import "./index.css";
 import { supabase } from "./lib/supabaseClient";
+import { initMonitoring } from "./monitoring";
 
 // VITE_BACKEND=supabase: data calls go straight to the database functions through
 // this client (the same one that holds the student's login). Default: the Express API.
@@ -12,6 +13,7 @@ if (BACKEND === "supabase") setRpcCaller(async (fn, args) => await supabase.rpc(
 
 // Crashes are reported to Poolit (new backend only), so they are seen without anyone having to complain.
 installErrorReporting("student");
+initMonitoring();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

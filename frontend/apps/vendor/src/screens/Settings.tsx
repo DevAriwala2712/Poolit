@@ -22,8 +22,6 @@ export function Settings() {
   const [prep, setPrep] = useState(vendor.prepMinutes);
   const [batchWindow, setBatchWindow] = useState(vendor.poolWindowMinutes ?? SLOT_DURATION_MINUTES);
   const [maxDensity, setMaxDensity] = useState(5);
-  const [autoPrintKot, setAutoPrintKot] = useState(true);
-  const [rushBuzzer, setRushBuzzer] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedJustNow, setSavedJustNow] = useState(false);
 
@@ -226,7 +224,7 @@ export function Settings() {
           )}
 
           {advancedMode && (
-            <Card icon="timer" title="Kitchen SLA & Ops" subtitle="Dispatch pacing & hardware triggers">
+            <Card icon="timer" title="Prep time" subtitle="How long the store needs to pack a pool">
             <div className="mt-space-sm">
               <p className="text-body-sm text-on-surface">Target Prep Time</p>
               <div className="mt-space-xs flex items-center gap-space-xs">
@@ -246,23 +244,6 @@ export function Settings() {
                   </button>
                 ))}
               </div>
-              <p className="mt-space-2xs text-label-sm text-secondary">Alert expeditor if breached by 4 minutes</p>
-            </div>
-            <div className="mt-space-md grid grid-cols-1 gap-space-sm sm:grid-cols-2">
-              <ToggleRow
-                icon="print"
-                label="Auto-Print KOT"
-                hint="Star Micronics Station 1 · Thermal Port 9100"
-                checked={autoPrintKot}
-                onChange={setAutoPrintKot}
-              />
-              <ToggleRow
-                icon="volume_up"
-                label="Rush Tone Buzzer"
-                hint="Triggers at >12 active orders"
-                checked={rushBuzzer}
-                onChange={setRushBuzzer}
-              />
             </div>
             </Card>
           )}

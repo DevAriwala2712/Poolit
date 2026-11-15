@@ -1,4 +1,4 @@
-const supabase = require("../config/supabaseClient");
+const { verifyToken, InvalidTokenError } = require("../utils/verifyToken");
 
 /**
  * Attaches req.user when a valid `Authorization: Bearer <token>` is sent, and
@@ -12,13 +12,12 @@ async function optionalAuth(req, res, next) {
   if (!header.startsWith("Bearer ")) return next();
   const token = header.slice("Bearer ".length);
   try {
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data.user) {
-      return res.status(401).json({ message: "Invalid or expired session" });
-    }
-    req.user = data.user;
+    req.user = await verifyToken(token);
     next();
   } catch (err) {
+    if (err instanceof InvalidTokenError) {
+      return res.status(401).json({ message: "Invalid or expired session" });
+    }
     console.error("[optionalAuth] auth check failed:", err);
     res.status(503).json({ message: "Authentication service unavailable, try again" });
   }

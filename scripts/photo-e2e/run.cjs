@@ -78,7 +78,7 @@ const serve = (dist) =>
 
   // ---------------- 1. the vendor adds a photo to an existing item ----------------
   const vctx = await browser.newContext({ viewport: { width: 1280, height: 860 } });
-  await vctx.addInitScript((s) => { localStorage.setItem("sb-localhost-auth-token", JSON.stringify(s)); localStorage.setItem("poolit-vendor-ui-mode", "advanced"); }, session(OWNER));
+  await vctx.addInitScript((s) => { localStorage.setItem("sb-localhost-auth-token", JSON.stringify(s)); localStorage.setItem("poolit-vendor-advanced-mode-v1", "true"); }, session(OWNER));
   const vpage = await vctx.newPage();
   const vcalls = [];
   vpage.on("response", (r) => { if (/\/(rest|storage)\/v1\//.test(r.url())) vcalls.push([r.request().method(), r.url().replace(REST, ""), r.status()]); });

@@ -1,0 +1,10 @@
+Run at main@891e435 on 11 Nov 2026: real vendor console (Vite dev build), Chromium, the
+repo's own mocked API (frontend/apps/vendor/e2e/mockApi.ts) with one order whose note is the
+payload. Copy the spec into frontend/apps/vendor/e2e/ and run: npx playwright test e2e/05_print_window_xss.spec.ts
+
+POPUP URL: about:blank
+POPUP ORIGIN: http://localhost:5174 | HAS OPENER: true
+CONSOLE TAB TITLE AFTER PRINT: PWNED sb-supabase-auth-token,poolit-vendor-active-v1,poolit-vendor-advanced-mode-v1
+READABLE BY THE INJECTED SCRIPT: [["sb-supabase-auth-token","{\"access_token\":\"test-token\",\"token_type\":\"bearer\",\"expires_in\":3600,\""],["poolit-vendor-active-v1","v1"],["poolit-vendor-advanced-mode-v1","true"]]
+  ✓  order note runs script in the vendor console's origin when tickets are printed (1.3s)
+  1 passed (2.4s)

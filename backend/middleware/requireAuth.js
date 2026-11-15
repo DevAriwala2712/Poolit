@@ -1,4 +1,4 @@
-const supabase = require("../config/supabaseClient");
+const { verifyToken, InvalidTokenError } = require("../utils/verifyToken");
 
 /**
  * Protects vendor-only mutation routes. Expects `Authorization: Bearer <access_token>`
@@ -14,12 +14,11 @@ async function requireAuth(req, res, next) {
   }
 
   try {
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data.user) {
+    req.user = await verifyToken(token);
+  } catch (err) {
+    if (err instanceof InvalidTokenError) {
       return res.status(401).json({ message: "Invalid or expired session" });
     }
-    req.user = data.user;
-  } catch (err) {
     // Supabase Auth unreachable — fail closed, but as a 503, not a crash.
     console.error("[requireAuth] auth check failed:", err);
     return res.status(503).json({ message: "Authentication service unavailable, try again" });

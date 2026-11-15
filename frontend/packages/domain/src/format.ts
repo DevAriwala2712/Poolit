@@ -1,4 +1,4 @@
-import { PLATFORM_FEE } from "./constants";
+import { PLATFORM_FEE } from "./constants.ts";
 import type { MenuItem, Order, OrderStatus } from "./types";
 
 export function rupees(amount: number): string {
@@ -42,13 +42,16 @@ export const ORDER_STAGE_HINT: Record<OrderStatus, string> = {
   cancelled: "You cancelled this order",
 };
 
-/** Goods value in rupees: the price frozen when the order was placed, else today's menu price. */
+/** Goods total in rupees: the price frozen at sale, else (legacy) the current menu price. */
 export function orderSubtotal(order: Order, menu: MenuItem[]): number {
   if (order.subtotalPaise !== undefined) return order.subtotalPaise / 100;
-  return order.items.reduce(
-    (sum, line) => sum + (menu.find((m) => m.id === line.menuItemId)?.price ?? 0) * line.qty,
-    0,
-  );
+  return order.items.reduce((sum, line) => {
+    const unit =
+      line.unitPricePaise !== undefined
+        ? line.unitPricePaise / 100
+        : (menu.find((m) => m.id === line.menuItemId)?.price ?? 0);
+    return sum + unit * line.qty;
+  }, 0);
 }
 
 /**

@@ -78,3 +78,20 @@ begin
   update slots set status = 'dispatched' where id = slot;
   perform t.ok(exists (select 1 from audit_log where table_name = 'orders' and row_id = oA->>'id' and new_values->>'status' = 'cancelled' and actor = sA), 'the cancellation is in the audit log, against the student');
 end $$;
+
+-- The console's revenue chart (api_vendor_revenue): own stores only, cancelled orders excluded.
+do $$
+declare r jsonb; today jsonb;
+begin
+  perform t.as_user('x_owner');
+  r := api_vendor_revenue(7);
+  perform t.ok((r->>'days')::int = 7 and jsonb_array_length(r->'stores') = 1 and r->'stores'->0->>'vendorId' = t.id('x_v')::text, 'the owner gets one store, seven days');
+  perform t.ok(jsonb_array_length(r->'stores'->0->'days') = 7, 'one row per day, including empty days');
+  today := r->'stores'->0->'days'->6;
+  perform t.ok((today->>'orders')::int = 2 and (today->>'revenue')::numeric = 40, 'today: the 2 remaining orders, Rs 40 of goods; the cancelled order is not revenue');
+  perform t.ok((api_vendor_revenue(500)->>'days')::int = 92 and (api_vendor_revenue(0)->>'days')::int = 1, 'the range is held between 1 and 92 days');
+  perform t.as_user('x_A');
+  perform t.throws('PT403', 'select api_vendor_revenue(7)');
+  perform t.as_anon();
+  perform t.throws('42501', 'select api_vendor_revenue(7)');
+end $$;

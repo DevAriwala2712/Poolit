@@ -1,3 +1,4 @@
+const { reportError } = require("../utils/reportError");
 const supabase = require("../config/supabaseClient");
 const { toMenuItemJSON } = require("../utils/serialize");
 
@@ -27,7 +28,7 @@ exports.getInventory = async (req, res) => {
 
     res.json(items.map(toMenuItemJSON));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to fetch inventory" });
   }
 };

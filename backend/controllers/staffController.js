@@ -1,3 +1,4 @@
+const { reportError } = require("../utils/reportError");
 const supabase = require("../config/supabaseClient");
 const { toStaffJSON } = require("../utils/serialize");
 
@@ -14,7 +15,7 @@ exports.getStaff = async (req, res) => {
     if (error) throw error;
     res.json(data.map(toStaffJSON));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to fetch staff" });
   }
 };
@@ -54,7 +55,7 @@ exports.createStaff = async (req, res) => {
 
     res.status(201).json(toStaffJSON(data));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to add staff member" });
   }
 };
@@ -102,7 +103,7 @@ exports.updateStaff = async (req, res) => {
 
     res.json(toStaffJSON(data));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to update staff member" });
   }
 };
@@ -122,7 +123,7 @@ exports.deleteStaff = async (req, res) => {
     }
     res.json({ message: "Staff member removed" });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to remove staff member" });
   }
 };

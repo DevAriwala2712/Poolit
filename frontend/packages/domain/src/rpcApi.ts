@@ -87,6 +87,7 @@ export function makeRpcApi(getRpc: () => RpcCaller | null): Api {
 
     // ---- vendor console ----
     getVendorOverview: (days = 7) => call("api_vendor_overview", { p_days: days }),
+    getRevenue: (days) => call("api_vendor_revenue", { p_days: days }),
     updateVendor: (vendorId, patch) => call("api_update_vendor", { p_vendor_id: vendorId, p_patch: patch }),
     createMenuItem: (vendorId, input) => call("api_create_menu_item", { p_vendor_id: vendorId, p_input: input }),
     getStaff: (vendorId) => call("api_staff", { p_vendor_id: vendorId }),

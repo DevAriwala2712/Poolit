@@ -1,0 +1,47 @@
+== P2 personal data in signed-out and other-student responses (expect all false)
+anon api_student_view leaks A: false
+studentB api_student_view leaks A: false
+studentB api_my_orders leaks A: false
+studentB api_export_my_data leaks A: false
+anon api_vendors/api_vendor/api_current_slot leak A: false
+ownerY api_vendor_overview leaks store X orders: false
+== P2b what a signed-out caller learns about a store (keys of a menu item)
+id,art,name,tint,unit,isVeg,price,rating,category,stockQty,vendorId,createdAt,updatedAt,ratingCount,lowStockThreshold
+== P5 order abuse by one signed-in account
+UPI order accepted, stored as: UPI
+made-up payment method accepted, stored as: already paid, trust me
+tip 99999 stored as: 500
+4th order by the same student in the pool: ERROR PT409: You can place up to 3 orders in one pool
+consent rows for B before ordering: 0
+51 lines: ERROR PT400: Each item needs a quantity between 1 and 100 (max 50 lines)
+one order, 50 lines of the same item x 100, subtotal paise: 10000000
+stock left for everyone else: 0
+the same account cancels, no cost: Order cancelled; stock back to see next line
+stock after cancel: 5000
+cancelled orders do not count toward the limit of 3: active orders for stranger = 0
+== P6 paused store with a pool still open
+order into a paused store: placed
+== P15 delivery and cash
+recording cash on a UPI order: ERROR PT400: Cash can only be recorded for cash on delivery orders
+delivering the UPI order with no payment record: {"order": {"id": "d28e573b-bcb1-48c1-ad68-7984029a7d40", "ti
+UPI order after delivery: cash_collected_paise=null, in cash summary expected total? 0
+COD deliver records default cash (due = 2000 + 20*100 + 400): 4400
+second deliver: ERROR PT409: Cannot mark delivered: order is currently "delivered". Expected "di
+== P7 idempotency
+first:  2958c621-b3d4-4fe2-b6a3-899d10d84c3d
+replay: 2958c621-b3d4-4fe2-b6a3-899d10d84c3d
+orders created by those two calls: 1
+same key, other body: ERROR PT422: This idempotency key was already used for a different request
+same key, other user gets their own order, name: Stranger
+== P16 account deletion leaves
+B reports a crash while signed in: true
+delete: {"deleted": true}
+orders still naming B: 0; audit rows with B's id: 0; client_errors rows with B's id: 1; idempotency rows: 0; consents: 0
+== P4 signed-out error reports
+f
+page stored for a URL with a fragment: https://vendor.app/#access_token=SECRET&refresh_token=R
+2 rows before the flood
+400 calls made by one signed-out caller
+300 rows after; average row bytes 2609
+f
+a real new crash reported right after is stored: false

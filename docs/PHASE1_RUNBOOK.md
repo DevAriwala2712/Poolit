@@ -105,3 +105,12 @@ that the signed-in user is a **vendor** — i.e. has a row in `vendor_users` —
 even while `ENFORCE_VENDOR_SCOPING` is off. Both existing vendor logins are
 linked. When you create a new vendor login, also link it (step 3 above), or
 its actions will return "This account isn't a vendor account".
+
+## 9. Added in the final Phase 1 batch
+
+- **Pool rotation** now runs in the database (`pg_cron` job `poolit-sweep-slots`, every minute). Check it: `select jobname, status, return_message, start_time from cron.job_run_details order by start_time desc limit 5;` If it stops, `POST /internal/sweep-slots` with `x-cron-secret` still works as a manual fallback.
+- **Idempotency keys** are purged daily at 03:00 UTC (`poolit-purge-idempotency-keys`).
+- **Team logins:** owners add people from the API at `/vendors/:id/members` (invite by email, role `owner` or `staff`). Set the invite redirect URL in Supabase → Authentication → URL configuration.
+- **Optional env vars (API):** `SENTRY_DSN`, `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (shared rate limits), `LOCAL_JWT_VERIFY=false` (force a Supabase check on every request), **`ALLOWED_ORIGINS`** (set to your two app URLs). Apps: `VITE_SENTRY_DSN`.
+- **Debugging:** every response carries `X-Request-Id`; error bodies include `requestId`. Search the Vercel logs for it.
+- **Running the tests:** `cd backend && npm test`; database tests: start Postgres, `DATABASE_URL=... scripts/db-test-setup.sh`, then `npm run test:db`; browser tests: `cd frontend/apps/vendor && npm run e2e`.

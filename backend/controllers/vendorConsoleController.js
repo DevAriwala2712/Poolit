@@ -1,3 +1,4 @@
+const { reportError } = require("../utils/reportError");
 const supabase = require("../config/supabaseClient");
 const flags = require("../utils/flags");
 const {
@@ -23,6 +24,35 @@ async function storesFor(userId) {
   }
   return data.map((r) => r.vendor_id);
 }
+
+/**
+ * GET /vendor/revenue?days=30
+ *
+ * Daily revenue and order counts per store from the frozen order subtotals,
+ * aggregated in the database (vendor_daily_revenue), for the Analytics chart.
+ */
+exports.getRevenue = async (req, res) => {
+  try {
+    const days = req.query.days;
+    const vendorIds = await storesFor(req.user.id);
+    if (!vendorIds) return res.status(403).json({ message: "This account isn't a vendor account" });
+
+    const stores = await Promise.all(
+      vendorIds.map(async (vendorId) => {
+        const { data, error } = await supabase.rpc("vendor_daily_revenue", { p_vendor_id: vendorId, p_days: days });
+        if (error) throw error;
+        return {
+          vendorId,
+          days: data.map((r) => ({ day: r.day, orders: Number(r.orders), revenue: Number(r.revenue) })),
+        };
+      }),
+    );
+    res.json({ days, stores });
+  } catch (err) {
+    reportError(err, req);
+    res.status(500).json({ message: "Failed to load revenue" });
+  }
+};
 
 /**
  * GET /vendor/overview?days=7
@@ -103,7 +133,7 @@ exports.getOverview = async (req, res) => {
       days,
     });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to load the console" });
   }
 };

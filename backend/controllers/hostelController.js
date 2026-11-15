@@ -1,3 +1,4 @@
+const { reportError } = require("../utils/reportError");
 const supabase = require("../config/supabaseClient");
 const { toHostelJSON, toVendorJSON, toMenuItemJSON, toSlotJSON } = require("../utils/serialize");
 
@@ -8,7 +9,7 @@ exports.getAllHostels = async (req, res) => {
     if (error) throw error;
     res.json(data.map(toHostelJSON));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to fetch hostels" });
   }
 };
@@ -60,7 +61,7 @@ exports.getCurrentSlot = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to fetch current slot" });
   }
 };

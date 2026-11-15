@@ -90,10 +90,15 @@ function toOrderJSON(row) {
     items: (row.items || []).map((item) => ({
       menuItemId: item.menuItemId,
       qty: item.qty,
+      // Frozen at the time of sale (absent only on orders that predate it).
+      ...(item.unitPricePaise !== undefined && { name: item.name, unitPricePaise: item.unitPricePaise }),
     })),
     status: row.status,
     createdAt: new Date(row.created_at).getTime(),
   };
+  if (row.subtotal_paise !== null && row.subtotal_paise !== undefined) {
+    json.subtotalPaise = row.subtotal_paise;
+  }
   if (row.delivery_fee_charged !== null && row.delivery_fee_charged !== undefined) {
     json.deliveryFeeCharged = row.delivery_fee_charged;
   }

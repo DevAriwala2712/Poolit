@@ -48,7 +48,7 @@ const check = (name, ok, detail = "") => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 } });
     // supabase-js keeps the login under sb-<first part of the host>-auth-token
     await ctx.addInitScript((s) => localStorage.setItem("sb-localhost-auth-token", JSON.stringify(s)), session(sub));
-    await ctx.addInitScript(() => localStorage.setItem("poolit-vendor-ui-mode", "advanced"));
+    await ctx.addInitScript(() => localStorage.setItem("poolit-vendor-advanced-mode-v1", "true"));
     return ctx;
   };
 
@@ -191,6 +191,11 @@ const check = (name, ok, detail = "") => {
   check("and the screen goes back to the true count (3)", (await shown()) === 3, `screen ${await shown()}`);
   sql(`update menu_items set stock_qty=${start0} where id='${itemId}'`);
   rest.delayMs = 0;
+
+  // analytics chart comes from the database too
+  await page.goto(base + "/analytics");
+  await page.waitForTimeout(3000);
+  check("the Analytics screen loads its revenue through api_vendor_revenue", calls.some((c) => c[1] === "api_vendor_revenue" && c[2] === 200), page.url() + " " + JSON.stringify(calls.filter((c) => /revenue/.test(c[1]))));
   await ctx.close();
 
   // ---------- 1b. commission statement, fee settings and the activity log ----------

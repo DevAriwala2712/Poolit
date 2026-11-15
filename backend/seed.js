@@ -2,6 +2,9 @@
  * Seed script for Poolit
  * Run: npm run seed
  *
+ * Deletes every row of six tables first. Runs only against a local Supabase, or
+ * a project named in SEED_CONFIRM_PROJECT (see utils/seedGuard.js).
+ *
  * Mirrors frontend/packages/domain/src/seed.ts so the API serves the same
  * demo data the UI was designed against.
  */
@@ -11,6 +14,15 @@ console.log("🌱 Starting seed script...");
 console.log("📁 Current directory:", process.cwd());
 console.log("🔍 SUPABASE_URL:", process.env.SUPABASE_URL ? "✅ Found" : "❌ Not found");
 console.log("---");
+
+// Deletes six tables below: only against a local database or an explicitly named project.
+const { checkSeedTarget } = require("./utils/seedGuard");
+const guard = checkSeedTarget(process.env.SUPABASE_URL, process.env.SEED_CONFIRM_PROJECT);
+if (!guard.ok) {
+  console.error(`❌ ${guard.reason}`);
+  process.exit(1);
+}
+console.log(`🎯 Target: ${guard.target}`);
 
 const supabase = require("./config/supabaseClient");
 

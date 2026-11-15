@@ -1,3 +1,4 @@
+const { reportError } = require("../utils/reportError");
 const supabase = require("../config/supabaseClient");
 const { toOrderJSON, toSlotJSON } = require("../utils/serialize");
 
@@ -22,7 +23,7 @@ exports.getMe = async (req, res) => {
     if (error) throw error;
     res.json({ userId: req.user.id, phone: req.user.phone || null, profile: toStudentJSON(data) });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to load your profile" });
   }
 };
@@ -66,7 +67,7 @@ exports.updateMe = async (req, res) => {
     }
     res.json({ userId: req.user.id, phone: req.user.phone || null, profile: toStudentJSON(data) });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to save your profile" });
   }
 };
@@ -91,7 +92,7 @@ exports.getMyOrders = async (req, res) => {
     }
     res.json({ orders: orders.map(toOrderJSON), slots: slots.map(toSlotJSON) });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to load your orders" });
   }
 };

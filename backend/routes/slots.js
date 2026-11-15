@@ -2,9 +2,13 @@ const express = require("express");
 const router = express.Router();
 const slotController = require("../controllers/slotController");
 const orderController = require("../controllers/orderController");
+const { vendorWriteLimit } = require("../middleware/limiters");
 const requireAuth = require("../middleware/requireAuth");
 const { requireVendorAccess, vendorFrom } = require("../middleware/requireVendorAccess");
 const { rateLimit } = require("../middleware/rateLimit");
+const { validate } = require("../middleware/validate");
+const { idempotency } = require("../middleware/idempotency");
+const S = require("../schemas");
 const optionalAuth = require("../middleware/optionalAuth");
 const vendorOnlyWhenStudentLogin = require("../middleware/vendorOnlyWhenStudentLogin");
 
@@ -21,10 +25,10 @@ router.get("/:slotId/live-fee", orderController.getLiveFee);
 
 // The student app places orders here. Signed-in students get the order
 // linked to their account; STUDENT_LOGIN_REQUIRED=true makes sign-in mandatory.
-router.post("/:slotId/orders", orderLimiter, optionalAuth, orderController.placeOrder);
+router.post("/:slotId/orders", orderLimiter, optionalAuth, validate({ body: S.placeOrderBody }), idempotency(), orderController.placeOrder);
 
 // Vendor-only actions.
-router.post("/:slotId/close", requireAuth, requireVendorAccess(vendorFrom.slot), slotController.closeSlotHandler);
-router.post("/:slotId/dispatch", requireAuth, requireVendorAccess(vendorFrom.slot), slotController.dispatchSlot);
+router.post("/:slotId/close", requireAuth, vendorWriteLimit, requireVendorAccess(vendorFrom.slot), slotController.closeSlotHandler);
+router.post("/:slotId/dispatch", requireAuth, vendorWriteLimit, requireVendorAccess(vendorFrom.slot), slotController.dispatchSlot);
 
 module.exports = router;

@@ -1,3 +1,4 @@
+const { reportError } = require("../utils/reportError");
 const supabase = require("../config/supabaseClient");
 const { toVendorJSON, toMenuItemJSON, toOrderJSON } = require("../utils/serialize");
 
@@ -33,7 +34,7 @@ exports.getAllVendors = async (req, res) => {
     }));
     res.json(result);
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to fetch vendors" });
   }
 };
@@ -64,7 +65,7 @@ exports.getVendorById = async (req, res) => {
       menu: menu.map(toMenuItemJSON),
     });
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to fetch vendor" });
   }
 };
@@ -81,7 +82,7 @@ exports.getVendorMenu = async (req, res) => {
     if (error) throw error;
     res.json(items.map(toMenuItemJSON));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to fetch menu" });
   }
 };
@@ -136,7 +137,7 @@ exports.updateVendor = async (req, res) => {
 
     res.json(toVendorJSON(vendor));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to update vendor" });
   }
 };
@@ -167,7 +168,7 @@ exports.getVendorOrders = async (req, res) => {
 
     res.json(orders.map(toOrderJSON));
   } catch (err) {
-    console.error(err);
+    reportError(err, req);
     res.status(500).json({ message: "Failed to fetch vendor orders" });
   }
 };
