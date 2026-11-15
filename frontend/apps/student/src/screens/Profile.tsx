@@ -1,6 +1,7 @@
-import { rupees, useStore } from "@poolit/domain";
+import { ApiError, BACKEND, api, rupees, useStore } from "@poolit/domain";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ConfirmSheet } from "../components/ConfirmSheet";
 import { Icon } from "../components/Icon";
 import type { IconName } from "../components/Icon";
 import { ProductArt } from "../components/ProductArt";
@@ -22,6 +23,10 @@ export function Profile() {
   const toast = useToast();
   const [addressOpen, setAddressOpen] = useState(false);
   const [favOpen, setFavOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   const { session, phone, signOut } = useAuth();
   const myOrders = orders; // only the signed-in student's own orders
@@ -56,11 +61,48 @@ export function Profile() {
     },
     {
       icon: "chat",
-      label: "Help & support",
-      hint: "We reply in ~2 mins",
-      onClick: () => toast("Support chat coming soon", "info"),
+      label: "Help, terms and privacy",
+      hint: "Grievance contact, refunds, your rights",
+      onClick: () => navigate("/legal"),
     },
   ];
+
+  /** Saves everything Poolit holds about this student as a JSON file. */
+  async function downloadMyData() {
+    setDownloading(true);
+    try {
+      const data = await api.exportMyData();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "poolit-my-data.json";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("Your data was downloaded");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Couldn't download your data. Try again.", "info");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  async function deleteMyAccount() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.deleteMyAccount("DELETE");
+      setDeleteOpen(false);
+      cart.clear();
+      await signOut();
+      update({ name: "", onboarded: false });
+      toast("Your account was deleted");
+      navigate("/onboarding", { replace: true });
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : "Couldn't delete your account. Try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="pb-6">
@@ -76,31 +118,10 @@ export function Profile() {
               placeholder="Add your name"
               className="w-full bg-transparent text-[19px] font-extrabold tracking-tight text-cream outline-none placeholder:text-cream/40"
             />
-            <p className="truncate text-[12.5px] text-cream/60">
+            <p className="truncate text-small text-cream/60">
               {hostel.name} · {profile.block}, Room {profile.room}
             </p>
           </div>
-        </div>
-
-        <div className="mt-5 flex items-center justify-between rounded-2xl bg-cream/10 p-3.5">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-lime text-ink">
-              <Icon name="wallet" className="h-[18px] w-[18px]" strokeWidth={2.1} />
-            </span>
-            <div>
-              <p className="text-[11.5px] text-cream/60">Hostel wallet</p>
-              <p className="text-[17px] font-extrabold leading-tight">{rupees(profile.walletBalance)}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              update({ walletBalance: profile.walletBalance + 200 });
-              toast("₹200 added to wallet");
-            }}
-            className="rounded-xl bg-lime px-3.5 py-2 text-[12.5px] font-bold text-ink"
-          >
-            Add money
-          </button>
         </div>
       </header>
 
@@ -115,8 +136,8 @@ export function Profile() {
               <Icon name={row.icon} className="h-[18px] w-[18px]" strokeWidth={2.1} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-bold text-ink">{row.label}</span>
-              <span className="block truncate text-[12px] text-ink-soft">{row.hint}</span>
+              <span className="block text-body font-bold text-ink">{row.label}</span>
+              <span className="block truncate text-small text-ink-soft">{row.hint}</span>
             </span>
             <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-ink-faint" strokeWidth={2.4} />
           </button>
@@ -124,7 +145,7 @@ export function Profile() {
       </section>
 
       <section className="mx-4 mt-4">
-        <p className="mb-2 text-[13px] font-bold uppercase tracking-wide text-ink-soft">Switch hostel</p>
+        <p className="mb-2 text-body-sm font-bold uppercase tracking-wide text-ink-soft">Switch hostel</p>
         <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
           {hostels.map((h) => (
             <Chip
@@ -141,6 +162,28 @@ export function Profile() {
           ))}
         </div>
       </section>
+
+      {BACKEND === "supabase" && session && (
+        <section className="mx-4 mt-4">
+          <p className="mb-2 text-body-sm font-bold uppercase tracking-wide text-ink-soft">Your data</p>
+          <div className="space-y-2">
+            <Button full variant="outline" onClick={() => void downloadMyData()} disabled={downloading}>
+              {downloading ? "Preparing…" : "Download my data"}
+            </Button>
+            <Button
+              full
+              variant="ghost"
+              className="!text-coral"
+              onClick={() => {
+                setDeleteError(null);
+                setDeleteOpen(true);
+              }}
+            >
+              Delete my account
+            </Button>
+          </div>
+        </section>
+      )}
 
       <div className="mx-4 mt-6 space-y-2">
         <Button
@@ -178,13 +221,25 @@ export function Profile() {
         )}
       </div>
 
-      <p className="mt-6 text-center text-[11px] text-ink-faint">Poolit · Student app v1.0</p>
+      <p className="mt-6 text-center text-caption text-ink-faint">Poolit · Student app v1.0</p>
+
+      <ConfirmSheet
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Delete your account?"
+        message="This removes your login and saved details. Your past orders stay with the store for its accounts, but without your name, room or note. You can't undo this, and you can't delete while an order is on its way."
+        confirmLabel="Delete my account"
+        requireText="DELETE"
+        busy={deleting}
+        error={deleteError}
+        onConfirm={() => void deleteMyAccount()}
+      />
 
       <Sheet open={addressOpen} onClose={() => setAddressOpen(false)} title="Delivery address">
-        <p className="text-[13px] text-ink-soft">{hostel.name}</p>
+        <p className="text-body-sm text-ink-soft">{hostel.name}</p>
         <div className="mt-3 space-y-3">
           <div>
-            <span className="text-[12px] font-semibold text-ink-soft">Block</span>
+            <span className="text-small font-semibold text-ink-soft">Block</span>
             <div className="mt-1.5 flex flex-wrap gap-2">
               {hostel.blocks.map((b) => (
                 <Chip key={b} active={profile.block === b} onClick={() => update({ block: b })}>
@@ -194,12 +249,12 @@ export function Profile() {
             </div>
           </div>
           <label className="block">
-            <span className="text-[12px] font-semibold text-ink-soft">Room number</span>
+            <span className="text-small font-semibold text-ink-soft">Room number</span>
             <input
               value={profile.room}
               onChange={(e) => update({ room: e.target.value.replace(/\D/g, "").slice(0, 4) })}
               inputMode="numeric"
-              className="mt-1.5 min-h-[46px] w-full rounded-2xl bg-surface px-4 text-[15px] font-medium text-ink shadow-[var(--shadow-soft)] outline-none focus:ring-2 focus:ring-lime"
+              className="mt-1.5 min-h-[48px] w-full rounded-2xl bg-surface px-4 text-lead font-medium text-ink shadow-[var(--shadow-soft)] outline-none focus:ring-2 focus:ring-lime"
             />
           </label>
         </div>
@@ -207,17 +262,17 @@ export function Profile() {
 
       <Sheet open={favOpen} onClose={() => setFavOpen(false)} title="Favourites">
         {favourites.length === 0 ? (
-          <p className="py-8 text-center text-[13.5px] text-ink-soft">
+          <p className="py-8 text-center text-body-sm text-ink-soft">
             Tap the heart on any product to save it here.
           </p>
         ) : (
           <div className="space-y-2 py-1">
             {favourites.map((item) => (
               <div key={item.id} className="flex items-center gap-3 rounded-2xl bg-surface p-2.5 shadow-[var(--shadow-soft)]">
-                <ProductArt art={item.art} tint={item.tint} size="sm" />
+                <ProductArt art={item.art} tint={item.tint} imagePath={item.imagePath} size="sm" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13.5px] font-semibold text-ink">{item.name}</p>
-                  <p className="text-[12px] font-bold text-ink">{rupees(item.price)}</p>
+                  <p className="truncate text-body-sm font-semibold text-ink">{item.name}</p>
+                  <p className="text-small font-bold text-ink">{rupees(item.price)}</p>
                 </div>
                 <button
                   onClick={() => toggleFavorite(item.id)}

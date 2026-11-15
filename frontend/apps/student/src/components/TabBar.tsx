@@ -23,7 +23,7 @@ export function TabBar() {
               to={tab.to}
               end={tab.end}
               className={({ isActive }) =>
-                `relative flex min-h-[56px] flex-col items-center justify-center gap-1 text-[10.5px] font-semibold transition ${
+                `relative flex min-h-[56px] flex-col items-center justify-center gap-1 text-micro font-semibold transition ${
                   isActive ? "text-ink" : "text-ink-faint"
                 }`
               }
@@ -37,7 +37,7 @@ export function TabBar() {
                       strokeWidth={isActive ? 2.3 : 1.8}
                     />
                     {tab.icon === "cart" && count > 0 && (
-                      <span className="absolute -right-2 -top-1.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-coral px-1 text-[10px] font-extrabold text-white">
+                      <span className="absolute -right-2 -top-1.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-coral px-1 text-micro font-extrabold text-white">
                         {count}
                       </span>
                     )}

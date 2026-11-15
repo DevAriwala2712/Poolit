@@ -101,12 +101,12 @@ export function Login() {
             <h2 className="text-[24px] font-extrabold leading-tight tracking-tight text-ink">
               Your mobile number
             </h2>
-            <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">
+            <p className="mt-1.5 text-body leading-relaxed text-ink-soft">
               We'll text you a 6-digit code. Your number is only used to sign you in and to reach you about an order.
             </p>
 
-            <label className="mt-6 flex min-h-[52px] items-center gap-2 rounded-2xl bg-surface px-4 shadow-[var(--shadow-soft)] focus-within:ring-2 focus-within:ring-lime">
-              <span className="text-[16px] font-semibold text-ink">+91</span>
+            <label className="mt-6 flex min-h-[56px] items-center gap-2 rounded-2xl bg-surface px-4 shadow-[var(--shadow-soft)] focus-within:ring-2 focus-within:ring-lime">
+              <span className="text-input font-semibold text-ink">+91</span>
               <span className="h-5 w-px bg-line" />
               <input
                 autoFocus
@@ -117,11 +117,11 @@ export function Login() {
                 value={phoneInput}
                 onChange={(e) => setPhoneInput(e.target.value.replace(/[^\d\s]/g, "").slice(0, 12))}
                 placeholder="98765 43210"
-                className="min-w-0 flex-1 bg-transparent text-[16px] font-semibold tracking-wide text-ink outline-none placeholder:font-medium placeholder:text-ink-faint"
+                className="min-w-0 flex-1 bg-transparent text-input font-semibold tracking-wide text-ink outline-none placeholder:font-medium placeholder:text-ink-faint"
               />
             </label>
 
-            {error && <p className="mt-3 text-[13px] font-medium text-coral">{error}</p>}
+            {error && <p className="mt-3 text-body-sm font-medium text-coral">{error}</p>}
 
             <Button full type="submit" className="mt-6" disabled={busy || phoneInput.replace(/\D/g, "").length < 10}>
               {busy ? "Sending code…" : "Send code"}
@@ -136,7 +136,7 @@ export function Login() {
             }}
           >
             <h2 className="text-[24px] font-extrabold leading-tight tracking-tight text-ink">Enter the code</h2>
-            <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">
+            <p className="mt-1.5 text-body leading-relaxed text-ink-soft">
               Sent to <span className="font-semibold text-ink">{formatIndianPhone(e164)}</span>.{" "}
               <button
                 type="button"
@@ -166,7 +166,7 @@ export function Login() {
               className="mt-6 min-h-[56px] w-full rounded-2xl bg-surface px-4 text-center text-[24px] font-extrabold tracking-[0.5em] text-ink shadow-[var(--shadow-soft)] outline-none placeholder:text-ink-faint focus:ring-2 focus:ring-lime"
             />
 
-            {error && <p className="mt-3 text-[13px] font-medium text-coral">{error}</p>}
+            {error && <p className="mt-3 text-body-sm font-medium text-coral">{error}</p>}
 
             <Button full type="submit" className="mt-6" disabled={busy || code.length !== 6}>
               {busy ? "Checking…" : "Verify and continue"}
@@ -176,7 +176,7 @@ export function Login() {
               type="button"
               disabled={resendIn > 0 || busy}
               onClick={() => void requestCode()}
-              className="mt-4 w-full text-center text-[13.5px] font-semibold text-ink-soft disabled:opacity-50"
+              className="mt-4 w-full text-center text-body-sm font-semibold text-ink-soft disabled:opacity-50"
             >
               {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
             </button>

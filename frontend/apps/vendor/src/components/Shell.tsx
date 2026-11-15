@@ -1,14 +1,12 @@
-import { useStore } from "@poolit/domain";
+import { LogoMark, useNow, useStore } from "@poolit/domain";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useNow } from "../hooks/useNow";
 import { useAuth } from "../state/AuthContext";
 import { useUIMode } from "../state/UIModeContext";
 import { ToastViewport } from "../state/ToastContext";
 import { useVendor } from "../state/VendorContext";
 import { Drawer } from "./Drawer";
 import { CommandPalette } from "./CommandPalette";
-import { LogoMark } from "./LogoMark";
 import { MaterialIcon } from "./MaterialIcon";
 import { Badge, Kbd } from "./ui";
 
@@ -25,6 +23,7 @@ const TITLES: Record<string, { crumb: string; sub: string }> = {
   "/orders": { crumb: "Orders Management", sub: "Accept, prepare and dispatch pooled runs." },
   "/inventory": { crumb: "Inventory Management", sub: "SKU realtime stock & prep." },
   "/analytics": { crumb: "Analytics & Performance Review", sub: "Revenue, volume and peak hours." },
+  "/activity": { crumb: "Activity Log", sub: "Who changed what, and when." },
   "/settings": { crumb: "Store Operations & Settings", sub: "Store profile, pooling rules, kitchen SLA & dispatch parameters." },
 };
 

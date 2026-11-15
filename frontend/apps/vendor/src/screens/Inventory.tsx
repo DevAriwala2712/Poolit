@@ -1,3 +1,4 @@
+import { ItemPhoto } from "../components/ItemPhoto";
 import { CATEGORIES, rupees, stockState, useStore } from "@poolit/domain";
 import type { MenuItem } from "@poolit/domain";
 import { useMemo, useState } from "react";
@@ -5,9 +6,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { AddItemModal } from "../components/AddItemModal";
 import { BarcodeLabelDrawer, printLabels } from "../components/BarcodeLabels";
 import { KpiCard } from "../components/KpiCard";
+import { StockFixModal } from "../components/StockFixModal";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card, EmptyState, Td, Th } from "../components/ui";
 import { downloadCSV } from "../lib/csv";
+import { useToast } from "../state/ToastContext";
 import { useUIMode } from "../state/UIModeContext";
 import { useVendor } from "../state/VendorContext";
 
@@ -16,7 +19,8 @@ const QUICK = [10, 25];
 export function Inventory() {
   const [params, setParams] = useSearchParams();
   const { vendor, allVendors } = useVendor();
-  const { restockItem, setItemPrice, generateBarcode, generateMissingBarcodes } = useStore();
+  const { restockItem, adjustStock, setItemPrice, generateBarcode, generateMissingBarcodes } = useStore();
+  const { notify } = useToast();
   const { advancedMode } = useUIMode();
 
   const [query, setQuery] = useState("");
@@ -29,6 +33,7 @@ export function Inventory() {
   const navigate = useNavigate();
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [labelItemId, setLabelItemId] = useState<string | null>(null);
+  const [fixItemId, setFixItemId] = useState<string | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
 
   const pool = useMemo(
@@ -70,11 +75,29 @@ export function Inventory() {
     const raw = customAmounts[item.id];
     const amount = Number(raw);
     if (!raw || !Number.isFinite(amount) || !Number.isInteger(amount) || amount <= 0) return;
-    void restockItem(vendorId, item.id, amount);
+    void restock(vendorId, item, amount);
     setCustomAmounts((prev) => ({ ...prev, [item.id]: "" }));
   }
 
+  /** Add stock, then offer Undo for a few seconds in case it was an accidental press. */
+  async function restock(vendorId: string, item: MenuItem, amount: number) {
+    try {
+      await restockItem(vendorId, item.id, amount);
+    } catch {
+      return; // the store already showed why it failed
+    }
+    notify(`Added ${amount} to ${item.name}`, "success", {
+      label: "Undo",
+      onClick: () => {
+        adjustStock(item.id, { mode: "remove", qty: amount, reason: "correction" })
+          .then(() => notify(`Undone: took ${amount} off ${item.name}`, "success"))
+          .catch(() => undefined); // the store already showed why it failed
+      },
+    });
+  }
+
   const missingBarcodes = vendor.menu.filter((m) => !m.barcode).length;
+  const fixItem = fixItemId ? pool.find(({ item }) => item.id === fixItemId)?.item ?? null : null;
   const labelItem = labelItemId ? pool.find(({ item }) => item.id === labelItemId)?.item ?? null : null;
 
   async function generateFor(item: MenuItem) {
@@ -256,7 +279,7 @@ export function Inventory() {
               return (
                 <li key={item.id} className="space-y-space-sm px-space-md py-space-sm">
                   <div className="flex items-center gap-space-sm">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-surface-container text-lg">{item.art}</span>
+                    <ItemPhoto item={item} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-body-lg text-on-surface">{item.name}</p>
                       <p className="truncate text-label-sm text-secondary">
@@ -270,13 +293,19 @@ export function Inventory() {
                       <Badge tone={state === "out" ? "error" : state === "low" ? "primary" : "ready"}>
                         {state === "out" ? "Out" : state === "low" ? "Low" : "OK"}
                       </Badge>
+                      <button
+                        onClick={() => setFixItemId(item.id)}
+                        className="mt-1 block w-full rounded text-right text-label-sm text-primary underline underline-offset-2"
+                      >
+                        Fix stock
+                      </button>
                     </div>
                   </div>
                   <div className="flex items-center gap-space-xs">
                     {QUICK.map((amount) => (
                       <button
                         key={amount}
-                        onClick={() => void restockItem(vendorId, item.id, amount)}
+                        onClick={() => void restock(vendorId, item, amount)}
                         className="h-10 flex-1 rounded bg-surface-container text-body-md text-on-surface active:bg-surface-container-high"
                       >
                         +{amount}
@@ -331,9 +360,7 @@ export function Inventory() {
                     >
                       <Td>
                         <div className="flex items-center gap-space-sm">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-surface-container text-base">
-                            {item.art}
-                          </span>
+                          <ItemPhoto item={item} size="sm" />
                           <div>
                             <p className="text-body-md text-on-surface">{item.name}</p>
                             <p className="font-label-sm text-label-sm text-secondary">SKU: {item.id.slice(0, 8).toUpperCase()}</p>
@@ -392,7 +419,7 @@ export function Inventory() {
                           {QUICK.map((amount) => (
                             <button
                               key={amount}
-                              onClick={() => restockItem(vendorId, item.id, amount)}
+                              onClick={() => void restock(vendorId, item, amount)}
                               className="rounded bg-surface-container px-2 py-1 text-label-sm text-secondary transition hover:bg-surface-container-high hover:text-on-surface"
                             >
                               +{amount}
@@ -422,6 +449,12 @@ export function Inventory() {
                           >
                             Add
                           </button>
+                          <button
+                            onClick={() => setFixItemId(item.id)}
+                            className="rounded px-2 py-1 text-label-sm text-primary underline underline-offset-2 hover:bg-surface-container"
+                          >
+                            Fix stock
+                          </button>
                         </div>
                       </Td>
                     </tr>
@@ -435,39 +468,6 @@ export function Inventory() {
         <div className="px-space-md py-space-sm text-label-sm text-secondary">Showing {rows.length} of {pool.length} items</div>
       </Card>
 
-      {/* Decorative — future hardware/automation integrations */}
-      {advancedMode && (
-        <div className="grid grid-cols-1 gap-space-md lg:grid-cols-3">
-          <Card title="Auto-Order Webhook" action={<Badge tone="ready" dot={false}>Ready</Badge>}>
-            <p className="text-body-sm text-secondary">
-              Trigger vendor delivery slips directly once minimum inventory threshold is crossed on Campus Central DB.
-            </p>
-            <div className="mt-space-sm flex items-center justify-between text-body-sm">
-              <span className="text-secondary">Supplier: Metro Cash & Fresh Prep</span>
-              <span className="text-primary">Configure →</span>
-            </div>
-          </Card>
-          <Card title="Cold Holding Storage #02" action={<span className="flex items-center gap-space-2xs text-body-sm text-tertiary"><span className="h-2 w-2 rounded-full bg-tertiary" />3.8°C</span>}>
-            <p className="text-body-sm text-secondary">
-              Refrigeration sensor reading steady within safe compliance bounds for raw meat & dairy bases.
-            </p>
-            <div className="mt-space-sm flex items-center justify-between text-body-sm">
-              <span className="text-secondary">Chamber: Unit E-Walkin</span>
-              <span className="text-tertiary">Nominal</span>
-            </div>
-          </Card>
-          <Card title="Prep Consumption Run" action={<span className="text-body-sm text-secondary">1.4x Rush Factor</span>}>
-            <div className="h-1.5 overflow-hidden rounded-full bg-surface-container">
-              <div className="h-full w-[78%] rounded-full bg-primary" />
-            </div>
-            <div className="mt-space-sm flex items-center justify-between text-body-sm">
-              <span className="text-secondary">Peak rush: 12:30 PM - 2:00 PM</span>
-              <span className="text-primary">78% cap</span>
-            </div>
-          </Card>
-        </div>
-      )}
-
       <AddItemModal
         open={addItemOpen}
         onClose={() => setAddItemOpen(false)}
@@ -477,6 +477,7 @@ export function Inventory() {
           setLabelItemId(id);
         }}
       />
+      <StockFixModal item={fixItem} onClose={() => setFixItemId(null)} />
       <BarcodeLabelDrawer item={labelItem} storeName={vendor.name} onClose={() => setLabelItemId(null)} />
     </div>
   );

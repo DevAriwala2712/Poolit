@@ -76,7 +76,7 @@ export interface Slot {
   closesAt: number;
 }
 
-export type OrderStatus = "placed" | "pooled" | "dispatched" | "delivered";
+export type OrderStatus = "placed" | "pooled" | "dispatched" | "delivered" | "cancelled";
 
 export interface OrderLineItem {
   menuItemId: string;
@@ -99,6 +99,12 @@ export interface Order {
   status: OrderStatus;
   /** Locked in once the slot closes; undefined while the slot is still open. */
   deliveryFeeCharged?: number;
+  /** Everything the student pays, in paise: goods + delivery + platform fee + tip. Known once the delivery fee is locked. */
+  amountDuePaise?: number;
+  /** Cash taken at the door for a cash on delivery order, in paise, once handed over. */
+  cashCollectedPaise?: number;
+  /** When that cash was taken (epoch ms). */
+  cashCollectedAt?: number;
   tip?: number;
   paymentMethod?: string;
   note?: string;

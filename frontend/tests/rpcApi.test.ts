@@ -52,6 +52,7 @@ test("placing an order sends every field under the function's parameter names", 
     tip: 10,
     paymentMethod: "UPI",
     note: "ring twice",
+    idempotencyKey: "order-key-0001",
   });
   assert.deepEqual(calls, [
     {
@@ -65,6 +66,7 @@ test("placing an order sends every field under the function's parameter names", 
         p_tip: 10,
         p_payment_method: "UPI",
         p_note: "ring twice",
+        p_idempotency_key: "order-key-0001",
       },
     },
   ]);
@@ -74,7 +76,7 @@ test("optional order fields that were not given are sent as null, not undefined"
   const { rpc, calls } = fakeRpc({ data: {} });
   await makeRpcApi(() => rpc).placeOrder({ slotId: "S-1", studentName: "Anaya", items: [{ menuItemId: "m1", qty: 1 }] });
   const args = calls[0].args as Record<string, unknown>;
-  for (const k of ["p_block", "p_room", "p_payment_method", "p_note"]) assert.equal(args[k], null, k);
+  for (const k of ["p_block", "p_room", "p_payment_method", "p_note", "p_idempotency_key"]) assert.equal(args[k], null, k);
   assert.equal(args.p_tip, 0);
 });
 
@@ -162,13 +164,63 @@ test("using it before the app has registered its Supabase client is a clear erro
   await assert.rejects(() => makeRpcApi(() => null).getHostels(), /not (set up|configured)/i);
 });
 
-// ---- the vendor console is not switched yet ----
+// ---- the vendor console ----
 
-test("vendor calls are refused with 501 until the console is switched", async () => {
+test("every vendor call uses its own function with the right argument names", async () => {
   const { rpc, calls } = fakeRpc({ data: {} });
   const api = makeRpcApi(() => rpc);
-  for (const call of [() => api.getVendorOverview(7), () => api.restockItem("m", 5), () => api.closeSlot("s"), () => api.getStaff("v")]) {
-    await assert.rejects(call, (e: unknown) => e instanceof ApiError && e.status === 501);
-  }
-  assert.equal(calls.length, 0, "nothing is sent for them");
+  const cases: [() => Promise<unknown>, string, Record<string, unknown> | undefined][] = [
+    [() => api.getVendorOverview(7), "api_vendor_overview", { p_days: 7 }],
+    [() => api.updateVendor("V", { acceptingOrders: false, prepMinutes: 8 }), "api_update_vendor", { p_vendor_id: "V", p_patch: { acceptingOrders: false, prepMinutes: 8 } }],
+    [() => api.createMenuItem("V", { name: "Cola", category: "Drinks", price: 45, unit: "750 ml", stockQty: 4 }), "api_create_menu_item", { p_vendor_id: "V", p_input: { name: "Cola", category: "Drinks", price: 45, unit: "750 ml", stockQty: 4 } }],
+    [() => api.getStaff("V"), "api_staff", { p_vendor_id: "V" }],
+    [() => api.createStaff("V", { name: "Ravi", role: "Packer", email: "r@x.com" }), "api_create_staff", { p_vendor_id: "V", p_name: "Ravi", p_role: "Packer", p_email: "r@x.com" }],
+    [() => api.createStaff("V", { name: "Sita", role: "Cook" }), "api_create_staff", { p_vendor_id: "V", p_name: "Sita", p_role: "Cook", p_email: null }],
+    [() => api.updateStaff("S", { status: "break" }), "api_update_staff", { p_staff_id: "S", p_patch: { status: "break" } }],
+    [() => api.deleteStaff("S"), "api_delete_staff", { p_staff_id: "S" }],
+    [() => api.getVendorOrders("V", "delivered"), "api_vendor_orders", { p_vendor_id: "V", p_status: "delivered" }],
+    [() => api.getVendorOrders("V"), "api_vendor_orders", { p_vendor_id: "V", p_status: null }],
+    [() => api.getSlotOrders("P"), "api_slot_orders", { p_slot_id: "P" }],
+    [() => api.getPickList("P"), "api_pick_list", { p_slot_id: "P" }],
+    [() => api.closeSlot("P"), "api_close_slot", { p_slot_id: "P" }],
+    [() => api.dispatchSlot("P"), "api_dispatch_slot", { p_slot_id: "P" }],
+    [() => api.markDelivered("O"), "api_mark_delivered", { p_order_id: "O", p_cash_collected_paise: null }],
+    [() => api.markDelivered("O", 6500), "api_mark_delivered", { p_order_id: "O", p_cash_collected_paise: 6500 }],
+    [() => api.getCashSummary("V"), "api_cash_summary", { p_vendor_id: "V", p_day: null }],
+    [() => api.getCashSummary("V", "2026-11-06"), "api_cash_summary", { p_vendor_id: "V", p_day: "2026-11-06" }],
+    [() => api.getFeeStatement("V", "2026-11-01", "2026-11-30"), "api_fee_statement", { p_vendor_id: "V", p_from: "2026-11-01", p_to: "2026-11-30" }],
+    [() => api.cancelOrder("O"), "api_cancel_order", { p_order_id: "O" }],
+    [() => api.recordConsent("2026-11", true), "api_record_consent", { p_version: "2026-11", p_age_confirmed: true }],
+    [() => api.exportMyData(), "api_export_my_data", undefined],
+    [() => api.deleteMyAccount("DELETE"), "api_delete_my_account", { p_confirm: "DELETE" }],
+    [() => api.setFeeTerms("V", "percent", 5), "api_set_fee_terms", { p_vendor_id: "V", p_fee_type: "percent", p_fee_value: 5 }],
+    [() => api.isAdmin(), "api_is_admin", undefined],
+    [() => api.getAuditLog({ table: "orders", limit: 20 }), "api_audit_log", { p_table: "orders", p_row_id: null, p_actor: null, p_before: null, p_limit: 20 }],
+    [() => api.getInventory({ vendorId: "V", status: "low" }), "api_inventory", { p_vendor_id: "V", p_status: "low" }],
+    [() => api.getInventory(), "api_inventory", { p_vendor_id: null, p_status: null }],
+    [() => api.restockItem("M", 25), "api_restock_item", { p_item_id: "M", p_amount: 25, p_idempotency_key: null }],
+    [() => api.restockItem("M", 25, "restock-key-01"), "api_restock_item", { p_item_id: "M", p_amount: 25, p_idempotency_key: "restock-key-01" }],
+    [() => api.updateItem("M", { price: 60, lowStockThreshold: 3, barcode: null }), "api_update_menu_item", { p_item_id: "M", p_patch: { price: 60, lowStockThreshold: 3, barcode: null } }],
+    [() => api.generateBarcode("M"), "api_generate_barcode", { p_item_id: "M" }],
+    [() => api.generateMissingBarcodes("V"), "api_generate_missing_barcodes", { p_vendor_id: "V" }],
+    [() => api.adjustStock("M", { mode: "remove", qty: 2, reason: "damaged", note: "dropped", idempotencyKey: "adjust-key-01" }), "api_adjust_stock", { p_item_id: "M", p_mode: "remove", p_qty: 2, p_reason: "damaged", p_note: "dropped", p_idempotency_key: "adjust-key-01" }],
+    [() => api.adjustStock("M", { mode: "set", qty: 40 }), "api_adjust_stock", { p_item_id: "M", p_mode: "set", p_qty: 40, p_reason: null, p_note: null, p_idempotency_key: null }],
+    [() => api.setItemImage("M", "store/0123456789abcdef.webp"), "api_set_item_image", { p_item_id: "M", p_path: "store/0123456789abcdef.webp" }],
+    [() => api.setItemImage("M", null), "api_set_item_image", { p_item_id: "M", p_path: null }],
+    [() => api.getStockHistory("M"), "api_stock_history", { p_item_id: "M" }],
+    [() => api.getRestockLog("M"), "api_restock_log", { p_item_id: "M" }],
+  ];
+  for (const [call] of cases) await call();
+  assert.deepEqual(
+    calls.map((c) => ({ fn: c.fn, args: c.args })),
+    cases.map(([, fn, args]) => ({ fn, args })),
+  );
+});
+
+test("a vendor call refused for a non-vendor surfaces as a 403 with the store's message", async () => {
+  const { rpc } = fakeRpc({ error: { code: "PT403", message: "This account isn't a vendor account" } });
+  await assert.rejects(
+    () => makeRpcApi(() => rpc).getVendorOverview(7),
+    (e: unknown) => e instanceof ApiError && e.status === 403 && /isn't a vendor/.test(e.message),
+  );
 });

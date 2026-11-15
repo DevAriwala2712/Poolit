@@ -8,7 +8,6 @@ export interface Profile {
   room: string;
   onboarded: boolean;
   favorites: string[];
-  walletBalance: number;
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -18,7 +17,6 @@ const DEFAULT_PROFILE: Profile = {
   room: "312",
   onboarded: false,
   favorites: [],
-  walletBalance: 480,
 };
 
 const KEY = "poolit-student-profile-v1";

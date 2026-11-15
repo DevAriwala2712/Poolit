@@ -29,7 +29,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className="animate-rise flex items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-[13px] font-semibold text-cream shadow-[var(--shadow-lift)]"
+            className="animate-rise flex items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-body-sm font-semibold text-cream shadow-[var(--shadow-lift)]"
           >
             <span
               className={`flex h-5 w-5 items-center justify-center rounded-full ${

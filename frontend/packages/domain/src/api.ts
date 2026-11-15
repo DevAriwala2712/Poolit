@@ -113,6 +113,65 @@ export interface StudentView {
   hostelId?: string;
 }
 
+/** A store's cash for one day (all amounts in paise). */
+export interface CashSummary {
+  day: string;
+  deliveredCount: number;
+  expectedPaise: number;
+  collectedPaise: number;
+  /** Collected minus expected: negative means the store is short. */
+  differencePaise: number;
+  outstandingCount: number;
+  outstandingPaise: number;
+  outstanding: { orderId: string; studentName: string; block?: string; room?: string; amountDuePaise?: number }[];
+}
+
+/** What Poolit's commission came to for a store over a date range (paise). */
+export interface FeeStatement {
+  vendorId: string;
+  from: string;
+  to: string;
+  terms: { feeType: "percent" | "fixed_per_order"; feeValue: number } | null;
+  orders: number;
+  goodsPaise: number;
+  commissionPaise: number;
+}
+
+/** Everything Poolit holds about a signed-in student (api_export_my_data). */
+export interface MyDataExport {
+  exportedAt: string;
+  account: { userId: string; phone?: string; email?: string };
+  profile: { name: string; hostelId?: string; block?: string; room?: string; createdAt?: string } | null;
+  consents: { version: string; ageConfirmed: boolean; acceptedAt: string }[];
+  orders: Order[];
+}
+
+/** One kind of crash reported by the apps, with how often it happened. */
+export interface ClientErrorEntry {
+  app: "student" | "vendor";
+  message: string;
+  stack?: string;
+  page?: string;
+  userAgent?: string;
+  firstAt: number;
+  lastAt: number;
+  occurrences: number;
+}
+
+/** One line of the activity log (api_audit_log); personal fields appear as "***". */
+export interface AuditEntry {
+  id: number;
+  at: number;
+  actor?: string;
+  actorEmail?: string;
+  actorRole?: string;
+  table: string;
+  op: "INSERT" | "UPDATE" | "DELETE";
+  rowId?: string;
+  old?: Record<string, unknown>;
+  new?: Record<string, unknown>;
+}
+
 export interface PlaceOrderInput {
   slotId: string;
   studentName: string;
@@ -122,6 +181,8 @@ export interface PlaceOrderInput {
   tip?: number;
   paymentMethod?: string;
   note?: string;
+  /** One random key per intended order, reused on retries (see idempotency.ts). */
+  idempotencyKey?: string;
 }
 
 export type StockAdjustmentReason = "count" | "damaged" | "expired" | "correction" | "other";
@@ -131,6 +192,8 @@ export interface StockAdjustmentInput {
   qty: number;
   reason?: StockAdjustmentReason;
   note?: string;
+  /** Optional key that makes a repeat of this adjustment harmless. */
+  idempotencyKey?: string;
 }
 
 export interface StockHistoryEntry {
@@ -284,8 +347,58 @@ const expressApi = {
   dispatchSlot: (slotId: string) =>
     request<{ slot: Slot }>(`/slots/${slotId}/dispatch`, { method: "POST" }),
 
-  markDelivered: (orderId: string) =>
+  /** Hand an order over. For cash on delivery, `cashCollectedPaise` is the cash taken (default: the amount due). */
+  markDelivered: (orderId: string, _cashCollectedPaise?: number) =>
     request<{ order: Order }>(`/orders/${orderId}/deliver`, { method: "POST" }),
+
+  /** The store's cash for a day (default today). Only the Supabase backend has it. */
+  getCashSummary: async (_vendorId: string, _day?: string): Promise<CashSummary> => {
+    throw new ApiError(501, "The cash summary needs the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Commission statement for a date range. Only the Supabase backend has it. */
+  getFeeStatement: async (_vendorId: string, _from: string, _to: string): Promise<FeeStatement> => {
+    throw new ApiError(501, "The commission statement needs the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Cancel an order that is still waiting for its pool to close. Only the Supabase backend has it. */
+  cancelOrder: async (_orderId: string): Promise<{ message: string; order: Order }> => {
+    throw new ApiError(501, "Cancelling needs the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Record that the student accepted this version of the Terms and Privacy Policy and is 18 or older. */
+  recordConsent: async (_version: string, _ageConfirmed: boolean): Promise<{ version: string; acceptedAt: number }> => {
+    throw new ApiError(501, "Consent records need the new backend (VITE_BACKEND=supabase).");
+  },
+
+  exportMyData: async (): Promise<MyDataExport> => {
+    throw new ApiError(501, "Data download needs the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Erase the account. `confirm` must be the word DELETE. */
+  deleteMyAccount: async (_confirm: string): Promise<{ deleted: boolean }> => {
+    throw new ApiError(501, "Account deletion needs the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Poolit team only: set a store's commission ("percent" 0-50, or "fixed_per_order" rupees 0-100). */
+  setFeeTerms: async (_vendorId: string, _feeType: "percent" | "fixed_per_order", _feeValue: number): Promise<{ vendorId: string; feeType: string; feeValue: number }> => {
+    throw new ApiError(501, "Fee settings need the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Tell Poolit about a crash in the app (see errorReporting.ts). Does nothing on the old backend. */
+  reportError: async (_app: "student" | "vendor", _message: string, _stack?: string, _page?: string, _userAgent?: string): Promise<void> => {},
+
+  /** Poolit team only: crash reports from the apps, newest first. */
+  getClientErrors: async (_limit?: number): Promise<ClientErrorEntry[]> => {
+    throw new ApiError(501, "Error reports need the new backend (VITE_BACKEND=supabase).");
+  },
+
+  /** Whether the signed-in user is on the Poolit team. */
+  isAdmin: async (): Promise<boolean> => false,
+
+  getAuditLog: async (_params?: { table?: string; rowId?: string; actor?: string; before?: number; limit?: number }): Promise<AuditEntry[]> => {
+    throw new ApiError(501, "The activity log needs the new backend (VITE_BACKEND=supabase).");
+  },
 
   getInventory: (params: { vendorId?: string; status?: "low" | "out" } = {}) => {
     const q = new URLSearchParams();
@@ -295,7 +408,7 @@ const expressApi = {
     return request<MenuItem[]>(`/inventory${qs ? `?${qs}` : ""}`);
   },
 
-  restockItem: (menuItemId: string, amount: number) =>
+  restockItem: (menuItemId: string, amount: number, _idempotencyKey?: string) =>
     request<{ item: MenuItem; restockLog: RestockLogEntry }>(
       `/menu-items/${menuItemId}/restock`,
       { method: "POST", idempotent: true, body: JSON.stringify({ amount }) },
@@ -325,6 +438,11 @@ const expressApi = {
       idempotent: true,
       body: JSON.stringify(input),
     }),
+
+  /** Attach (or, with null, remove) a product picture. Only the Supabase backend has pictures. */
+  setItemImage: async (_menuItemId: string, _path: string | null): Promise<MenuItem> => {
+    throw new ApiError(501, "Product pictures need the new backend (VITE_BACKEND=supabase).");
+  },
 
   getStockHistory: (menuItemId: string) => request<StockHistoryEntry[]>(`/menu-items/${menuItemId}/stock-history`),
 

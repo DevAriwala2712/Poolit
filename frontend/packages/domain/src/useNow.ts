@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-/** Ticking clock for countdowns. */
+/** Ticking clock for countdowns and live timers (shared by both apps). */
 export function useNow(intervalMs = 1000) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {

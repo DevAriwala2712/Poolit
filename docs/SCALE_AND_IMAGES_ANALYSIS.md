@@ -433,3 +433,42 @@ First-month traffic is spread over the weeks users join, so it arrives gradually
 
 - Build R2 or S3 uploads now. It adds a second system, a signing function and a weaker link between a database row and its file, to solve a bandwidth problem that cache headers likely remove.
 - Serve originals and resize on request. The free plan does not include Supabase's image transformations, and the vendor's phone can do the resize once.
+
+## 16. Measured: database capacity test (2026-11-06)
+
+`scripts/load-test/run.sh` runs the real `api_place_order` and `api_student_view` functions, as signed-in
+students, through pgbench against a copy of the schema with 20,000 students, 17 open pools and
+425 items. Machine: 4 CPUs, 16 GB, PostgreSQL 16, 16 concurrent clients, 30 seconds per run.
+
+| Run | Load | Calls done | Failed | Median | p95 | p99 | Max |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| realistic | about 10 calls/s (98% refreshes, 2% orders) | 304 | 0 | 4.3 ms | 9.6 ms | 11.9 ms | 15.6 ms |
+| 10x | about 109 calls/s | 3,271 | 0 | 3.7 ms | 5.9 ms | 9.1 ms | 27.6 ms |
+| flat out | 1,312 calls/s | 39,356 | 0 | 10.6 ms | 25.5 ms | 34.8 ms | 66.5 ms |
+
+After the runs: 1,939 orders placed, 1,939 units taken from stock, 1,939 units in the saved orders
+(nothing oversold, nothing lost), no negative stock, no student over the 3-orders-per-pool cap.
+
+**What this proves.** The database design has a large margin: the stress case from section 11
+(about 11 refreshes/s) is 100 times below what one small machine did without errors, and the stock and
+cap rules held under concurrent writes.
+
+**What it does not prove.** It measures the database only. Supabase's free plan runs a smaller, shared
+machine, and requests also pass through its REST layer and the network. Treat it as headroom, and
+repeat the same script against a staging project of the same size before relying on a capacity number.
+The script fixed during this run: it used psql's `:'var'` quoting, which pgbench does not support.
+
+## 17. Status of the UI consistency plan (9 Nov 2026)
+
+| Item from section 13 | State |
+| --- | --- |
+| 5. Self-host fonts | **Done for the vendor console's text fonts** (Geist and JetBrains Mono, about 70 KB, served by the app, checked in a real browser). The icon font (Material Symbols) is still loaded from Google: a self-hosted variable build is 1.5 to 4 MB, far larger than the small subset Google sends, so it stays until the icons used are known well enough to subset safely. |
+| Made-up content and inconsistent totals | **Done** (see the "Honesty pass" row in the production plan): no fake wallet, promo codes or invented vendor panels; totals include the platform fee. |
+| 1. Tokens (type, control height) | **Done for the student app**: 26 ad-hoc text sizes became 7 named body sizes (`text-micro` to `text-input`, half-pixel merges only) plus the heading sizes; control heights became 44, 48 and 56 px (the 36 and 40 px chips and tip buttons are now 44 px, the tap-size rule). `npm run check:ui` (in CI) fails if a size outside the scale is added. The vendor console already had a named scale. Radius and spacing scales not done. |
+| 2. Shared pieces (toast, connection gate, auth, logo) | **Partly done**: the logo and the clock hook, which were byte-identical copies, now live once in the shared package (screenshots unchanged). The connection gates look different on purpose and stay separate; the toast and sign-in code differ in behaviour and were not merged. |
+| 3. Screenshot proof of no redesign | **Done**: `scripts/ui-snapshots/run.sh <out> [baseline]` captures 49 screens (student at 360, 390 and 430 px, vendor at 390 and 1280 px) and compares pixel by pixel. Before/after for this change: the only visible differences are the taller chips and tip buttons (content below moves down about 8 px), 48 and 56 px inputs, and slightly smaller small text (one footnote wraps to two lines instead of three). Vendor screens are unchanged apart from live data such as clocks. |
+| 4. One wording/format helper | Partly: `rupees`, `orderTotal` and the status labels are shared; dates and "pool" wording are not audited. |
+
+**Closing note on section 13 (10 Nov 2026).**
+- *Radius and spacing scales:* measured, no work needed. Border radius uses six standard steps (`sm` to `2xl`, `full`) plus the `--radius-card` token; only three one-off pixel values exist (a 3, a 28 and a 44 px corner on decorative shapes). Spacing uses the framework's standard scale in the student app and named tokens in the vendor console.
+- *Toast, sign-in and connection gate:* deliberately left separate. They differ in behaviour (the student toast has no actions and a 2.4 s life; the vendor toast has tones and an Undo action; the sign-in flows are phone-OTP versus email-password; the two connection gates are branded differently), so merging them would add risk and a configuration layer without removing real duplication. The truly identical code (logo, clock hook) is already shared.

@@ -72,14 +72,14 @@ Student app > Auth: phone OTP sign in
 Student app > PostgREST: NEW backend, one call every 15 s (switch VITE_BACKEND, off by default)
 Student app > Express API: DEFAULT backend today, also the rollback path
 Android app > PostgREST: same calls as the web app
-Student app > Photo storage: show pictures (screens not built yet)
+Student app > Photo storage: show pictures (emoji shown if a picture is missing)
 
 // ---------------- Flows: vendors ----------------
 
 Store staff > Vendor console: run pools, restock, deliver, scan barcodes
 Vendor console > Auth: email sign in
 Vendor console > Express API: orders, stock, pools (not switched yet)
-Vendor console > Photo storage: upload one resized picture per product (upload code ready, screens not built)
+Vendor console > Photo storage: upload one resized picture per product (Add item and Inventory screens)
 
 // ---------------- Inside Supabase ----------------
 

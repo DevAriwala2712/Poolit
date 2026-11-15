@@ -1,11 +1,14 @@
-import { StoreProvider } from "@poolit/domain";
+import { BACKEND, StoreProvider } from "@poolit/domain";
+import { useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { ConnectionGate } from "./components/ConnectionGate";
 import { TabBar } from "./components/TabBar";
 import { Cart } from "./screens/Cart";
 import { Categories } from "./screens/Categories";
 import { Checkout } from "./screens/Checkout";
+import { Consent } from "./screens/Consent";
 import { Home } from "./screens/Home";
+import { Legal } from "./screens/Legal";
 import { Login } from "./screens/Login";
 import { Onboarding } from "./screens/Onboarding";
 import { Orders } from "./screens/Orders";
@@ -15,6 +18,7 @@ import { Tracking } from "./screens/Tracking";
 import { AuthProvider, useAuth } from "./state/AuthContext";
 import { CartProvider } from "./state/CartContext";
 import { ProfileProvider, useProfile } from "./state/ProfileContext";
+import { hasConsented } from "./lib/policy";
 import { ToastProvider } from "./state/ToastContext";
 
 /** Phone-width canvas; centred with soft edges on larger screens. */
@@ -62,6 +66,22 @@ function RequireSignIn() {
   return <Outlet />;
 }
 
+/**
+ * Signed-in students confirm they are 18+ and accept the current Terms and Privacy Policy once
+ * (and again when the version changes). The acceptance is saved on the server. Only on the new
+ * backend, which is where the record can be kept.
+ */
+function RequireConsent() {
+  const { session } = useAuth();
+  const [, setTick] = useState(0);
+  if (BACKEND !== "supabase" || !session || hasConsented(session.user.id)) return <Outlet />;
+  return (
+    <Frame>
+      <Consent userId={session.user.id} onDone={() => setTick((n) => n + 1)} />
+    </Frame>
+  );
+}
+
 function RequireOnboarding() {
   const { profile } = useProfile();
   if (!profile.onboarded) return <Navigate to="/onboarding" replace />;
@@ -93,16 +113,22 @@ export default function App() {
                   <Route path="/cart" element={<Cart />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route element={<RequireSignIn />}>
-                    <Route path="/orders" element={<Orders />} />
+                    <Route element={<RequireConsent />}>
+                      <Route path="/orders" element={<Orders />} />
+                    </Route>
                   </Route>
                 </Route>
 
                 <Route element={<PlainLayout />}>
                   <Route path="/product/:itemId" element={<ProductDetail />} />
                   <Route path="/login" element={<Login />} />
+                  <Route path="/legal" element={<Legal />} />
+                  <Route path="/legal/:doc" element={<Legal />} />
                   <Route element={<RequireSignIn />}>
-                    <Route path="/checkout" element={<Checkout />} />
-                    <Route path="/track/:orderId" element={<Tracking />} />
+                    <Route element={<RequireConsent />}>
+                      <Route path="/checkout" element={<Checkout />} />
+                      <Route path="/track/:orderId" element={<Tracking />} />
+                    </Route>
                   </Route>
                 </Route>
               </Route>

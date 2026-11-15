@@ -1,11 +1,10 @@
-import { clockTime, countdown, orderItemCount, orderSubtotal, rupees, useStore } from "@poolit/domain";
+import { clockTime, countdown, orderItemCount, orderSubtotal, rupees, useNow, useStore } from "@poolit/domain";
 import { useNavigate } from "react-router-dom";
 import { BarChart } from "../components/charts";
 import { KpiCard } from "../components/KpiCard";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card, EmptyState } from "../components/ui";
 import { useMetrics, pctDelta, poolStats } from "../hooks/useMetrics";
-import { useNow } from "../hooks/useNow";
 import { downloadCSV } from "../lib/csv";
 import { useUIMode } from "../state/UIModeContext";
 import { useVendor } from "../state/VendorContext";

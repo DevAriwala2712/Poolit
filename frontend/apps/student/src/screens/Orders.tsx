@@ -1,7 +1,7 @@
 import {
   ORDER_STAGE_LABEL,
   orderItemCount,
-  orderSubtotal,
+  orderTotal,
   relativeDay,
   clockTime,
   rupees,
@@ -9,6 +9,7 @@ import {
 } from "@poolit/domain";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
+import { CancelOrderButton } from "../components/CancelOrderButton";
 import { ProductArt } from "../components/ProductArt";
 import { Badge, EmptyState } from "../components/ui";
 import { useCart } from "../state/CartContext";
@@ -23,8 +24,8 @@ export function Orders() {
   // The store only ever holds this signed-in student's own orders.
   const mine = [...orders].sort((a, b) => b.createdAt - a.createdAt);
 
-  const active = mine.filter((o) => o.status !== "delivered");
-  const past = mine.filter((o) => o.status === "delivered");
+  const active = mine.filter((o) => o.status !== "delivered" && o.status !== "cancelled");
+  const past = mine.filter((o) => o.status === "delivered" || o.status === "cancelled");
 
   function reorder(orderId: string) {
     const order = orders.find((o) => o.id === orderId);
@@ -64,7 +65,7 @@ export function Orders() {
 
       {active.length > 0 && (
         <section className="px-4">
-          <h2 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-ink-soft">
+          <h2 className="mb-2 text-body-sm font-bold uppercase tracking-wide text-ink-soft">
             Active
           </h2>
           <div className="space-y-3">
@@ -77,7 +78,7 @@ export function Orders() {
 
       {past.length > 0 && (
         <section className="mt-6 px-4">
-          <h2 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-ink-soft">
+          <h2 className="mb-2 text-body-sm font-bold uppercase tracking-wide text-ink-soft">
             Past orders
           </h2>
           <div className="space-y-3">
@@ -119,8 +120,7 @@ function OrderCard({
   const vendor = vendors.find((v) => v.id === slot?.vendorId);
   if (!vendor) return null;
 
-  const subtotal = orderSubtotal(order, vendor.menu);
-  const fee = order.deliveryFeeCharged ?? 0;
+  const total = orderTotal(order, vendor.menu, order.deliveryFeeCharged ?? 0);
   const arts = order.items
     .map((l) => vendor.menu.find((m) => m.id === l.menuItemId))
     .filter(Boolean)
@@ -135,32 +135,35 @@ function OrderCard({
               key={item!.id}
               art={item!.art}
               tint={item!.tint}
+              imagePath={item!.imagePath}
               size="sm"
               className="!h-11 !w-11 !text-lg ring-2 ring-white"
             />
           ))}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-bold text-ink">{vendor.name}</p>
-          <p className="text-[12px] text-ink-soft">
+          <p className="truncate text-body font-bold text-ink">{vendor.name}</p>
+          <p className="text-small text-ink-soft">
             {orderItemCount(order)} items · {relativeDay(order.createdAt)}, {clockTime(order.createdAt)}
           </p>
-          <p className="mt-0.5 text-[13px] font-extrabold text-ink">
-            {rupees(subtotal + fee + (order.tip ?? 0))}
+          <p className="mt-0.5 text-body-sm font-extrabold text-ink">
+            {rupees(total)}
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <Badge tone={order.status === "delivered" ? "lime" : "sun"}>
+          <Badge tone={order.status === "delivered" ? "lime" : order.status === "cancelled" ? "coral" : "sun"}>
             {ORDER_STAGE_LABEL[order.status]}
           </Badge>
           <Icon name="chevronRight" className="h-4 w-4 text-ink-faint" strokeWidth={2.4} />
         </div>
       </button>
 
+      <CancelOrderButton orderId={order.id} className="mt-3" />
+
       {onReorder && (
         <button
           onClick={onReorder}
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-lime-soft py-2.5 text-[13px] font-bold text-[#4c6b04] ring-1 ring-lime/40 active:scale-[0.99]"
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-lime-soft py-2.5 text-body-sm font-bold text-[#4c6b04] ring-1 ring-lime/40 active:scale-[0.99]"
         >
           <Icon name="receipt" className="h-4 w-4" strokeWidth={2.2} />
           Reorder

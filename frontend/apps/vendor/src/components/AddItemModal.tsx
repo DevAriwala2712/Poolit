@@ -1,5 +1,6 @@
 import { CATEGORIES, useStore } from "@poolit/domain";
 import { useState } from "react";
+import { usePhotoUpload } from "../hooks/usePhotoUpload";
 import { MaterialIcon } from "./MaterialIcon";
 import { Button } from "./ui";
 
@@ -16,6 +17,8 @@ export function AddItemModal({
   onCreated?: (itemId: string) => void;
 }) {
   const { createMenuItem, generateBarcode, setItemBarcode } = useStore();
+  const uploadPhoto = usePhotoUpload();
+  const [photo, setPhoto] = useState<File | null>(null);
   const [barcodeMode, setBarcodeMode] = useState<"auto" | "existing" | "none">("auto");
   const [existingCode, setExistingCode] = useState("");
 
@@ -46,6 +49,7 @@ export function AddItemModal({
     setArt("📦");
     setBarcodeMode("auto");
     setExistingCode("");
+    setPhoto(null);
     setError(null);
   }
 
@@ -75,6 +79,14 @@ export function AddItemModal({
       } catch (err) {
         setError(`Item added, but the barcode couldn't be saved: ${err instanceof Error ? err.message : "try again from Inventory"}`);
         return;
+      }
+      if (photo) {
+        try {
+          await uploadPhoto(vendorId, item.id, photo);
+        } catch (err) {
+          setError(`Item added, but the photo couldn't be saved: ${err instanceof Error ? err.message : "add it again from Inventory"}`);
+          return;
+        }
       }
       handleClose();
       onCreated?.(item.id);
@@ -158,6 +170,17 @@ export function AddItemModal({
               />
             </Field>
           </div>
+
+          <Field label="Photo (optional)">
+            <input
+              type="file"
+              accept="image/*"
+              data-testid="add-item-photo"
+              onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+              className="block w-full text-body-sm text-secondary file:mr-space-sm file:rounded file:border-0 file:bg-surface-container file:px-space-sm file:py-1 file:text-body-sm file:text-on-surface"
+            />
+            <p className="mt-1 text-label-sm text-secondary">One clear photo of the pack. It is shrunk on this phone before it is uploaded.</p>
+          </Field>
 
           <div className="grid grid-cols-2 gap-space-sm">
             <Field label="Starting stock">

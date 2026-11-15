@@ -25,6 +25,6 @@ renders from it, makes the old fan-out of calls per poll (hostels, stores, one p
 one pool size per hostel, every 5 s), and makes no Supabase function calls.
 
 ```bash
-(cd frontend/apps/student && VITE_API_URL=http://localhost:5057 npx vite build --outDir /tmp/student-express --emptyOutDir)
+(cd frontend/apps/student && VITE_BACKEND=express VITE_API_URL=http://localhost:5057 npx vite build --outDir /tmp/student-express --emptyOutDir)
 node scripts/student-e2e/express-path.cjs /tmp/student-express
 ```

@@ -1,6 +1,5 @@
-import { API_URL, useStore } from "@poolit/domain";
+import { API_URL, LogoMark, useStore } from "@poolit/domain";
 import type { ReactNode } from "react";
-import { LogoMark } from "./LogoMark";
 import { MaterialIcon } from "./MaterialIcon";
 import { Button } from "./ui";
 

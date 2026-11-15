@@ -16,6 +16,39 @@ Poolit is pooled quick-commerce for college hostels: students in one hostel orde
 
 All of it was verified end-to-end in a real Chromium browser at phone size with a simulated camera pointed at one of the repo's dummy barcodes: decode → item match → `+5` restock request sent → stock went from 3 to 8.
 
+## Build status as of 6 Nov 2026 (read this first)
+
+Verified by running it, not by reading it. "Live" means applied to the Supabase project and checked there.
+
+| Item | State | Evidence |
+| --- | --- | --- |
+| 34 database functions replace the Express routes (`api_*`), tables closed to the public | **Live** | `supabase/tests/10_api_security.sql`, advisors checked |
+| Pool rotation by `pg_cron` | **Live** | `20_pool_rotation.sql` |
+| Product photo storage rules and image pipeline (800 px + 400 px WebP, ≤200 KB, content-hash names) | **Live** | `30_product_images.sql`; photo e2e 28/28 including upload attacks |
+| One-call student view (`api_student_view`) | **Live** | `40_student_view.sql` |
+| Retry-safe orders and stock changes (idempotency keys) | **Live** | `50_idempotency.sql` |
+| Student app and vendor console on the database functions (`VITE_BACKEND=supabase`), Express path kept as rollback | Code done | Student e2e, vendor e2e 19/19, Express-path regression |
+| Faster buttons: stock and price changes show at once and are confirmed in the background; a refresh asked for during a poll now runs instead of being dropped | Code done | Vendor e2e on a simulated 1.5 s connection; mutation-checked |
+| Inventory: Undo after a restock, and a Fix stock panel (take away with a reason, or set an exact count) | Code done | Vendor e2e (35 checks) |
+| Student app: consent and 18+ screen, Cancel order, download my data, delete my account, in-app policy pages | **Live** (migrations `cancel_order`, `consent` applied 10 Nov) | Student e2e 29 checks; `90_cancel_order`, `95_consent` |
+| Audit log of every data change, admin-readable, personal data masked, 180-day retention | **Live** (applied 10 Nov, checked: 27 triggers, closed to the public roles) | `80_audit_log`, mutation-checked |
+| Vendor console: real commission statement (replaces a made-up settlement card), admin fee form, admin activity log screen | Code done | Vendor e2e 49 checks |
+| Honesty pass: cash on delivery is the only payment offered until UPI exists; fake wallet, promo codes, invented vendor hardware/settlement/telemetry panels and non-functional Settings tabs removed; order totals now include the ₹4 platform fee and frozen prices, and say "to pay on delivery" instead of "paid" | Code done | Student e2e 41, vendor e2e 50 |
+| Error tracking on the free stack: both apps report crashes (and an error boundary replaces a blank page), merged and rate-limited in a table, admins read them in the Activity screen; alerts still need a destination (email or chat) | **Live** (migration `client_errors` applied 10 Nov) | `97_client_errors`, student and vendor browser runs |
+| The four architecture items: **RLS** (tables closed, access only through checked functions; live, tested), **no separate backend** (production builds call the database functions; `.env.production`), **images** (Supabase Storage, resized 800/400 px WebP at most 200 KB, hash names, 1-year cache; no S3 or paid CDN needed), **CORS** (Express refuses unknown sites by default; Supabase accepts any site by design, protected by sign-in and function checks) | Done in code and database; live once `main` deploys | DB tests, backend 20 tests, browser runs |
+| Product photos in both apps (vendor Add/Edit photo, student pictures with emoji fallback) | Code done | `photo-e2e` |
+| Cash on delivery tracking, per-store commission or fixed fee, per-order fee ledger, store statements | **Live** (applied 6 Nov, `20261106064424_cod_and_fees.sql`) | `60_cod_and_fees.sql`, vendor e2e cash chip |
+| Student data export and account deletion functions | **Live** (applied 6 Nov, `20261106064449_privacy.sql`) | `70_privacy.sql`; app buttons not built |
+| Nightly encrypted backup, restore drill | Scripts tested locally; workflow untried on GitHub | `docs/BACKUP_AND_RESTORE.md` |
+| Database capacity test | Done locally | Section 16 of `SCALE_AND_IMAGES_ANALYSIS.md`: 1,312 calls/s flat out, p95 25 ms, no oversell |
+| Legal and policy drafts, runbooks | Drafted, **not reviewed by a lawyer** | `docs/legal/`, `docs/RUNBOOKS.md` |
+| Android app (Capacitor), UI consistency pass | **Not started** | |
+| UPI payments | Phase 2, not started | |
+
+**Done on 6 Nov:** the owner's account is in `platform_admins`.
+
+**Waiting on the owner:** a staging Supabase project; Cloudflare R2 bucket and GitHub secrets for backups; Supabase auth settings (leaked-password protection, MFA); the commission decision; SMS/DLT setup; allow `*.supabase.co` from the build environment so the live project can be tested end to end.
+
 ## Current state audit
 
 The core business logic is sound: stock decrements, pool closing and dispatch already run as atomic Postgres functions, so two students can't buy the last unit. The weak points are around it: identity, data loading, and operations.

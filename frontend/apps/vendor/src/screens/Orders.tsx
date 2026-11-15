@@ -1,14 +1,4 @@
-import {
-  ORDER_STAGE_LABEL,
-  clockTime,
-  countdown,
-  orderItemCount,
-  orderSubtotal,
-  pickListForSlot,
-  relativeDay,
-  rupees,
-  useStore,
-} from "@poolit/domain";
+import { ORDER_STAGE_LABEL, cashDueRupees, clockTime, countdown, isCashOnDelivery, orderItemCount, orderSubtotal, pickListForSlot, relativeDay, rupees, useNow, useStore } from "@poolit/domain";
 import type { Order, OrderStatus } from "@poolit/domain";
 import { escapeHtml } from "../lib/html";
 import { useEffect, useMemo, useState } from "react";
@@ -16,8 +6,8 @@ import { Drawer } from "../components/Drawer";
 import { MaterialIcon } from "../components/MaterialIcon";
 import { Badge, Button, Card, EmptyState, Td, Th } from "../components/ui";
 import type { Tone } from "../components/ui";
+import { useCashSummary } from "../hooks/useCashSummary";
 import { useMetrics } from "../hooks/useMetrics";
-import { useNow } from "../hooks/useNow";
 import { useUIMode } from "../state/UIModeContext";
 import { useVendor } from "../state/VendorContext";
 
@@ -26,6 +16,7 @@ const STATUS_TONE: Record<OrderStatus, Tone> = {
   pooled: "ready",
   dispatched: "dispatched",
   delivered: "delivered",
+  cancelled: "error", // never shown: the database leaves cancelled orders out of store lists
 };
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -33,6 +24,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   pooled: "In Delivery Pool",
   dispatched: "Dispatched",
   delivered: "Delivered",
+  cancelled: "Cancelled",
 };
 
 const FILTERS: { key: OrderStatus | "all"; label: string }[] = [
@@ -49,6 +41,11 @@ export function Orders() {
   const { orders, markDelivered, closeSlot, dispatchSlot } = useStore();
   const { advancedMode } = useUIMode();
   const m = useMetrics();
+  // Reload today's cash whenever an order is handed over or goes out. (Handing over turns a
+  // dispatched order into a delivered one, so count the two separately: their sum would not change.)
+  const delivered = orders.filter((o) => o.status === "delivered").length;
+  const dispatched = orders.filter((o) => o.status === "dispatched").length;
+  const cash = useCashSummary(vendor?.id, delivered * 10_000 + dispatched);
 
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
   const [query, setQuery] = useState("");
@@ -173,6 +170,16 @@ export function Orders() {
             <MaterialIcon name="local_shipping" className="text-[16px] text-primary" />
             Active Pools: {m.mySlots.filter((s) => s.status !== "dispatched").length} Runs
           </span>
+          {cash && cash.deliveredCount + cash.outstandingCount > 0 && (
+            <span
+              className="flex items-center gap-space-xs rounded-lg bg-surface-container-lowest px-space-sm py-space-xs text-body-sm text-on-surface shadow-sm"
+              data-testid="cash-today"
+            >
+              <MaterialIcon name="payments" className="text-[16px] text-primary" />
+              Cash today: {rupees(cash.collectedPaise / 100)} of {rupees(cash.expectedPaise / 100)}
+              {cash.outstandingCount > 0 ? ` · ${rupees(cash.outstandingPaise / 100)} still out` : ""}
+            </span>
+          )}
           {advancedMode && (
             <Button
               variant="primary"
@@ -284,7 +291,9 @@ export function Orders() {
                 {o.status === "dispatched" && (
                   <div className="px-space-md pb-space-sm pl-[60px]">
                     <Button variant="primary" className="!h-10 w-full" onClick={() => void markDelivered(o.id)}>
-                      Hand over to student
+                      {isCashOnDelivery(o.paymentMethod) && o.amountDuePaise !== undefined
+                        ? `Hand over · collect ${rupees(cashDueRupees(o.amountDuePaise) ?? 0)}`
+                        : "Hand over to student"}
                     </Button>
                   </div>
                 )}
@@ -349,16 +358,21 @@ export function Orders() {
                     <Td className="text-secondary">{relativeDay(o.createdAt)}, {clockTime(o.createdAt)}</Td>
                     <Td className="text-right">
                       {o.status === "dispatched" ? (
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            markDelivered(o.id);
-                          }}
-                        >
-                          Hand Over
-                        </Button>
+                        <span className="inline-flex items-center gap-space-xs">
+                          {isCashOnDelivery(o.paymentMethod) && o.amountDuePaise !== undefined && (
+                            <span className="text-label-sm text-secondary">Collect {rupees(cashDueRupees(o.amountDuePaise) ?? 0)}</span>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markDelivered(o.id);
+                            }}
+                          >
+                            Hand Over
+                          </Button>
+                        </span>
                       ) : (
                         <MaterialIcon name="chevron_right" className="ml-auto text-[16px] text-secondary" />
                       )}
@@ -485,9 +499,17 @@ function OrderDrawer({
             <span>Total</span>
             <span>{rupees(subtotal + (fee ?? 0) + (order.tip ?? 0))}</span>
           </div>
-          {order.paymentMethod && (
+          {order.paymentMethod && isCashOnDelivery(order.paymentMethod) ? (
+            <p className="pt-0.5 text-label-sm text-secondary">
+              {order.cashCollectedPaise !== undefined
+                ? `Cash taken: ${rupees(cashDueRupees(order.cashCollectedPaise) ?? 0)}`
+                : order.amountDuePaise !== undefined
+                  ? `Cash on delivery: collect ${rupees(cashDueRupees(order.amountDuePaise) ?? 0)}`
+                  : "Cash on delivery"}
+            </p>
+          ) : order.paymentMethod ? (
             <p className="pt-0.5 text-label-sm text-secondary">Paid via {order.paymentMethod}</p>
-          )}
+          ) : null}
         </div>
 
         {order.note && (

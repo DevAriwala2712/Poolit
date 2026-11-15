@@ -115,10 +115,28 @@ const check = (name, ok, detail = "") => {
   await page.goto(base + "/cart");
   const hasCart = await page.getByText(/maggi|lays|coca|colgate/i).first().isVisible().catch(() => false);
   check("the item is in the cart", hasCart);
+  const cartText = (await page.textContent("body")) || "";
+  check("the cart has no promo code box (promo codes were never applied by the server)", !/promo/i.test(cartText), cartText.slice(0, 100));
+  check("the bill shows the platform fee", /Platform fee/.test(cartText) && /₹4(?!\d)/.test(cartText));
 
   await page.getByRole("button", { name: /checkout|proceed|continue/i }).first().click().catch(() => {});
   await page.waitForURL(/checkout/, { timeout: 8000 }).catch(() => {});
+  // ---- 2b. consent before the first order ----
+  const consentHeading = page.getByText("Before you order");
+  await consentHeading.waitFor({ timeout: 8000 }).catch(() => {});
+  check("a signed-in student sees the consent screen before ordering", await consentHeading.isVisible());
+  const cont = page.getByRole("button", { name: "Continue", exact: true });
+  check("Continue stays off until they confirm they are 18+ and agree", await cont.isDisabled());
+  check("the consent screen links to the Terms and the Privacy Policy", (await page.getByRole("link", { name: "Terms of Use" }).count()) === 1 && (await page.getByRole("link", { name: "Privacy Policy" }).count()) === 1);
+  check("nothing is recorded yet", sql(`select count(*) from student_consents`) === "0");
+  await page.getByRole("checkbox").check();
+  await cont.click();
+  await page.waitForTimeout(1500);
+  check("accepting saves the consent on the server with the version", sql(`select version || '|' || age_confirmed from student_consents where user_id = '${STUDENT}'`) === "2026-11|true", sql(`select count(*) from student_consents`));
   const place = page.getByRole("button", { name: /Place order/i });
+  const checkoutText = (await page.textContent("body")) || "";
+  check("cash on delivery is the only payment method offered", /Cash on delivery/.test(checkoutText) && !/Hostel wallet|Visa|GPay/.test(checkoutText), checkoutText.slice(0, 160));
+  check("it says online payment is coming soon", /UPI\) is coming soon/.test(checkoutText));
   await place.waitFor({ timeout: 8000 }).catch(() => {});
   const before = calls.length;
   await place.click().catch(() => {});
@@ -129,6 +147,18 @@ const check = (name, ok, detail = "") => {
   const order = sql(`select student_id || '|' || student_name || '|' || status || '|' || coalesce(subtotal_paise::text,'') from orders order by created_at desc limit 1`);
   check("the order is saved against the signed-in student", order.startsWith(STUDENT + "|"), order);
   check("the order has the frozen price (subtotal in paise)", /\|\d+$/.test(order) && Number(order.split("|")[3]) > 0, order);
+
+  check("the order is saved as cash on delivery", sql(`select payment_method from orders where student_id = '${STUDENT}' order by created_at desc limit 1`) === "Cash on delivery");
+
+  // ---- 3b. the tracking bill includes the platform fee and says what is still to pay ----
+  const placed = sql(`select id || '|' || subtotal_paise from orders where student_id = '${STUDENT}' order by created_at desc limit 1`).split("|");
+  await page.goto(base + "/track/" + placed[0]);
+  await page.getByText("Platform fee").waitFor({ timeout: 8000 }).catch(() => {});
+  const trackText = (await page.textContent("body")) || "";
+  const expectTotal = Number(placed[1]) / 100 + 20 + 4; // goods + delivery fee for a pool of one + platform fee
+  check("the tracking bill lists the platform fee", /Platform fee\s*₹4(?!\d)/.test(trackText), trackText.slice(0, 200));
+  check("a cash order that is not delivered yet says what is to pay, including the platform fee", new RegExp(`To pay on delivery\s*₹${expectTotal}(?!\d)`).test(trackText), `expected ₹${expectTotal}; ${trackText.slice(0, 300)}`);
+  check("and does not claim it was paid", !/Total paid|Paid via/.test(trackText));
 
   // ---- 4. polling ----
   const viewCallsBefore = calls.filter((c) => c[1] === "api_student_view").length;
@@ -142,7 +172,58 @@ const check = (name, ok, detail = "") => {
   const ordersText = (await page.textContent("body")) || "";
   check("the Orders screen shows the order", /Maggi|Lays|Coca|Colgate|₹/.test(ordersText) && !/No orders/i.test(ordersText), ordersText.slice(0, 120));
 
-  const errors = calls.filter((c) => c[2] >= 400 && c[1] !== "api_place_order");
+  // ---- 5b. crashes are reported to Poolit ----
+  await page.evaluate(() => { setTimeout(() => { throw new Error("e2e boom student"); }, 0); });
+  await page.evaluate(() => { Promise.reject(new Error("e2e rejected student")); });
+  await page.waitForTimeout(1500);
+  check("an uncaught error in the student app is reported with the app and page", sql(`select app || '|' || page from client_errors where message = 'e2e boom student'`) === "student|/orders", sql(`select string_agg(message, ';') from client_errors`));
+  check("so is an unhandled promise rejection", sql(`select count(*) from client_errors where message = 'e2e rejected student'`) === "1");
+  check("a refused action the student already saw (a 4xx) is not reported as a crash", sql(`select count(*) from client_errors where message ilike '%order in progress%'`) === "0");
+
+  // ---- 6. an account cannot be deleted while an order is waiting ----
+  await page.goto(base + "/profile");
+  check("Profile has no made-up wallet or free-money button", !/Hostel wallet|Add money/.test((await page.textContent("body")) || ""));
+  await page.getByRole("button", { name: "Delete my account" }).first().click();
+  await page.getByRole("textbox", { name: "Type DELETE to confirm" }).fill("DELETE");
+  await page.getByRole("button", { name: "Delete my account" }).last().click();
+  await page.waitForTimeout(1500);
+  check("deleting is refused while an order is in progress, with the reason", /order in progress/i.test((await page.textContent("body")) || ""));
+  check("and the account is untouched", sql(`select count(*) from auth.users where id = '${STUDENT}'`) === "1");
+
+  // ---- 7. cancelling an order that is still waiting for its pool ----
+  const orderRow = sql(`select id || '|' || (items->0->>'menuItemId') || '|' || (items->0->>'qty') from orders where student_id = '${STUDENT}' order by created_at desc limit 1`).split("|");
+  const stockNow = () => Number(sql(`select stock_qty from menu_items where id = '${orderRow[1]}'`));
+  const stockBeforeCancel = stockNow();
+  await page.goto(base + "/orders");
+  await page.getByRole("button", { name: "Cancel order" }).first().click();
+  check("cancelling asks for confirmation first", await page.getByText("Cancel this order?").isVisible());
+  await page.getByRole("button", { name: "Cancel order" }).last().click();
+  await page.waitForTimeout(2000);
+  check("confirming cancels the order in the database", sql(`select status from orders where id = '${orderRow[0]}'`) === "cancelled");
+  check("the items went back into stock", stockNow() === stockBeforeCancel + Number(orderRow[2]), `before ${stockBeforeCancel} after ${stockNow()}`);
+  check("the Orders screen now shows it as Cancelled under Past orders", /Past orders/.test((await page.textContent("body")) || "") && /Cancelled/.test((await page.textContent("body")) || ""));
+  check("and no Cancel button is left on it", (await page.getByRole("button", { name: "Cancel order" }).count()) === 0);
+
+  // ---- 8. downloading my data ----
+  await page.goto(base + "/profile");
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download my data" }).click()]);
+  const exported = JSON.parse(fs.readFileSync(await download.path(), "utf8"));
+  check("the download is a file named poolit-my-data.json", download.suggestedFilename() === "poolit-my-data.json");
+  check("it holds the account, the consent and the order", exported.account.userId === STUDENT && exported.consents.length === 1 && exported.consents[0].version === "2026-11" && exported.orders.length >= 1, JSON.stringify(exported).slice(0, 200));
+
+  // ---- 9. deleting my account ----
+  await page.getByRole("button", { name: "Delete my account" }).first().click();
+  const confirmDelete = page.getByRole("button", { name: "Delete my account" }).last();
+  check("deleting needs the word DELETE first", await confirmDelete.isDisabled());
+  await page.getByRole("textbox", { name: "Type DELETE to confirm" }).fill("DELETE");
+  await confirmDelete.click();
+  await page.waitForURL(/onboarding/, { timeout: 8000 }).catch(() => {});
+  check("the account is gone and the student is taken back to the start", /onboarding/.test(page.url()) && sql(`select count(*) from auth.users where id = '${STUDENT}'`) === "0", page.url());
+  check("their consent and profile are gone", sql(`select count(*) from student_consents where user_id = '${STUDENT}'`) === "0" && sql(`select count(*) from students where user_id = '${STUDENT}'`) === "0");
+  check("the order stays for the store, without the name", sql(`select student_name || '|' || coalesce(room, '-') from orders where id = '${orderRow[0]}'`) === "Deleted student|-");
+  check("and the audit log holds no trace of the name", sql(`select count(*) from audit_log where old_values::text like '%Anaya%' or new_values::text like '%Anaya%'`) === "0");
+
+  const errors = calls.filter((c) => c[2] >= 400 && c[1] !== "api_place_order" && !(c[1] === "api_delete_my_account" && c[2] === 409));
   check("no failed data calls during the whole run", errors.length === 0, JSON.stringify(errors));
 
   console.log("\ndata calls in order:", calls.map((c) => `${c[0]}s ${c[1]}${c[1] === "api_student_view" ? " " + c[3] : ""}`).join(" | "));

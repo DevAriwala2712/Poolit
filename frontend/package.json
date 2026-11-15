@@ -13,7 +13,8 @@
     "build": "npm run build --workspace @poolit/student && npm run build --workspace @poolit/vendor",
     "typecheck": "tsc -p apps/student --noEmit && tsc -p apps/vendor --noEmit",
     "lint": "oxlint",
-    "test": "node --test \"tests/**/*.test.ts\""
+    "test": "node --test \"tests/**/*.test.ts\"",
+    "check:ui": "node scripts/check-ui-tokens.mjs"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
